@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ots-postgres
+    environment:
+      POSTGRES_DB: ots
+      POSTGRES_USER: ots
+      POSTGRES_PASSWORD: ots
+    ports:
+      - "5432:5432"
+    volumes:
+      - ots_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ots -d ots"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ots_postgres_data:
+

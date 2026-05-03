@@ -1,0 +1,46 @@
+package scheduling
+
+import "time"
+
+type ScheduleStatus string
+
+const (
+	ScheduleDraft     ScheduleStatus = "draft"
+	SchedulePublished ScheduleStatus = "published"
+)
+
+type Schedule struct {
+	ID        string         `json:"id"`
+	TenantID  string         `json:"tenantId"`
+	Name      string         `json:"name"`
+	Status    ScheduleStatus `json:"status"`
+	Version   int            `json:"version"`
+	Score     int            `json:"score"`
+	Lessons   []Lesson       `json:"lessons"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+}
+
+type Lesson struct {
+	ID          string    `json:"id"`
+	TenantID    string    `json:"tenantId"`
+	ScheduleID  string    `json:"scheduleId"`
+	ClassID     string    `json:"classId"`
+	ClassName   string    `json:"className"`
+	TeacherID   string    `json:"teacherId"`
+	TeacherName string    `json:"teacherName"`
+	SubjectID   string    `json:"subjectId"`
+	SubjectName string    `json:"subjectName"`
+	DayOfWeek   int       `json:"dayOfWeek"`
+	StartTime   string    `json:"startTime"`
+	EndTime     string    `json:"endTime"`
+	StartsAt    time.Time `json:"startsAt"`
+	EndsAt      time.Time `json:"endsAt"`
+	Room        string    `json:"room"`
+}
+
+type GenerationResult struct {
+	Schedule       Schedule `json:"schedule"`
+	HardConflicts  int      `json:"hardConflicts"`
+	SoftWarnings   []string `json:"softWarnings"`
+	Recommendation string   `json:"recommendation"`
+}

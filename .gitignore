@@ -1,0 +1,19 @@
+.DS_Store
+
+# Go
+backend/api
+backend/bin/
+backend/coverage.out
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+
+# Logs
+*.log
