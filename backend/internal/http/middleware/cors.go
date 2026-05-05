@@ -15,7 +15,7 @@ func CORS(allowedOrigins []string) Middleware {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Vary", "Origin")
 			}
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User-Id, X-Tenant-Id, X-Role, X-User-Name")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User-Id, X-Tenant-Id, X-Role, X-User-Name, X-User-Email")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 
 			if r.Method == http.MethodOptions {

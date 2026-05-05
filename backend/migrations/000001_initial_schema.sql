@@ -275,3 +275,63 @@ CREATE INDEX idx_attendance_records_student ON attendance_records(tenant_id, stu
 CREATE INDEX idx_observations_student ON student_observations(tenant_id, student_id, created_at DESC);
 CREATE INDEX idx_audit_logs_tenant_created ON audit_logs(tenant_id, created_at DESC);
 
+-- Development bootstrap account. Change this password during the first real deployment.
+-- Email: superadmin@ots.local
+-- Password: OtsAdmin!2026
+INSERT INTO tenants (id, name, plan, timezone)
+VALUES ('00000000-0000-0000-0000-000000000001', 'ÖTS Platform', 'system', 'Europe/Istanbul');
+
+INSERT INTO users (id, email, password_hash, full_name, is_active)
+VALUES (
+    '00000000-0000-0000-0000-000000000101',
+    'superadmin@ots.local',
+    'sha256$ots-default-superadmin$0e38f4b8c4c9795fcadf90a458054a897b0e430dacf62144c4e4a246276b058b',
+    'ÖTS Süper Admin',
+    true
+);
+
+INSERT INTO tenant_memberships (id, tenant_id, user_id, status)
+VALUES (
+    '00000000-0000-0000-0000-000000000201',
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000101',
+    'active'
+);
+
+INSERT INTO roles (id, tenant_id, code, name)
+VALUES (
+    '00000000-0000-0000-0000-000000000301',
+    '00000000-0000-0000-0000-000000000001',
+    'super_admin',
+    'Süper Admin'
+);
+
+INSERT INTO permissions (id, code, description)
+VALUES
+    ('00000000-0000-0000-0000-000000000401', 'system.tenants.manage', 'Kurumları oluşturma, güncelleme ve denetleme'),
+    ('00000000-0000-0000-0000-000000000402', 'system.users.manage', 'Tüm kullanıcıları ve rollerini yönetme'),
+    ('00000000-0000-0000-0000-000000000403', 'system.audit.read', 'Sistem audit kayıtlarını görüntüleme'),
+    ('00000000-0000-0000-0000-000000000404', 'system.modules.manage', 'Platform modüllerini ve bayraklarını yönetme');
+
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT '00000000-0000-0000-0000-000000000301', id
+FROM permissions
+WHERE code IN ('system.tenants.manage', 'system.users.manage', 'system.audit.read', 'system.modules.manage');
+
+INSERT INTO user_roles (tenant_id, user_id, role_id)
+VALUES (
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000101',
+    '00000000-0000-0000-0000-000000000301'
+);
+
+INSERT INTO audit_logs (tenant_id, actor_user_id, action, resource_type, resource_id, sensitivity, metadata)
+VALUES (
+    '00000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000101',
+    'system.bootstrap_super_admin',
+    'user',
+    '00000000-0000-0000-0000-000000000101',
+    'system_confidential',
+    '{"email":"superadmin@ots.local","credential_scope":"development"}'::jsonb
+);

@@ -36,3 +36,11 @@ make postgres-up
 
 Kalıcı veritabanı şeması [backend/migrations/000001_initial_schema.sql](backend/migrations/000001_initial_schema.sql) içinde tutulur. Mevcut API ilk geliştirme aşamasında demo in-memory repository ile çalışır; domain ve service sınırları PostgreSQL repository'ye geçiş için ayrılmıştır.
 
+## Geliştirme Süper Admin
+
+İlk migration içinde geliştirme amaçlı süper admin hesabı seed edilir:
+
+- E-posta: `superadmin@ots.local`
+- Şifre: `OtsAdmin!2026`
+
+Bu hesap yalnızca geliştirme başlangıcı içindir; gerçek deployment öncesinde şifre ve parola hash stratejisi production standardına taşınmalıdır.

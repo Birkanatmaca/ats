@@ -6,7 +6,24 @@ import (
 	"time"
 
 	"ots/backend/internal/domain/attendance"
+	"ots/backend/internal/domain/identity"
 )
+
+func TestAuthenticateDefaultSuperAdmin(t *testing.T) {
+	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)
+	store := NewStore(func() time.Time { return fixed })
+
+	principal, ok, err := store.Authenticate(context.Background(), "superadmin@ots.local", "OtsAdmin!2026")
+	if err != nil {
+		t.Fatalf("unexpected auth error: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected default super admin credentials to authenticate")
+	}
+	if principal.Role != identity.RoleSuperAdmin {
+		t.Fatalf("expected super admin role, got %s", principal.Role)
+	}
+}
 
 func TestActiveLessonForTeacherUsesToleranceWindow(t *testing.T) {
 	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)

@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ots_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ots
+      POSTGRES_USER: ots
+      POSTGRES_PASSWORD: ${OTS_POSTGRES_PASSWORD:?set OTS_POSTGRES_PASSWORD}
+    volumes:
+      - ots_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ots -d ots"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ots_net
+
+  migrate:
+    image: postgres:16-alpine
+    container_name: ots_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ots
+      PGUSER: ots
+      PGPASSWORD: ${OTS_POSTGRES_PASSWORD:?set OTS_POSTGRES_PASSWORD}
+    volumes:
+      - ../backend/migrations:/migrations:ro
+      - ./migrate.sh:/migrate.sh:ro
+    command: ["sh", "/migrate.sh"]
+    networks:
+      - ots_net
+
+  backend:
+    build:
+      context: ../backend
+    container_name: ots_backend
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: production
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: postgres://ots:${OTS_POSTGRES_PASSWORD:?set OTS_POSTGRES_PASSWORD}@postgres:5432/ots?sslmode=disable
+      CORS_ALLOWED_ORIGINS: http://188.132.234.29:3110
+      LOG_LEVEL: info
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ots_net
+
+  frontend:
+    build:
+      context: ../frontend/apps/web
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: ots_frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3110:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ots_net
+
+volumes:
+  ots_postgres_data:
+
+networks:
+  ots_net:
+    name: ots_net
