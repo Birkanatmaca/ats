@@ -55,7 +55,7 @@ import {
   YAxis
 } from "recharts";
 import { useEffect, useState } from "react";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import {
   AuditEntry,
   AuthSession,
@@ -446,17 +446,6 @@ function SuperAdminConsole({
             </header>
           )}
 
-          <section className="sa-context-strip">
-            <div>
-              <span>{session.principal.email}</span>
-              <strong>{session.principal.name}</strong>
-            </div>
-            <div className="sa-health-chip">
-              <CheckCircle2 size={17} />
-              {statusLabel(state.overview?.systemHealth ?? "loading")}
-            </div>
-          </section>
-
           {error && <div className="form-error workspace-error sa-alert">{error}</div>}
           {loading && (
             <div className="loading-line">
@@ -504,12 +493,6 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
 
   return (
     <section className="sa-overview">
-      <header className="sa-page-header">
-        <span className="sa-kicker">Genel görünüm</span>
-        <h1>Platform özeti</h1>
-        <p>Canlı KPI, kullanım grafiği ve altyapı metrikleri tek ekranda.</p>
-      </header>
-
       <div className="sa-kpi-row">
         <article className="sa-kpi">
           <div className="sa-kpi-icon">
@@ -733,13 +716,19 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
       </div>
 
       <div className="sa-card">
-        <div className="sa-panel-header">
+        <div className="sa-panel-header sa-panel-header--action">
           <div>
-            <span className="sa-kicker">Dağıtım</span>
-            <h2>Canlı kaynak ve servis sağlığı</h2>
+            <span className="sa-kicker">Sistem sağlığı</span>
+            <h2>Altyapı Durumu</h2>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "var(--sa-muted)", fontWeight: 600 }}>
+              {systemMetrics?.updatedAt ? new Date(systemMetrics.updatedAt).toLocaleTimeString("tr-TR") : "--:--"}
+            </span>
+            <ServerCog size={20} color="var(--sa-accent)" />
           </div>
         </div>
-        <div className="sa-card-body" style={{ paddingTop: 0 }}>
+        <div className="sa-card-body">
           <SystemOperationsPanel metrics={systemMetrics} />
         </div>
       </div>
@@ -750,81 +739,73 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
 function SystemOperationsPanel({ metrics }: { metrics?: SystemMetrics }) {
   const resources = metrics?.resources ?? [];
   const services = metrics?.services ?? [];
+  const displayResources =
+    resources.length > 0
+      ? resources
+      : [
+          { key: "cpu", label: "CPU", value: 0, unit: "%", status: "loading", description: "Yükleniyor" },
+          { key: "ram", label: "RAM", value: 0, unit: "%", status: "loading", description: "Yükleniyor" },
+          { key: "disk", label: "Disk", value: 0, unit: "%", status: "loading", description: "Yükleniyor" },
+          { key: "heap", label: "API Heap", value: 0, unit: "%", status: "loading", description: "Yükleniyor" }
+        ];
+
   return (
-    <div className="sa-ops-grid">
-      <div>
-        <div className="sa-gauge-grid">
-          {resources.map((metric) => (
-            <CircularMetric metric={metric} key={metric.key} />
-          ))}
-          {resources.length === 0 && (
-            <>
-              <CircularMetric metric={{ key: "cpu", label: "CPU", value: 0, unit: "%", status: "loading", description: "Metrik yükleniyor" }} />
-              <CircularMetric metric={{ key: "ram", label: "RAM", value: 0, unit: "%", status: "loading", description: "Metrik yükleniyor" }} />
-              <CircularMetric metric={{ key: "disk", label: "Disk", value: 0, unit: "%", status: "loading", description: "Metrik yükleniyor" }} />
-              <CircularMetric metric={{ key: "heap", label: "API Heap", value: 0, unit: "%", status: "loading", description: "Metrik yükleniyor" }} />
-            </>
-          )}
-        </div>
+    <div className="sa-infra-panel">
+      <div className="sa-resource-bars-grid">
+        {displayResources.map((metric) => (
+          <ResourceBar metric={metric} key={metric.key} />
+        ))}
       </div>
-      <div className="sa-card">
-        <div className="sa-panel-header">
-          <div>
-            <span className="sa-kicker">Servisler</span>
-            <h2>Kontrol listesi</h2>
-          </div>
-          <ServerCog size={20} />
+      <div className="sa-health-divider" />
+      <div className="sa-health-table">
+        <div className="sa-health-table-head">
+          <span>Servis</span>
+          <span>Durum</span>
+          <span>Gecikme</span>
         </div>
-        <div className="sa-card-body">
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {services.map((service) => (
-              <ServiceHealthRow service={service} key={service.key} />
-            ))}
-            {services.length === 0 && <p className="empty-text">Servis metrikleri yükleniyor.</p>}
-          </div>
-          <div className="sa-metrics-foot">
-            <span>Son okuma</span>
-            <strong>{metrics?.updatedAt ? new Date(metrics.updatedAt).toLocaleTimeString("tr-TR") : "-"}</strong>
-          </div>
-        </div>
+        {services.map((service) => (
+          <ServiceHealthRow service={service} key={service.key} />
+        ))}
+        {services.length === 0 && <p className="empty-text" style={{ paddingTop: 8 }}>Servis metrikleri yükleniyor.</p>}
       </div>
     </div>
   );
 }
 
-function CircularMetric({ metric }: { metric: ResourceMetric }) {
+function ResourceBar({ metric }: { metric: ResourceMetric }) {
   const value = Math.max(0, Math.min(100, Math.round(metric.value)));
+  const barClass = metric.status === "loading" ? "sa-bar-fill--loading" : value > 85 ? "sa-bar-fill--critical" : value > 60 ? "sa-bar-fill--warn" : "sa-bar-fill--ok";
   return (
-    <article className={`sa-circular-metric ${metric.status}`}>
-      <div className="sa-circle-ring" style={{ "--sa-pct": `${value}%` } as CSSProperties}>
-        <div className="sa-circle-ring-inner">
-          <div>
-            <strong>{value}</strong>
-            <span>{metric.unit}</span>
-          </div>
-        </div>
-      </div>
-      <div className="sa-circular-meta">
+    <div className="sa-resource-bar-item">
+      <div className="sa-resource-bar-label">
         <strong>{metric.label}</strong>
-        <span>{metric.description}</span>
+        <span>{metric.status === "loading" ? "—" : `${value}${metric.unit}`}</span>
       </div>
-    </article>
+      <div className="sa-bar-track">
+        <div className={`sa-bar-fill ${barClass}`} style={{ width: `${value}%` }} />
+      </div>
+      <span className="sa-resource-bar-desc">{metric.description}</span>
+    </div>
   );
 }
 
 function ServiceHealthRow({ service }: { service: ServiceMetric }) {
   return (
-    <article className="sa-service-row">
-      <div className={`sa-service-dot ${service.status}`} />
+    <div className="sa-health-row">
+      <div className="sa-health-name">
+        <div className={`sa-service-dot ${service.status}`} />
+        <div>
+          <strong>{service.name}</strong>
+          <span>{service.description}</span>
+        </div>
+      </div>
       <div>
-        <strong>{service.name}</strong>
-        <span>{service.description}</span>
-      </div>
-      <div className="sa-service-meta">
         <StatusBadge value={service.status} />
-        {typeof service.latencyMs === "number" && <small>{service.latencyMs} ms</small>}
       </div>
-    </article>
+      <div className="sa-health-latency">
+        {typeof service.latencyMs === "number" ? <span>{service.latencyMs} ms</span> : <span style={{ color: "var(--sa-muted)" }}>—</span>}
+      </div>
+    </div>
   );
 }
 
