@@ -39,6 +39,21 @@ import {
   UserCog,
   UsersRound
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
 import { useEffect, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import {
@@ -62,6 +77,8 @@ import {
   readAuthSession,
   storeAuthSession
 } from "./lib/api";
+
+const chartPalette = ["#f9a51b", "#fac95a", "#6b8f86", "#919a9f", "#cfd3d8", "#e8dcd0"];
 
 type SuperAdminState = {
   overview?: SuperAdminOverview;
@@ -418,48 +435,46 @@ function SuperAdminConsole({
       </aside>
 
       <main className={`admin-workspace ${activeTab}-workspace`}>
-        {activeTab !== "overview" && (
-          <header className="admin-topbar">
+        <div className="sa-main">
+          {activeTab !== "overview" && (
+            <header className="sa-page-header">
+              <div>
+                <span className="sa-kicker">Süper admin</span>
+                <h1>{pageTitle(activeTab)}</h1>
+                <p>{pageDescription(activeTab)}</p>
+              </div>
+            </header>
+          )}
+
+          <section className="sa-context-strip">
             <div>
-              <span className="section-kicker">Süper admin</span>
-              <h1>{pageTitle(activeTab)}</h1>
-              <p>{pageDescription(activeTab)}</p>
+              <span>{session.principal.email}</span>
+              <strong>{session.principal.name}</strong>
             </div>
-          </header>
-        )}
+            <div className="sa-health-chip">
+              <CheckCircle2 size={17} />
+              {statusLabel(state.overview?.systemHealth ?? "loading")}
+            </div>
+          </section>
 
-        <section className="operator-strip">
-          <div>
-            <span>{session.principal.email}</span>
-            <strong>{session.principal.name}</strong>
-          </div>
-          <div className="health-pill">
-            <CheckCircle2 size={17} />
-            {statusLabel(state.overview?.systemHealth ?? "loading")}
-          </div>
-        </section>
+          {error && <div className="form-error workspace-error sa-alert">{error}</div>}
+          {loading && (
+            <div className="loading-line">
+              <Loader2 className="spin" size={18} />
+              Veriler hazırlanıyor
+            </div>
+          )}
 
-        {error && <div className="form-error workspace-error">{error}</div>}
-        {loading && (
-          <div className="loading-line">
-            <Loader2 className="spin" size={18} />
-            Veriler hazırlanıyor
-          </div>
-        )}
-
-        {activeTab === "overview" && <OverviewPage overview={state.overview} systemMetrics={state.systemMetrics} />}
-        {activeTab === "institutions" && <InstitutionsPage institutions={state.institutions ?? []} onRefresh={load} />}
-        {activeTab === "users" && <UsersPage users={state.users ?? []} institutions={state.institutions ?? []} onRefresh={load} />}
-        {activeTab === "support" && <SupportPage tickets={state.supportTickets ?? []} onRefresh={load} />}
-        {activeTab === "logs" && <LogsPage auditLogs={state.auditLogs ?? []} />}
-        {activeTab === "modules" && <ModulesPage modules={state.overview?.modules ?? []} />}
-        {activeTab === "settings" && (
-          <SettingsPage
-            settings={state.settings}
-            onRefresh={load}
-            onSystemStatusChange={onSystemStatusChange}
-          />
-        )}
+          {activeTab === "overview" && <OverviewPage overview={state.overview} systemMetrics={state.systemMetrics} />}
+          {activeTab === "institutions" && <InstitutionsPage institutions={state.institutions ?? []} onRefresh={load} />}
+          {activeTab === "users" && <UsersPage users={state.users ?? []} institutions={state.institutions ?? []} onRefresh={load} />}
+          {activeTab === "support" && <SupportPage tickets={state.supportTickets ?? []} onRefresh={load} />}
+          {activeTab === "logs" && <LogsPage auditLogs={state.auditLogs ?? []} />}
+          {activeTab === "modules" && <ModulesPage modules={state.overview?.modules ?? []} />}
+          {activeTab === "settings" && (
+            <SettingsPage settings={state.settings} onRefresh={load} onSystemStatusChange={onSystemStatusChange} />
+          )}
+        </div>
       </main>
     </div>
   );
@@ -472,160 +487,262 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
   const warningServices = services.filter((service) => service.status !== "healthy").length;
   const avgResource = resources.length > 0 ? Math.round(resources.reduce((sum, item) => sum + item.value, 0) / resources.length) : 0;
   const weekUsage = overview?.usage ?? [];
+  const fallbackDays = ["Pzt", "Sal", "Car", "Per", "Cum", "Cmt", "Paz"];
+  const usageChartData =
+    weekUsage.length > 0
+      ? weekUsage.map((point) => ({ name: point.label, value: point.value }))
+      : fallbackDays.map((name) => ({ name, value: 0 }));
+  const latencyData = services.slice(0, 8).map((s) => ({
+    name: s.name.length > 14 ? `${s.name.slice(0, 12)}…` : s.name,
+    ms: typeof s.latencyMs === "number" ? s.latencyMs : 0
+  }));
+  const resourcePie = resources.map((r) => ({
+    name: r.label,
+    value: Math.round(Math.max(0, Math.min(100, r.value)))
+  }));
+  const pieData = resourcePie.length > 0 ? resourcePie : [{ name: "Veri bekleniyor", value: 1 }];
 
   return (
-    <section className="dashboard-page">
-      <section className="metric-board">
-        <article className="metric-card mint">
-          <div className="metric-icon">
-            <Building2 size={21} />
-          </div>
-          <span>Kurum</span>
-          <strong>{overview?.institutions ?? 0}</strong>
-          <small>Aktif tenant yapısı</small>
-          <div className="kpi-trend up">
-            <ArrowUpRight size={14} />
-            Son 30 günde yeni kayıt artışı
-          </div>
-        </article>
-        <article className="metric-card sky">
-          <div className="metric-icon">
-            <UsersRound size={21} />
-          </div>
-          <span>Aktif kullanıcı</span>
-          <strong>{overview?.activeUsers ?? 0}</strong>
-          <small>Oturum ve davet trafiği</small>
-          <div className="kpi-trend">
-            <Activity size={14} />
-            Günlük erişim dengeli
-          </div>
-        </article>
-        <article className="metric-card amber">
-          <div className="metric-icon">
-            <Activity size={21} />
-          </div>
-          <span>Aylık gelir</span>
-          <strong>{formatTRY(overview?.monthlyRevenueTry ?? 0)}</strong>
-          <small>Lisans tahmini ve yenileme</small>
-          <div className="kpi-trend up">
-            <ArrowUpRight size={14} />
-            Hedef bandına yakın
-          </div>
-        </article>
-        <article className="metric-card coral">
-          <div className="metric-icon">
-            <ShieldCheck size={21} />
-          </div>
-          <span>Güvenlik sinyali</span>
-          <strong>{overview?.openSecuritySignals ?? 0}</strong>
-          <small>İnceleme bekleyen kayıt</small>
-          <div className="kpi-trend">
-            <AlertCircle size={14} />
-            Önceliklendirme önerildi
-          </div>
-        </article>
-      </section>
+    <section className="sa-overview">
+      <header className="sa-page-header">
+        <span className="sa-kicker">Genel görünüm</span>
+        <h1>Platform özeti</h1>
+        <p>Canlı KPI, kullanım grafiği ve altyapı metrikleri tek ekranda.</p>
+      </header>
 
-      <section className="dashboard-story-grid">
-        <div className="workspace-panel">
-          <div className="chart-card">
-            <div className="chart-header">
-              <strong>Haftalık platform aktivitesi</strong>
-              <span>Kullanım yoğunluğu</span>
+      <div className="sa-kpi-row">
+        <article className="sa-kpi">
+          <div className="sa-kpi-icon">
+            <Building2 size={20} />
+          </div>
+          <label>Kurum</label>
+          <span className="sa-kpi-value">{overview?.institutions ?? 0}</span>
+          <span className="sa-kpi-hint">Aktif tenant sayısı.</span>
+        </article>
+        <article className="sa-kpi sa-kpi--slate">
+          <div className="sa-kpi-icon">
+            <UsersRound size={20} />
+          </div>
+          <label>Aktif kullanıcı</label>
+          <span className="sa-kpi-value">{overview?.activeUsers ?? 0}</span>
+          <span className="sa-kpi-hint">Oturum tabanlı aktivite.</span>
+        </article>
+        <article className="sa-kpi">
+          <div className="sa-kpi-icon">
+            <Activity size={20} />
+          </div>
+          <label>Aylık gelir</label>
+          <span className="sa-kpi-value">{formatTRY(overview?.monthlyRevenueTry ?? 0)}</span>
+          <span className="sa-kpi-hint">TAH mini lisans özet.</span>
+        </article>
+        <article className="sa-kpi sa-kpi--slate">
+          <div className="sa-kpi-icon">
+            <ShieldCheck size={20} />
+          </div>
+          <label>Güvenlik sinyali</label>
+          <span className="sa-kpi-value">{overview?.openSecuritySignals ?? 0}</span>
+          <span className="sa-kpi-hint">İnceleme kuyruğu.</span>
+        </article>
+      </div>
+
+      <div className="sa-dash-grid">
+        <div className="sa-card">
+          <div className="sa-panel-header">
+            <div>
+              <span className="sa-kicker">Kullanım</span>
+              <h2>Haftalık aktivite</h2>
             </div>
-            <div className="usage-chart modern">
-              {weekUsage.map((point) => (
-                <div className="usage-bar" key={point.label}>
-                  <div style={{ height: `${point.value}%` }} />
-                  <span>{point.label}</span>
-                  <em>{point.value}%</em>
+            <Activity size={22} color="var(--sa-accent)" />
+          </div>
+          <div className="sa-card-body">
+            <div className="sa-chart-frame">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={usageChartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="saUsageFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fac95a" stopOpacity={0.85} />
+                      <stop offset="100%" stopColor="#f9a51b" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e2" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#919a9f" }} axisLine={{ stroke: "#dbdbd9" }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#919a9f" }} axisLine={{ stroke: "#dbdbd9" }} />
+                  <Tooltip contentStyle={{ borderRadius: 10, borderColor: "#dbdbd9" }} />
+                  <Area type="monotone" dataKey="value" stroke="#f9a51b" strokeWidth={2} fill="url(#saUsageFill)" name="%" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <aside className="sa-insights">
+          <div className="sa-card">
+            <div className="sa-panel-header">
+              <div>
+                <span className="sa-kicker">Operasyon</span>
+                <h2>Anlık görünüm</h2>
+              </div>
+              <ServerCog size={20} />
+            </div>
+            <div className="sa-card-body">
+              <div className="sa-chip-row">
+                <div className="sa-stat-mini">
+                  <span>Uyarılı servis</span>
+                  <strong>{warningServices}</strong>
+                </div>
+                <div className="sa-stat-mini">
+                  <span>Ortalama kaynak %</span>
+                  <strong>{avgResource}</strong>
+                </div>
+                <div className="sa-stat-mini">
+                  <span>Açık iş</span>
+                  <strong>{incidents.length}</strong>
+                </div>
+              </div>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--sa-muted)", lineHeight: 1.45 }}>
+                Grafikler gerçek zamanlı API verisini yansıtır; servis gecikmesi ve kaynak dağılımı alt kartlarda detaylanır.
+              </p>
+            </div>
+          </div>
+          <div className="sa-card">
+            <div className="sa-panel-header">
+              <div>
+                <span className="sa-kicker">Eğitim KPI</span>
+                <h2>Yol haritası</h2>
+              </div>
+              <GraduationCap size={20} />
+            </div>
+            <div className="sa-card-body">
+              <ul className="sa-list-plain">
+                <li>
+                  <span>Bu çeyrek onboarding</span>
+                  <strong>12 kurum</strong>
+                </li>
+                <li>
+                  <span>Yayın planı</span>
+                  <strong>2 modül</strong>
+                </li>
+                <li>
+                  <span>Destek SLA</span>
+                  <strong>&lt; 2 saat</strong>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div className="sa-two-col">
+        <div className="sa-incident-stack">
+          <div className="sa-card">
+            <div className="sa-panel-header">
+              <div>
+                <span className="sa-kicker">İzleme</span>
+                <h2>Açık teknik işler</h2>
+              </div>
+              <AlertCircle size={20} />
+            </div>
+            <div className="sa-card-body">
+              {incidents.map((incident) => (
+                <div className="sa-message-block" key={incident.id} style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                    <strong>{incident.title}</strong>
+                    <SeverityBadge value={incident.severity} />
+                  </div>
+                  <span style={{ fontSize: 12, color: "var(--sa-muted)" }}>{incident.status}</span>
                 </div>
               ))}
-              {weekUsage.length === 0 &&
-                ["Pzt", "Sal", "Car", "Per", "Cum", "Cmt", "Paz"].map((day) => (
-                  <div className="usage-bar" key={day}>
-                    <div style={{ height: "28%" }} />
-                    <span>{day}</span>
-                    <em>0%</em>
-                  </div>
-                ))}
+              {incidents.length === 0 && <p className="empty-text">Açık incident kaydı yok.</p>}
             </div>
           </div>
         </div>
-
-        <aside className="overview-insights">
-          <article className="summary-card">
-            <h3>Operasyon ozeti</h3>
-            <div className="summary-list">
-              <div className="summary-item">
-                <span>Servis uyarilari</span>
-                <strong>{warningServices}</strong>
-              </div>
-              <div className="summary-item">
-                <span>Ortalama kaynak kullanimi</span>
-                <strong>{avgResource}%</strong>
-              </div>
-              <div className="summary-item">
-                <span>Acik incident</span>
-                <strong>{incidents.length}</strong>
-              </div>
+        <div className="sa-card">
+          <div className="sa-panel-header">
+            <div>
+              <span className="sa-kicker">Yönetişim</span>
+              <h2>Operasyon adımları</h2>
             </div>
-          </article>
-          <article className="summary-card">
-            <h3>Egitim platform hedefi</h3>
-            <div className="summary-list">
-              <div className="summary-item">
-                <span>Bu ay hedef onboarding</span>
-                <strong>12 kurum</strong>
-              </div>
-              <div className="summary-item">
-                <span>Canliya alinacak modul</span>
-                <strong>2 planli surum</strong>
-              </div>
-              <div className="summary-item">
-                <span>Destek geri donus SLA</span>
-                <strong>2 saat</strong>
-              </div>
+            <Network size={20} />
+          </div>
+          <div className="sa-card-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="sa-release-step">
+              <CheckCircle2 size={18} />
+              <span>Platform sağlığı</span>
+              <strong>{statusLabel(systemMetrics?.health ?? "loading")}</strong>
             </div>
-          </article>
-        </aside>
-      </section>
-
-      <section className="dashboard-grid">
-        <div className="workspace-panel incident-panel">
-          <PanelHeader kicker="Izleme" title="Acik teknik isler" icon={<ServerCog size={20} />} />
-          <div className="incident-list">
-            {incidents.map((incident) => (
-              <article className="incident-row" key={incident.id}>
-                <AlertCircle size={18} />
-                <div>
-                  <strong>{incident.title}</strong>
-                  <span>{incident.status}</span>
-                </div>
-                <SeverityBadge value={incident.severity} />
-              </article>
-            ))}
-            {incidents.length === 0 && <p className="empty-text">Acik incident kaydi bulunmuyor.</p>}
+            <div className="sa-release-step">
+              <CheckCircle2 size={18} />
+              <span>Kapasite izlemesi</span>
+              <strong>{statusLabel(resources.some((m) => m.status !== "healthy") ? "warning" : "healthy")}</strong>
+            </div>
+            <div className="sa-release-step">
+              <CheckCircle2 size={18} />
+              <span>Servis sürekliliği</span>
+              <strong>{statusLabel(services.some((s) => s.status !== "healthy") ? "warning" : "healthy")}</strong>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="workspace-panel release-panel">
-          <PanelHeader kicker="Yonetim" title="Operasyon adimlari" icon={<Network size={20} />} />
-          <div className="release-list">
-            <ReleaseStep label="Platform sagligi" value={systemMetrics?.health ?? "loading"} />
-            <ReleaseStep label="Kapasite izlemesi" value={resources.some((metric) => metric.status !== "healthy") ? "warning" : "healthy"} />
-            <ReleaseStep label="Servis surekliligi" value={services.some((service) => service.status !== "healthy") ? "warning" : "healthy"} />
+      <div className="sa-two-col">
+        <div className="sa-card">
+          <div className="sa-panel-header">
+            <div>
+              <span className="sa-kicker">Kaynak dağılımı</span>
+              <h2>Sunucu yükü dağılımı</h2>
+            </div>
+            <Gauge size={20} />
+          </div>
+          <div className="sa-card-body">
+            <div className="sa-chart-frame" style={{ height: 280 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={88} paddingAngle={3}>
+                    {pieData.map((_, i) => (
+                      <Cell key={pieData[i].name} fill={chartPalette[i % chartPalette.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => [`${value}%`, "Kullanım"]} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
-      </section>
-
-      <section className="workspace-panel">
-        <div className="chart-header">
-          <strong>Canli kaynak ve servis durumu</strong>
-          <span>Teknik izleme alani</span>
+        <div className="sa-card">
+          <div className="sa-panel-header">
+            <div>
+              <span className="sa-kicker">Servis gecikmesi</span>
+              <h2>Yanıt süresi (ms)</h2>
+            </div>
+          </div>
+          <div className="sa-card-body">
+            <div className="sa-chart-frame" style={{ height: 280 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={latencyData.length > 0 ? latencyData : [{ name: "-", ms: 0 }]} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e2" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "#919a9f" }} />
+                  <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 10, fill: "#919a9f" }} />
+                  <Tooltip />
+                  <Bar dataKey="ms" fill="#6b8f86" radius={[0, 6, 6, 0]} name="ms" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
-        <SystemOperationsPanel metrics={systemMetrics} />
-      </section>
+      </div>
+
+      <div className="sa-card">
+        <div className="sa-panel-header">
+          <div>
+            <span className="sa-kicker">Dağıtım</span>
+            <h2>Canlı kaynak ve servis sağlığı</h2>
+          </div>
+        </div>
+        <div className="sa-card-body" style={{ paddingTop: 0 }}>
+          <SystemOperationsPanel metrics={systemMetrics} />
+        </div>
+      </div>
     </section>
   );
 }
@@ -634,10 +751,9 @@ function SystemOperationsPanel({ metrics }: { metrics?: SystemMetrics }) {
   const resources = metrics?.resources ?? [];
   const services = metrics?.services ?? [];
   return (
-    <section className="system-ops-grid">
-      <section className="workspace-panel live-resource-panel">
-        <PanelHeader kicker="Canlı izleme" title="Sunucu kaynakları" icon={<Gauge size={20} />} />
-        <div className="circle-metric-grid">
+    <div className="sa-ops-grid">
+      <div>
+        <div className="sa-gauge-grid">
           {resources.map((metric) => (
             <CircularMetric metric={metric} key={metric.key} />
           ))}
@@ -650,40 +766,45 @@ function SystemOperationsPanel({ metrics }: { metrics?: SystemMetrics }) {
             </>
           )}
         </div>
-      </section>
-
-      <section className="workspace-panel deployment-status-panel">
-        <PanelHeader kicker="Dağıtım" title="Servis kontrolü" icon={<ServerCog size={20} />} />
-        <div className="deployment-status-list">
-          {services.map((service) => (
-            <ServiceHealthRow service={service} key={service.key} />
-          ))}
-          {services.length === 0 && <p className="empty-text">Servis metrikleri yükleniyor.</p>}
+      </div>
+      <div className="sa-card">
+        <div className="sa-panel-header">
+          <div>
+            <span className="sa-kicker">Servisler</span>
+            <h2>Kontrol listesi</h2>
+          </div>
+          <ServerCog size={20} />
         </div>
-        <div className="metrics-timestamp">
-          <span>Son okuma</span>
-          <strong>{metrics?.updatedAt ? new Date(metrics.updatedAt).toLocaleTimeString("tr-TR") : "-"}</strong>
+        <div className="sa-card-body">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {services.map((service) => (
+              <ServiceHealthRow service={service} key={service.key} />
+            ))}
+            {services.length === 0 && <p className="empty-text">Servis metrikleri yükleniyor.</p>}
+          </div>
+          <div className="sa-metrics-foot">
+            <span>Son okuma</span>
+            <strong>{metrics?.updatedAt ? new Date(metrics.updatedAt).toLocaleTimeString("tr-TR") : "-"}</strong>
+          </div>
         </div>
-      </section>
-    </section>
+      </div>
+    </div>
   );
 }
 
 function CircularMetric({ metric }: { metric: ResourceMetric }) {
   const value = Math.max(0, Math.min(100, Math.round(metric.value)));
   return (
-    <article className={`circular-metric ${metric.status}`}>
-      <div
-        className="circle-gauge"
-        style={{ "--gauge-value": `${value}%` } as CSSProperties}
-        aria-label={`${metric.label} ${value}${metric.unit}`}
-      >
-        <div>
-          <strong>{value}</strong>
-          <span>{metric.unit}</span>
+    <article className={`sa-circular-metric ${metric.status}`}>
+      <div className="sa-circle-ring" style={{ "--sa-pct": `${value}%` } as CSSProperties}>
+        <div className="sa-circle-ring-inner">
+          <div>
+            <strong>{value}</strong>
+            <span>{metric.unit}</span>
+          </div>
         </div>
       </div>
-      <div className="circle-metric-copy">
+      <div className="sa-circular-meta">
         <strong>{metric.label}</strong>
         <span>{metric.description}</span>
       </div>
@@ -693,13 +814,13 @@ function CircularMetric({ metric }: { metric: ResourceMetric }) {
 
 function ServiceHealthRow({ service }: { service: ServiceMetric }) {
   return (
-    <article className="service-health-row">
-      <div className={`service-dot ${service.status}`} />
+    <article className="sa-service-row">
+      <div className={`sa-service-dot ${service.status}`} />
       <div>
         <strong>{service.name}</strong>
         <span>{service.description}</span>
       </div>
-      <div className="service-health-meta">
+      <div className="sa-service-meta">
         <StatusBadge value={service.status} />
         {typeof service.latencyMs === "number" && <small>{service.latencyMs} ms</small>}
       </div>
@@ -794,36 +915,39 @@ function InstitutionsPage({ institutions, onRefresh }: { institutions: Instituti
   }, [selectedId]);
 
   return (
-    <section className="institutions-page page-stack">
-      <div className="tenant-overview">
-        <div className="tenant-map-card">
-          <div className="panel-header with-action">
-            <div>
-              <span className="section-kicker">Tenant haritası</span>
-              <h2>Kurum ağı</h2>
-            </div>
-            <button className="primary-action small-action" type="button" onClick={() => setShowCreateInstitution((value) => !value)}>
-              <Plus size={17} />
-              Kurum oluştur
-            </button>
-          </div>
-          <div className="tenant-map">
-            {institutions.map((institution, index) => (
-              <button
-                className={`tenant-node node-${index + 1} ${selectedId === institution.id ? "selected" : ""}`}
-                key={institution.id}
-                type="button"
-                onClick={() => setSelectedId(institution.id)}
-              >
-                <Building2 size={18} />
-                <strong>{institution.name}</strong>
-                <span>{institution.students} öğrenci</span>
+    <section className="sa-page-stack">
+      <div className="sa-tenant-top">
+        <div className="sa-card">
+          <PanelHeader
+            kicker="Tenant haritası"
+            title="Kurum ağı"
+            icon={<Building2 size={22} />}
+            trailing={
+              <button className="primary-action small-action" type="button" onClick={() => setShowCreateInstitution((value) => !value)}>
+                <Plus size={17} />
+                Kurum oluştur
               </button>
-            ))}
+            }
+          />
+          <div className="sa-card-body">
+            <div className="tenant-map-flex">
+              {institutions.map((institution) => (
+                <button
+                  className={`tenant-chip ${selectedId === institution.id ? "selected" : ""}`}
+                  key={institution.id}
+                  type="button"
+                  onClick={() => setSelectedId(institution.id)}
+                >
+                  <Building2 size={18} />
+                  <strong>{institution.name}</strong>
+                  <span>{institution.students} öğrenci</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="tenant-summary">
+        <div className="sa-insights" style={{ gap: 10 }}>
           <MiniStat label="Toplam öğrenci" value={totalStudents} icon={<GraduationCap size={19} />} />
           <MiniStat label="Toplam kullanıcı" value={totalUsers} icon={<UsersRound size={19} />} />
           <MiniStat label="Aktif kurum" value={institutions.filter((item) => item.status === "active").length} icon={<CheckCircle2 size={19} />} />
@@ -831,198 +955,205 @@ function InstitutionsPage({ institutions, onRefresh }: { institutions: Instituti
       </div>
 
       {showCreateInstitution && (
-        <section className="workspace-panel creation-panel">
-          <PanelHeader kicker="Yeni tenant" title="Kurum oluştur" icon={<Building2 size={20} />} />
-          <form className="inline-form three-cols" onSubmit={(event) => void createInstitution(event)}>
-            <label className="field">
-              <span>Kurum adı</span>
-              <div className="field-control">
-                <Building2 size={17} />
-                <input
-                  value={createInstitutionForm.name}
-                  onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, name: event.target.value }))}
-                  placeholder="Örn. Özel Deniz Koleji"
-                  required
-                />
-              </div>
-            </label>
-            <label className="field">
-              <span>Plan</span>
-              <div className="field-control">
-                <Database size={17} />
-                <select
-                  value={createInstitutionForm.plan}
-                  onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, plan: event.target.value }))}
-                >
-                  <option value="MVP">MVP</option>
-                  <option value="Starter">Starter</option>
-                  <option value="Growth">Growth</option>
-                  <option value="Premium">Premium</option>
-                  <option value="Trial">Trial</option>
-                </select>
-              </div>
-            </label>
-            <label className="field">
-              <span>Zaman dilimi</span>
-              <div className="field-control">
-                <Globe2 size={17} />
-                <input
-                  value={createInstitutionForm.timezone}
-                  onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, timezone: event.target.value }))}
-                />
-              </div>
-            </label>
-            <button className="primary-action form-submit" type="submit" disabled={savingInstitution}>
-              {savingInstitution ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
-              Kaydet
-            </button>
-          </form>
+        <section className="sa-card">
+          <PanelHeader kicker="Yeni tenant" title="Kurum oluştur" icon={<Building2 size={22} />} />
+          <div className="sa-card-body">
+            <form className="inline-form sa-form-grid-four" onSubmit={(event) => void createInstitution(event)}>
+              <label className="field">
+                <span>Kurum adı</span>
+                <div className="field-control">
+                  <Building2 size={17} />
+                  <input
+                    value={createInstitutionForm.name}
+                    onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, name: event.target.value }))}
+                    placeholder="Örn. Özel Deniz Koleji"
+                    required
+                  />
+                </div>
+              </label>
+              <label className="field">
+                <span>Plan</span>
+                <div className="field-control">
+                  <Database size={17} />
+                  <select value={createInstitutionForm.plan} onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, plan: event.target.value }))}>
+                    <option value="MVP">MVP</option>
+                    <option value="Starter">Starter</option>
+                    <option value="Growth">Growth</option>
+                    <option value="Premium">Premium</option>
+                    <option value="Trial">Trial</option>
+                  </select>
+                </div>
+              </label>
+              <label className="field">
+                <span>Zaman dilimi</span>
+                <div className="field-control">
+                  <Globe2 size={17} />
+                  <input value={createInstitutionForm.timezone} onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, timezone: event.target.value }))} />
+                </div>
+              </label>
+              <button className="primary-action form-submit" type="submit" disabled={savingInstitution}>
+                {savingInstitution ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
+                Kaydet
+              </button>
+            </form>
+          </div>
         </section>
       )}
 
-      {detailError && <div className="form-error workspace-error">{detailError}</div>}
+      {detailError && <div className="form-error workspace-error sa-alert">{detailError}</div>}
 
-      <section className="workspace-panel">
-        <PanelHeader kicker="Tenant yönetimi" title="Kurumlar" icon={<Building2 size={20} />} />
-        <div className="data-table">
-          <div className="table-head institutions-grid">
-            <span>Kurum</span>
-            <span>Plan</span>
-            <span>Öğrenci</span>
-            <span>Kullanıcı</span>
-            <span>Durum</span>
-            <span>İşlem</span>
-          </div>
-          {institutions.map((institution) => (
-            <div className={`table-row institutions-grid ${selectedId === institution.id ? "selected-row" : ""}`} key={institution.id}>
-              <div>
-                <strong>{institution.name}</strong>
-                <small>{institution.timezone} · son aktivite {new Date(institution.lastActivityAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</small>
-              </div>
-              <span>{institution.plan}</span>
-              <span>{institution.students}</span>
-              <span>{institution.users}</span>
-              <StatusBadge value={institution.status} />
-              <button className="row-action" type="button" onClick={() => setSelectedId(institution.id)} aria-label={`${institution.name} detay`}>
-                <ArrowUpRight size={17} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="institution-detail-grid">
-        <section className="workspace-panel institution-detail-panel">
-          <PanelHeader kicker="Kurum detayı" title={detail?.name ?? "Kurum seç"} icon={detailLoading ? <Loader2 className="spin" size={20} /> : <Building2 size={20} />} />
-          {detail ? (
-            <div className="detail-metrics">
-              <MiniStat label="Plan" value={detail.plan} icon={<DatabaseZap size={19} />} />
-              <MiniStat label="Kullanıcı" value={institutionUsers.length} icon={<UsersRound size={19} />} />
-              <MiniStat label="Öğrenci" value={detail.students} icon={<GraduationCap size={19} />} />
-              <MiniStat label="Durum" value={statusLabel(detail.status)} icon={<CheckCircle2 size={19} />} />
-            </div>
-          ) : (
-            <p className="empty-text">Detay görmek için bir kurum seç.</p>
-          )}
-          {detail && (
-            <div className="institution-meta">
-              <span>ID: {detail.id}</span>
-              <span>Timezone: {detail.timezone}</span>
-              <span>Oluşturma: {new Date(detail.createdAt).toLocaleDateString("tr-TR")}</span>
-              <span>Güncelleme: {new Date(detail.updatedAt).toLocaleDateString("tr-TR")}</span>
-            </div>
-          )}
-        </section>
-
-        <section className="workspace-panel institution-users-panel">
-          <PanelHeader kicker="Kurum kişileri" title="Kullanıcılar" icon={<UsersRound size={20} />} />
-          <form className="inline-form user-create-form" onSubmit={(event) => void createInstitutionUser(event)}>
-            <label className="field">
-              <span>E-posta</span>
-              <div className="field-control">
-                <Mail size={17} />
-                <input
-                  value={createUserForm.email}
-                  onChange={(event) => setCreateUserForm((form) => ({ ...form, email: event.target.value }))}
-                  type="email"
-                  placeholder="kullanici@kurum.com"
-                  required
-                />
-              </div>
-            </label>
-            <label className="field">
-              <span>Ad soyad</span>
-              <div className="field-control">
-                <UserCog size={17} />
-                <input
-                  value={createUserForm.fullName}
-                  onChange={(event) => setCreateUserForm((form) => ({ ...form, fullName: event.target.value }))}
-                  placeholder="Boş bırakılırsa mailden üretilir"
-                />
-              </div>
-            </label>
-            <label className="field">
-              <span>Rol</span>
-              <div className="field-control">
-                <ShieldCheck size={17} />
-                <select value={createUserForm.role} onChange={(event) => setCreateUserForm((form) => ({ ...form, role: event.target.value }))}>
-                  <option value="principal">Müdür</option>
-                  <option value="guidance">Rehberlik</option>
-                  <option value="teacher">Öğretmen</option>
-                  <option value="guardian">Veli</option>
-                </select>
-              </div>
-            </label>
-            <button className="primary-action form-submit" type="submit" disabled={!selectedId || savingUser}>
-              {savingUser ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
-              Kullanıcı oluştur
-            </button>
-          </form>
-
-          {credential && (
-            <div className="credential-card">
-              <div>
-                <span>Geçici giriş bilgisi</span>
-                <strong>{credential.user.email}</strong>
-                <code>{credential.temporaryPassword}</code>
-              </div>
-              <button
-                className="ghost-action"
-                type="button"
-                onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}
-              >
-                <Clipboard size={17} />
-                Kopyala
-              </button>
-            </div>
-          )}
-
-          <div className="data-table compact-table">
-            <div className="table-head users-grid">
-              <span>Kullanıcı</span>
+      <section className="sa-card">
+        <PanelHeader kicker="Tenant yönetimi" title="Kurumlar" icon={<Building2 size={22} />} />
+        <div className="sa-card-body">
+          <div className="sa-data-grid">
+            <div className="sa-row-head sa-institutions-head">
               <span>Kurum</span>
-              <span>Rol</span>
+              <span>Plan</span>
+              <span>Öğrenci</span>
+              <span>Kullanıcı</span>
               <span>Durum</span>
               <span>İşlem</span>
             </div>
-            {institutionUsers.map((user) => (
-              <div className="table-row users-grid" key={user.id}>
-                <div>
-                  <strong>{user.fullName}</strong>
-                  <small>{user.email}</small>
+            {institutions.map((institution) => (
+              <div
+                className={`sa-row-body sa-institutions-row ${selectedId === institution.id ? "sa-row-selected" : ""}`}
+                key={institution.id}
+              >
+                <div className="sa-row-body-cell">
+                  <strong>{institution.name}</strong>
+                  <small>
+                    {institution.timezone} · son aktivite {new Date(institution.lastActivityAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                  </small>
                 </div>
-                <span>{user.tenant}</span>
-                <span>{roleLabel(user.role)}</span>
-                <StatusBadge value={user.status} />
-                <button className="row-action" type="button" aria-label={`${user.fullName} detay`}>
+                <span>{institution.plan}</span>
+                <span>{institution.students}</span>
+                <span>{institution.users}</span>
+                <StatusBadge value={institution.status} />
+                <button className="sa-icon-btn" type="button" onClick={() => setSelectedId(institution.id)} aria-label={`${institution.name} detay`}>
                   <ArrowUpRight size={17} />
                 </button>
               </div>
             ))}
-            {institutionUsers.length === 0 && <p className="empty-text">Bu kuruma bağlı kullanıcı yok.</p>}
+          </div>
+        </div>
+      </section>
+
+      <div className="sa-split">
+        <section className="sa-card">
+          <PanelHeader
+            kicker="Kurum detayı"
+            title={detail?.name ?? "Kurum seç"}
+            icon={detailLoading ? <Loader2 className="spin" size={20} /> : <Building2 size={22} />}
+          />
+          <div className="sa-card-body">
+            {detail ? (
+              <div className="detail-meta-grid">
+                <MiniStat label="Plan" value={detail.plan} icon={<DatabaseZap size={19} />} />
+                <MiniStat label="Kullanıcı" value={institutionUsers.length} icon={<UsersRound size={19} />} />
+                <MiniStat label="Öğrenci" value={detail.students} icon={<GraduationCap size={19} />} />
+                <MiniStat label="Durum" value={statusLabel(detail.status)} icon={<CheckCircle2 size={19} />} />
+              </div>
+            ) : (
+              <p className="empty-text">Detay görmek için bir kurum seç.</p>
+            )}
+            {detail && (
+              <div className="meta-line">
+                <span>ID: {detail.id}</span>
+                <span>Timezone: {detail.timezone}</span>
+                <span>Oluşturma: {new Date(detail.createdAt).toLocaleDateString("tr-TR")}</span>
+                <span>Güncelleme: {new Date(detail.updatedAt).toLocaleDateString("tr-TR")}</span>
+              </div>
+            )}
           </div>
         </section>
-      </section>
+
+        <section className="sa-card">
+          <PanelHeader kicker="Kurum kişileri" title="Kullanıcılar" icon={<UsersRound size={22} />} />
+          <div className="sa-card-body">
+            <form className="inline-form sa-user-create-grid" onSubmit={(event) => void createInstitutionUser(event)}>
+              <label className="field">
+                <span>E-posta</span>
+                <div className="field-control">
+                  <Mail size={17} />
+                  <input
+                    value={createUserForm.email}
+                    onChange={(event) => setCreateUserForm((form) => ({ ...form, email: event.target.value }))}
+                    type="email"
+                    placeholder="kullanici@kurum.com"
+                    required
+                  />
+                </div>
+              </label>
+              <label className="field">
+                <span>Ad soyad</span>
+                <div className="field-control">
+                  <UserCog size={17} />
+                  <input
+                    value={createUserForm.fullName}
+                    onChange={(event) => setCreateUserForm((form) => ({ ...form, fullName: event.target.value }))}
+                    placeholder="Boş bırakılırsa mailden üretilir"
+                  />
+                </div>
+              </label>
+              <label className="field">
+                <span>Rol</span>
+                <div className="field-control">
+                  <ShieldCheck size={17} />
+                  <select value={createUserForm.role} onChange={(event) => setCreateUserForm((form) => ({ ...form, role: event.target.value }))}>
+                    <option value="principal">Müdür</option>
+                    <option value="guidance">Rehberlik</option>
+                    <option value="teacher">Öğretmen</option>
+                    <option value="guardian">Veli</option>
+                  </select>
+                </div>
+              </label>
+              <button className="primary-action form-submit" type="submit" disabled={!selectedId || savingUser}>
+                {savingUser ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
+                Kullanıcı oluştur
+              </button>
+            </form>
+
+            {credential && (
+              <div className="sa-credential-banner">
+                <div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--sa-muted)", textTransform: "uppercase" }}>Geçici giriş bilgisi</span>
+                  <strong>{credential.user.email}</strong>
+                  <code>{credential.temporaryPassword}</code>
+                </div>
+                <button className="ghost-action" type="button" onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}>
+                  <Clipboard size={17} />
+                  Kopyala
+                </button>
+              </div>
+            )}
+
+            <div className="sa-data-grid">
+              <div className="sa-row-head sa-users-mini-head">
+                <span>Kullanıcı</span>
+                <span>Kurum</span>
+                <span>Rol</span>
+                <span>Durum</span>
+                <span>İşlem</span>
+              </div>
+              {institutionUsers.map((user) => (
+                <div className="sa-row-body sa-users-mini-row" key={user.id}>
+                  <div className="sa-row-body-cell">
+                    <strong>{user.fullName}</strong>
+                    <small>{user.email}</small>
+                  </div>
+                  <span>{user.tenant}</span>
+                  <span>{roleLabel(user.role)}</span>
+                  <StatusBadge value={user.status} />
+                  <button className="sa-icon-btn" type="button" aria-label={`${user.fullName} detay`}>
+                    <ArrowUpRight size={17} />
+                  </button>
+                </div>
+              ))}
+              {institutionUsers.length === 0 && <p className="empty-text">Bu kuruma bağlı kullanıcı yok.</p>}
+            </div>
+          </div>
+        </section>
+      </div>
     </section>
   );
 }
@@ -1139,164 +1270,61 @@ function UsersPage({ users, institutions, onRefresh }: { users: UserAccount[]; i
   }, [selectedUser]);
 
   return (
-    <section className="users-page page-stack">
-      <section className="access-grid user-access-grid">
+    <section className="sa-page-stack">
+      <div className="sa-kpi-mini-row">
         <MiniStat label="Toplam kullanıcı" value={users.length} icon={<UsersRound size={19} />} />
         <MiniStat label="Aktif hesap" value={activeUsers} icon={<CheckCircle2 size={19} />} />
         <MiniStat label="İlk giriş bekleyen" value={firstLoginUsers} icon={<KeyRound size={19} />} />
         <MiniStat label="Kurum kapsamı" value={institutions.length} icon={<Building2 size={19} />} />
         {roles.slice(0, 4).map((role) => (
-          <article className="role-card" key={role}>
-            <div className="role-icon">
-              <UserCog size={19} />
+          <div className="sa-role-mini" key={role}>
+            <div className="sa-role-icon">
+              <UserCog size={17} />
             </div>
             <div>
               <strong>{roleLabel(role)}</strong>
-              <span>{users.filter((user) => user.role === role).length} hesap</span>
+              <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "var(--sa-muted)" }}>
+                {users.filter((user) => user.role === role).length} hesap
+              </span>
             </div>
-          </article>
+          </div>
         ))}
-      </section>
+      </div>
 
-      <section className="workspace-panel user-command-panel">
-        <div className="panel-header with-action">
-          <div>
-            <span className="section-kicker">Global CRUD</span>
-            <h2>Kurumdan bağımsız kullanıcı yönetimi</h2>
-          </div>
-          <button className="primary-action small-action" type="button" onClick={() => setShowCreateUser((value) => !value)}>
-            <Plus size={17} />
-            Kullanıcı oluştur
-          </button>
-        </div>
-
-        <div className="user-toolbar">
-          <label className="field search-field">
-            <span>Arama</span>
-            <div className="field-control">
-              <Search size={17} />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ad, mail, kurum veya rol ara" />
-            </div>
-          </label>
-        </div>
-
-        {showCreateUser && (
-          <form className="inline-form global-user-form" onSubmit={(event) => void createGlobalUser(event)}>
-            <label className="field">
-              <span>Kurum</span>
-              <div className="field-control">
-                <Building2 size={17} />
-                <select value={createForm.tenantId} onChange={(event) => setCreateForm((form) => ({ ...form, tenantId: event.target.value }))} required>
-                  {institutions.map((institution) => (
-                    <option value={institution.id} key={institution.id}>{institution.name}</option>
-                  ))}
-                </select>
-              </div>
-            </label>
-            <label className="field">
-              <span>E-posta</span>
-              <div className="field-control">
-                <Mail size={17} />
-                <input
-                  value={createForm.email}
-                  onChange={(event) => setCreateForm((form) => ({ ...form, email: event.target.value }))}
-                  type="email"
-                  required
-                />
-              </div>
-            </label>
-            <label className="field">
-              <span>Ad soyad</span>
-              <div className="field-control">
-                <UserCog size={17} />
-                <input value={createForm.fullName} onChange={(event) => setCreateForm((form) => ({ ...form, fullName: event.target.value }))} />
-              </div>
-            </label>
-            <label className="field">
-              <span>Rol</span>
-              <div className="field-control">
-                <ShieldCheck size={17} />
-                <select value={createForm.role} onChange={(event) => setCreateForm((form) => ({ ...form, role: event.target.value }))}>
-                  <option value="principal">Müdür</option>
-                  <option value="guidance">Rehberlik</option>
-                  <option value="teacher">Öğretmen</option>
-                  <option value="guardian">Veli</option>
-                </select>
-              </div>
-            </label>
-            <button className="primary-action form-submit" type="submit" disabled={savingCreate || institutions.length === 0}>
-              {savingCreate ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
-              Oluştur
+      <section className="sa-card">
+        <PanelHeader
+          kicker="Global CRUD"
+          title="Kurumdan bağımsız kullanıcı yönetimi"
+          icon={<ShieldCheck size={22} />}
+          trailing={
+            <button className="primary-action small-action" type="button" onClick={() => setShowCreateUser((value) => !value)}>
+              <Plus size={17} />
+              Kullanıcı oluştur
             </button>
-          </form>
-        )}
-
-        {credential && (
-          <div className="credential-card">
-            <div>
-              <span>Geçici giriş bilgisi</span>
-              <strong>{credential.user.email}</strong>
-              <code>{credential.temporaryPassword}</code>
-            </div>
-            <button
-              className="ghost-action"
-              type="button"
-              onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}
-            >
-              <Clipboard size={17} />
-              Kopyala
-            </button>
-          </div>
-        )}
-      </section>
-
-      {userError && <div className="form-error workspace-error">{userError}</div>}
-
-      <section className="user-management-layout">
-        <section className="workspace-panel users-table-panel">
-          <PanelHeader kicker="Tüm kullanıcılar" title={`${filteredUsers.length} hesap`} icon={<UsersRound size={20} />} />
-          <div className="data-table">
-            <div className="table-head users-admin-grid">
-              <span>Kullanıcı</span>
-              <span>Kurum</span>
-              <span>Rol</span>
-              <span>Durum</span>
-              <span>İşlem</span>
-            </div>
-            {filteredUsers.map((user) => (
-              <div className={`table-row users-admin-grid ${selectedUser?.id === user.id && selectedUser?.tenantId === user.tenantId ? "selected-row" : ""}`} key={`${user.tenantId}-${user.id}`}>
-                <div>
-                  <strong>{user.fullName}</strong>
-                  <small>{user.email}</small>
-                </div>
-                <span>{user.tenant}</span>
-                <span>{roleLabel(user.role)}</span>
-                <StatusBadge value={user.status} />
-                <div className="row-actions">
-                  <button className="row-action" type="button" onClick={() => setSelectedUser(user)} aria-label={`${user.fullName} düzenle`}>
-                    <Pencil size={16} />
-                  </button>
-                  <button className="row-action danger" type="button" onClick={() => void deleteGlobalUser(user)} aria-label={`${user.fullName} sil`}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+          }
+        />
+        <div className="sa-card-body">
+          <div className="user-toolbar">
+            <label className="field search-field">
+              <span>Arama</span>
+              <div className="field-control">
+                <Search size={17} />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ad, mail, kurum veya rol ara" />
               </div>
-            ))}
-            {filteredUsers.length === 0 && <p className="empty-text">Aramaya uygun kullanıcı bulunamadı.</p>}
+            </label>
           </div>
-        </section>
 
-        <aside className="workspace-panel user-edit-panel">
-          <PanelHeader kicker="Düzenleme" title={selectedUser?.fullName ?? "Kullanıcı seç"} icon={<UserCog size={20} />} />
-          {selectedUser ? (
-            <form className="edit-user-form" onSubmit={(event) => void updateGlobalUser(event)}>
+          {showCreateUser && (
+            <form className="inline-form sa-form-grid-four sa-user-create-grid" onSubmit={(event) => void createGlobalUser(event)}>
               <label className="field">
                 <span>Kurum</span>
                 <div className="field-control">
                   <Building2 size={17} />
-                  <select value={editForm.tenantId} onChange={(event) => setEditForm((form) => ({ ...form, tenantId: event.target.value }))} disabled={protectedSelection}>
+                  <select value={createForm.tenantId} onChange={(event) => setCreateForm((form) => ({ ...form, tenantId: event.target.value }))} required>
                     {institutions.map((institution) => (
-                      <option value={institution.id} key={institution.id}>{institution.name}</option>
+                      <option value={institution.id} key={institution.id}>
+                        {institution.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1305,21 +1333,21 @@ function UsersPage({ users, institutions, onRefresh }: { users: UserAccount[]; i
                 <span>E-posta</span>
                 <div className="field-control">
                   <Mail size={17} />
-                  <input value={editForm.email} onChange={(event) => setEditForm((form) => ({ ...form, email: event.target.value }))} type="email" disabled={protectedSelection} />
+                  <input value={createForm.email} onChange={(event) => setCreateForm((form) => ({ ...form, email: event.target.value }))} type="email" required />
                 </div>
               </label>
               <label className="field">
                 <span>Ad soyad</span>
                 <div className="field-control">
                   <UserCog size={17} />
-                  <input value={editForm.fullName} onChange={(event) => setEditForm((form) => ({ ...form, fullName: event.target.value }))} disabled={protectedSelection} />
+                  <input value={createForm.fullName} onChange={(event) => setCreateForm((form) => ({ ...form, fullName: event.target.value }))} />
                 </div>
               </label>
               <label className="field">
                 <span>Rol</span>
                 <div className="field-control">
                   <ShieldCheck size={17} />
-                  <select value={editForm.role} onChange={(event) => setEditForm((form) => ({ ...form, role: event.target.value }))} disabled={protectedSelection}>
+                  <select value={createForm.role} onChange={(event) => setCreateForm((form) => ({ ...form, role: event.target.value }))}>
                     <option value="principal">Müdür</option>
                     <option value="guidance">Rehberlik</option>
                     <option value="teacher">Öğretmen</option>
@@ -1327,31 +1355,140 @@ function UsersPage({ users, institutions, onRefresh }: { users: UserAccount[]; i
                   </select>
                 </div>
               </label>
-              <label className="field">
-                <span>Durum</span>
-                <div className="field-control">
-                  <CheckCircle2 size={17} />
-                  <select value={editForm.status} onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value }))} disabled={protectedSelection}>
-                    <option value="active">Aktif</option>
-                    <option value="passive">Pasif</option>
-                  </select>
-                </div>
-              </label>
-              {protectedSelection && <p className="empty-text">Süper admin hesabı sistem hesabıdır; bu ekranda değiştirilemez.</p>}
-              <div className="form-actions">
-                <button className="primary-action" type="submit" disabled={savingEdit || protectedSelection}>
-                  {savingEdit ? <Loader2 className="spin" size={18} /> : <Pencil size={18} />}
-                  Güncelle
-                </button>
-                <button className="ghost-action danger-text" type="button" onClick={() => void deleteGlobalUser(selectedUser)} disabled={savingEdit || protectedSelection}>
-                  <Trash2 size={18} />
-                  Pasifleştir
-                </button>
-              </div>
+              <button className="primary-action form-submit" type="submit" disabled={savingCreate || institutions.length === 0}>
+                {savingCreate ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
+                Oluştur
+              </button>
             </form>
-          ) : (
-            <p className="empty-text">Düzenlemek için tablodan bir kullanıcı seç.</p>
           )}
+
+          {credential && (
+            <div className="sa-credential-banner" style={{ marginTop: 14 }}>
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--sa-muted)", textTransform: "uppercase" }}>Geçici giriş bilgisi</span>
+                <strong>{credential.user.email}</strong>
+                <code>{credential.temporaryPassword}</code>
+              </div>
+              <button className="ghost-action" type="button" onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}>
+                <Clipboard size={17} />
+                Kopyala
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {userError && <div className="form-error workspace-error sa-alert">{userError}</div>}
+
+      <section className="sa-split-main">
+        <section className="sa-card">
+          <PanelHeader kicker="Tüm kullanıcılar" title={`${filteredUsers.length} hesap`} icon={<UsersRound size={22} />} />
+          <div className="sa-card-body">
+            <div className="sa-data-grid">
+              <div className="sa-row-head sa-users-global-head">
+                <span>Kullanıcı</span>
+                <span>Kurum</span>
+                <span>Rol</span>
+                <span>Durum</span>
+                <span>İşlem</span>
+              </div>
+              {filteredUsers.map((user) => (
+                <div
+                  className={`sa-row-body sa-users-global-row ${selectedUser?.id === user.id && selectedUser?.tenantId === user.tenantId ? "sa-row-selected" : ""}`}
+                  key={`${user.tenantId}-${user.id}`}
+                >
+                  <div className="sa-row-body-cell">
+                    <strong>{user.fullName}</strong>
+                    <small>{user.email}</small>
+                  </div>
+                  <span>{user.tenant}</span>
+                  <span>{roleLabel(user.role)}</span>
+                  <StatusBadge value={user.status} />
+                  <div className="sa-row-actions">
+                    <button className="sa-icon-btn" type="button" onClick={() => setSelectedUser(user)} aria-label={`${user.fullName} düzenle`}>
+                      <Pencil size={16} />
+                    </button>
+                    <button className="sa-icon-btn danger" type="button" onClick={() => void deleteGlobalUser(user)} aria-label={`${user.fullName} sil`}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {filteredUsers.length === 0 && <p className="empty-text">Aramaya uygun kullanıcı bulunamadı.</p>}
+            </div>
+          </div>
+        </section>
+
+        <aside className="sa-card user-edit-pane">
+          <PanelHeader kicker="Düzenleme" title={selectedUser?.fullName ?? "Kullanıcı seç"} icon={<UserCog size={22} />} />
+          <div className="sa-card-body">
+            {selectedUser ? (
+              <form className="sa-form-stack" onSubmit={(event) => void updateGlobalUser(event)}>
+                <label className="field">
+                  <span>Kurum</span>
+                  <div className="field-control">
+                    <Building2 size={17} />
+                    <select value={editForm.tenantId} onChange={(event) => setEditForm((form) => ({ ...form, tenantId: event.target.value }))} disabled={protectedSelection}>
+                      {institutions.map((institution) => (
+                        <option value={institution.id} key={institution.id}>
+                          {institution.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </label>
+                <label className="field">
+                  <span>E-posta</span>
+                  <div className="field-control">
+                    <Mail size={17} />
+                    <input value={editForm.email} onChange={(event) => setEditForm((form) => ({ ...form, email: event.target.value }))} type="email" disabled={protectedSelection} />
+                  </div>
+                </label>
+                <label className="field">
+                  <span>Ad soyad</span>
+                  <div className="field-control">
+                    <UserCog size={17} />
+                    <input value={editForm.fullName} onChange={(event) => setEditForm((form) => ({ ...form, fullName: event.target.value }))} disabled={protectedSelection} />
+                  </div>
+                </label>
+                <label className="field">
+                  <span>Rol</span>
+                  <div className="field-control">
+                    <ShieldCheck size={17} />
+                    <select value={editForm.role} onChange={(event) => setEditForm((form) => ({ ...form, role: event.target.value }))} disabled={protectedSelection}>
+                      <option value="principal">Müdür</option>
+                      <option value="guidance">Rehberlik</option>
+                      <option value="teacher">Öğretmen</option>
+                      <option value="guardian">Veli</option>
+                    </select>
+                  </div>
+                </label>
+                <label className="field">
+                  <span>Durum</span>
+                  <div className="field-control">
+                    <CheckCircle2 size={17} />
+                    <select value={editForm.status} onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value }))} disabled={protectedSelection}>
+                      <option value="active">Aktif</option>
+                      <option value="passive">Pasif</option>
+                    </select>
+                  </div>
+                </label>
+                {protectedSelection && <p className="empty-text">Süper admin hesabı sistem hesabıdır; bu ekranda değiştirilemez.</p>}
+                <div className="form-actions sa-form-actions-split">
+                  <button className="primary-action" type="submit" disabled={savingEdit || protectedSelection}>
+                    {savingEdit ? <Loader2 className="spin" size={18} /> : <Pencil size={18} />}
+                    Güncelle
+                  </button>
+                  <button className="ghost-action danger-text" type="button" onClick={() => void deleteGlobalUser(selectedUser)} disabled={savingEdit || protectedSelection}>
+                    <Trash2 size={18} />
+                    Pasifleştir
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <p className="empty-text">Düzenlemek için tablodan bir kullanıcı seç.</p>
+            )}
+          </div>
         </aside>
       </section>
     </section>
@@ -1413,134 +1550,135 @@ function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; onRefre
   }, [selectedTicket]);
 
   return (
-    <section className="support-page page-stack">
-      <section className="metric-board support-metrics">
+    <section className="sa-page-stack">
+      <section className="sa-kpi-row">
         <Metric icon={<Inbox size={21} />} label="Toplam talep" value={tickets.length} tone="sky" hint="ticket ve öneri" />
         <Metric icon={<MessageSquare size={21} />} label="Açık" value={openCount} tone="mint" hint="yanıt bekleyen" />
         <Metric icon={<Activity size={21} />} label="İncelemede" value={reviewCount} tone="amber" hint="destek ekibinde" />
         <Metric icon={<Flag size={21} />} label="Öncelikli" value={urgentCount} tone="coral" hint="yüksek/acil" />
       </section>
 
-      <section className="support-layout">
-        <section className="workspace-panel support-list-panel">
-          <div className="panel-header with-action">
-            <div>
-              <span className="section-kicker">Destek merkezi</span>
-              <h2>Şikayet, ticket, rapor ve öneriler</h2>
+      <section className="sa-split">
+        <section className="sa-card">
+          <PanelHeader
+            kicker="Destek merkezi"
+            title="Şikayet, ticket, rapor ve öneriler"
+            icon={<LifeBuoy size={22} />}
+            trailing={
+              <div className="sa-inline-controls">
+                <StatusBadge value="open" />
+                <StatusBadge value="in_review" />
+              </div>
+            }
+          />
+          <div className="sa-card-body">
+            <div className="sa-inline-controls sa-support-filters">
+              {[
+                ["all", "Tümü"],
+                ["open", "Açık"],
+                ["in_review", "İncelemede"],
+                ["resolved", "Çözüldü"],
+                ["closed", "Kapalı"]
+              ].map(([value, label]) => (
+                <button className={`sa-chip ${statusFilter === value ? "is-active" : ""}`} key={value} type="button" onClick={() => setStatusFilter(value)}>
+                  {label}
+                </button>
+              ))}
             </div>
-            <div className="control-badges">
-              <StatusBadge value="open" />
-              <StatusBadge value="in_review" />
-            </div>
-          </div>
 
-          <div className="support-filter-row">
-            {[
-              ["all", "Tümü"],
-              ["open", "Açık"],
-              ["in_review", "İncelemede"],
-              ["resolved", "Çözüldü"],
-              ["closed", "Kapalı"]
-            ].map(([value, label]) => (
-              <button
-                className={statusFilter === value ? "filter-chip active" : "filter-chip"}
-                key={value}
-                type="button"
-                onClick={() => setStatusFilter(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="data-table">
-            <div className="table-head support-grid">
-              <span>Talep</span>
-              <span>Kurum</span>
-              <span>Tip</span>
-              <span>Durum</span>
-              <span>Öncelik</span>
-            </div>
-            {filteredTickets.map((ticket) => (
-              <button
-                className={`table-row support-grid support-ticket-row ${selectedTicket?.id === ticket.id ? "selected-row" : ""}`}
-                key={ticket.id}
-                type="button"
-                onClick={() => setSelectedTicket(ticket)}
-              >
-                <div className="support-ticket-title">
-                  <div className="support-type-icon">{supportTypeIcon(ticket.type)}</div>
-                  <div>
-                    <strong>{ticket.subject}</strong>
-                    <small>{ticket.reporterName} · {new Date(ticket.createdAt).toLocaleString("tr-TR")}</small>
+            <div className="sa-data-grid">
+              <div className="sa-row-head sa-support-head">
+                <span>Talep</span>
+                <span>Kurum</span>
+                <span>Tip</span>
+                <span>Durum</span>
+                <span>Öncelik</span>
+              </div>
+              {filteredTickets.map((ticket) => (
+                <button
+                  className={`sa-row-body sa-support-row support-ticket-row ${selectedTicket?.id === ticket.id ? "sa-row-selected" : ""}`}
+                  key={ticket.id}
+                  type="button"
+                  onClick={() => setSelectedTicket(ticket)}
+                >
+                  <div className="support-ticket-cell">
+                    <div className="sa-type-icon">{supportTypeIcon(ticket.type)}</div>
+                    <div>
+                      <strong>{ticket.subject}</strong>
+                      <small>
+                        {ticket.reporterName} · {new Date(ticket.createdAt).toLocaleString("tr-TR")}
+                      </small>
+                    </div>
                   </div>
-                </div>
-                <span>{ticket.tenant}</span>
-                <StatusBadge value={ticket.type} />
-                <StatusBadge value={ticket.status} />
-                <StatusBadge value={ticket.priority} />
-              </button>
-            ))}
-            {filteredTickets.length === 0 && <p className="empty-text">Bu filtrede destek talebi yok.</p>}
+                  <span>{ticket.tenant}</span>
+                  <StatusBadge value={ticket.type} />
+                  <StatusBadge value={ticket.status} />
+                  <StatusBadge value={ticket.priority} />
+                </button>
+              ))}
+              {filteredTickets.length === 0 && <p className="empty-text">Bu filtrede destek talebi yok.</p>}
+            </div>
           </div>
         </section>
 
-        <aside className="workspace-panel support-detail-panel">
-          <PanelHeader kicker="İnceleme" title={selectedTicket?.subject ?? "Talep seç"} icon={<LifeBuoy size={20} />} />
-          {supportError && <div className="form-error workspace-error">{supportError}</div>}
-          {selectedTicket ? (
-            <div className="support-detail-stack">
-              <div className="support-message">
-                <div>
-                  <span>{selectedTicket.reporterName}</span>
-                  <strong>{selectedTicket.reporterEmail || selectedTicket.tenant}</strong>
+        <aside className="sa-card support-detail-pane">
+          <PanelHeader kicker="İnceleme" title={selectedTicket?.subject ?? "Talep seç"} icon={<LifeBuoy size={22} />} />
+          <div className="sa-card-body">
+            {supportError && <div className="form-error workspace-error sa-alert">{supportError}</div>}
+            {selectedTicket ? (
+              <div className="sa-form-stack">
+                <div className="sa-message-block">
+                  <div className="sa-message-meta">
+                    <span>{selectedTicket.reporterName}</span>
+                    <strong>{selectedTicket.reporterEmail || selectedTicket.tenant}</strong>
+                  </div>
+                  <p>{selectedTicket.message}</p>
                 </div>
-                <p>{selectedTicket.message}</p>
-              </div>
 
-              <form className="edit-user-form" onSubmit={(event) => void updateTicket(event)}>
-                <label className="field">
-                  <span>Durum</span>
-                  <div className="field-control">
-                    <CheckCircle2 size={17} />
-                    <select value={editForm.status} onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value }))}>
-                      <option value="open">Açık</option>
-                      <option value="in_review">İncelemede</option>
-                      <option value="resolved">Çözüldü</option>
-                      <option value="closed">Kapalı</option>
-                    </select>
-                  </div>
-                </label>
-                <label className="field">
-                  <span>Öncelik</span>
-                  <div className="field-control">
-                    <Flag size={17} />
-                    <select value={editForm.priority} onChange={(event) => setEditForm((form) => ({ ...form, priority: event.target.value }))}>
-                      <option value="low">Düşük</option>
-                      <option value="normal">Normal</option>
-                      <option value="high">Yüksek</option>
-                      <option value="urgent">Acil</option>
-                    </select>
-                  </div>
-                </label>
-                <label className="field">
-                  <span>İç not</span>
-                  <textarea
-                    value={editForm.internalNote}
-                    onChange={(event) => setEditForm((form) => ({ ...form, internalNote: event.target.value }))}
-                    rows={6}
-                    placeholder="Destek ekibinin göreceği inceleme notu"
-                  />
-                </label>
-                <button className="primary-action" type="submit" disabled={saving}>
-                  {saving ? <Loader2 className="spin" size={18} /> : <Pencil size={18} />}
-                  İncelemeyi kaydet
-                </button>
-              </form>
-            </div>
-          ) : (
-            <p className="empty-text">İncelemek için soldan bir destek talebi seç.</p>
-          )}
+                <form className="sa-form-stack" onSubmit={(event) => void updateTicket(event)}>
+                  <label className="field">
+                    <span>Durum</span>
+                    <div className="field-control">
+                      <CheckCircle2 size={17} />
+                      <select value={editForm.status} onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value }))}>
+                        <option value="open">Açık</option>
+                        <option value="in_review">İncelemede</option>
+                        <option value="resolved">Çözüldü</option>
+                        <option value="closed">Kapalı</option>
+                      </select>
+                    </div>
+                  </label>
+                  <label className="field">
+                    <span>Öncelik</span>
+                    <div className="field-control">
+                      <Flag size={17} />
+                      <select value={editForm.priority} onChange={(event) => setEditForm((form) => ({ ...form, priority: event.target.value }))}>
+                        <option value="low">Düşük</option>
+                        <option value="normal">Normal</option>
+                        <option value="high">Yüksek</option>
+                        <option value="urgent">Acil</option>
+                      </select>
+                    </div>
+                  </label>
+                  <label className="field">
+                    <span>İç not</span>
+                    <textarea
+                      value={editForm.internalNote}
+                      onChange={(event) => setEditForm((form) => ({ ...form, internalNote: event.target.value }))}
+                      rows={6}
+                      placeholder="Destek ekibinin göreceği inceleme notu"
+                    />
+                  </label>
+                  <button className="primary-action" type="submit" disabled={saving}>
+                    {saving ? <Loader2 className="spin" size={18} /> : <Pencil size={18} />}
+                    İncelemeyi kaydet
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <p className="empty-text">İncelemek için soldan bir destek talebi seç.</p>
+            )}
+          </div>
         </aside>
       </section>
     </section>
@@ -1549,65 +1687,77 @@ function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; onRefre
 
 function LogsPage({ auditLogs }: { auditLogs: AuditEntry[] }) {
   return (
-    <section className="logs-page">
-      <aside className="log-filter-panel">
-        <PanelHeader kicker="Filtre" title="Audit kapsamı" icon={<SlidersHorizontal size={20} />} />
-        <button className="filter-chip active" type="button">Tüm loglar</button>
-        <button className="filter-chip" type="button">Hassas öğrenci</button>
-        <button className="filter-chip" type="button">Sistem</button>
-        <button className="filter-chip" type="button">Operasyon</button>
-      </aside>
+    <section className="sa-page-stack">
+      <div className="sa-logs-layout">
+        <aside className="sa-filter-panel">
+          <PanelHeader kicker="Filtre" title="Audit kapsamı" icon={<SlidersHorizontal size={22} />} />
+          <button className="sa-chip is-active" type="button">
+            Tüm loglar
+          </button>
+          <button className="sa-chip" type="button">
+            Hassas öğrenci
+          </button>
+          <button className="sa-chip" type="button">
+            Sistem
+          </button>
+          <button className="sa-chip" type="button">
+            Operasyon
+          </button>
+        </aside>
 
-      <section className="workspace-panel audit-timeline-panel">
-        <PanelHeader kicker="Audit" title="Sistem logları" icon={<FileClock size={20} />} />
-        <div className="audit-timeline">
-          {auditLogs.map((entry) => (
-            <article className="audit-row" key={entry.id}>
-              <div className="audit-icon">
-                <Database size={18} />
-              </div>
-              <div>
-                <strong>{entry.action}</strong>
-                <span>{entry.tenant} · {entry.actor} · {entry.resourceType}</span>
-              </div>
-              <div className="audit-meta">
-                <SensitivityBadge value={entry.sensitivity} />
-                <small>{new Date(entry.createdAt).toLocaleString("tr-TR")}</small>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+        <section className="sa-card">
+          <PanelHeader kicker="Audit" title="Sistem logları" icon={<FileClock size={22} />} />
+          <div className="sa-card-body">
+            <div className="sa-audit-stack">
+              {auditLogs.map((entry) => (
+                <div className="sa-audit-item" key={entry.id}>
+                  <div className="sa-audit-icon">
+                    <Database size={18} />
+                  </div>
+                  <div>
+                    <strong>{entry.action}</strong>
+                    <span className="sa-audit-sub">
+                      {entry.tenant} · {entry.actor} · {entry.resourceType}
+                    </span>
+                  </div>
+                  <div className="sa-audit-meta">
+                    <SensitivityBadge value={entry.sensitivity} />
+                    <small>{new Date(entry.createdAt).toLocaleString("tr-TR")}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
     </section>
   );
 }
 
 function ModulesPage({ modules }: { modules: ModuleStatus[] }) {
   return (
-    <section className="modules-page page-stack">
-      <div className="module-control-strip">
+    <section className="sa-page-stack">
+      <div className="sa-strip">
         <div>
-          <span className="section-kicker">Modül kontrolü</span>
+          <span className="sa-kicker">Modül kontrolü</span>
           <h2>Ürün yüzeyleri ve servis sağlığı</h2>
         </div>
-        <div className="control-badges">
+        <div className="sa-inline-controls">
           <StatusBadge value="operational" />
           <StatusBadge value="planned" />
         </div>
       </div>
 
-      <section className="module-grid">
+      <section className="sa-module-grid">
         {modules.map((module) => (
-          <article className="module-card" key={module.name}>
-            <div className="module-icon">
-              {moduleIcon(module.name)}
-            </div>
+          <div className="sa-module-card" key={module.name}>
+            <div className="sa-module-icon">{moduleIcon(module.name)}</div>
             <div>
               <strong>{module.name}</strong>
               <p>{module.description}</p>
             </div>
             <StatusBadge value={module.status} />
-          </article>
+          </div>
         ))}
       </section>
     </section>
@@ -1671,41 +1821,43 @@ function SettingsPage({
   }, [settings]);
 
   return (
-    <section className="settings-page page-stack">
-      <section className="settings-hero">
+    <section className="sa-page-stack">
+      <section className="sa-settings-hero">
         <div>
-          <span className="section-kicker">Sistem ayarları</span>
+          <span className="sa-kicker">Sistem ayarları</span>
           <h2>Entegrasyon anahtarları ve bakım modu</h2>
         </div>
-        <div className={maintenanceEnabled ? "maintenance-state enabled" : "maintenance-state"}>
+        <div className={maintenanceEnabled ? "sa-maint-pill enabled" : "sa-maint-pill"}>
           <Power size={18} />
           {maintenanceEnabled ? "Bakım açık" : "Bakım kapalı"}
         </div>
       </section>
 
-      {settingsError && <div className="form-error workspace-error">{settingsError}</div>}
+      {settingsError && <div className="form-error workspace-error sa-alert">{settingsError}</div>}
 
-      <form className="settings-grid" onSubmit={(event) => void saveSettings(event)}>
-        <section className="workspace-panel maintenance-settings-panel">
-          <PanelHeader kicker="Bakım" title="Bakım modu" icon={<Power size={20} />} />
-          <label className="toggle-row">
-            <input type="checkbox" checked={maintenanceEnabled} onChange={(event) => setMaintenanceEnabled(event.target.checked)} />
-            <span />
-            <strong>{maintenanceEnabled ? "Aktif" : "Pasif"}</strong>
-          </label>
-          <label className="field">
-            <span>Bakım mesajı</span>
-            <textarea value={maintenanceMessage} onChange={(event) => setMaintenanceMessage(event.target.value)} rows={5} />
-          </label>
-          <div className="settings-meta">
-            <span>Son güncelleme</span>
-            <strong>{settings?.maintenance.updatedAt ? new Date(settings.maintenance.updatedAt).toLocaleString("tr-TR") : "-"}</strong>
+      <form className="sa-settings-grid" onSubmit={(event) => void saveSettings(event)}>
+        <section className="sa-card">
+          <PanelHeader kicker="Bakım" title="Bakım modu" icon={<Power size={22} />} />
+          <div className="sa-card-body">
+            <label className="toggle-row">
+              <input type="checkbox" checked={maintenanceEnabled} onChange={(event) => setMaintenanceEnabled(event.target.checked)} />
+              <span />
+              <strong>{maintenanceEnabled ? "Aktif" : "Pasif"}</strong>
+            </label>
+            <label className="field">
+              <span>Bakım mesajı</span>
+              <textarea value={maintenanceMessage} onChange={(event) => setMaintenanceMessage(event.target.value)} rows={5} />
+            </label>
+            <div className="sa-settings-meta">
+              <span>Son güncelleme</span>
+              <strong>{settings?.maintenance.updatedAt ? new Date(settings.maintenance.updatedAt).toLocaleString("tr-TR") : "-"}</strong>
+            </div>
           </div>
         </section>
 
-        <section className="workspace-panel credentials-settings-panel">
-          <PanelHeader kicker="Anahtarlar" title="Servis bağlantıları" icon={<KeyRound size={20} />} />
-          <div className="credential-settings-list">
+        <section className="sa-card">
+          <PanelHeader kicker="Anahtarlar" title="Servis bağlantıları" icon={<KeyRound size={22} />} />
+          <div className="sa-card-body sa-cred-list">
             {(settings?.credentials ?? []).map((credential) => (
               <CredentialEditor
                 credential={credential}
@@ -1719,7 +1871,7 @@ function SettingsPage({
           </div>
         </section>
 
-        <section className="settings-save-bar">
+        <section className="sa-save-bar" style={{ gridColumn: "1 / -1" }}>
           <button className="primary-action" type="submit" disabled={saving || !settings}>
             {saving ? <Loader2 className="spin" size={18} /> : <ShieldCheck size={18} />}
             Ayarları kaydet
@@ -1744,19 +1896,17 @@ function CredentialEditor({
   onClearChange: (value: boolean) => void;
 }) {
   return (
-    <article className="credential-editor">
-      <div className="credential-editor-icon">
-        {credentialIcon(credential.key)}
-      </div>
-      <div className="credential-editor-body">
-        <div className="credential-title-row">
+    <article className="sa-credential">
+      <div className="sa-cred-icon">{credentialIcon(credential.key)}</div>
+      <div className="sa-cred-rows">
+        <div className="sa-credential-title">
           <div>
             <strong>{credential.label}</strong>
-            <span>{credential.provider}</span>
+            <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "var(--sa-muted)" }}>{credential.provider}</span>
           </div>
           <StatusBadge value={credential.configured ? "configured" : "missing"} />
         </div>
-        <p>{credential.description}</p>
+        <p style={{ margin: 0, fontSize: 12, color: "var(--sa-muted)", lineHeight: 1.45 }}>{credential.description}</p>
         <div className="credential-input-row">
           <div className="field-control">
             <KeyRound size={17} />
@@ -1774,7 +1924,7 @@ function CredentialEditor({
             Temizle
           </label>
         </div>
-        <small>{credential.updatedAt ? new Date(credential.updatedAt).toLocaleString("tr-TR") : "Henüz kaydedilmedi"}</small>
+        <small style={{ color: "var(--sa-muted)", fontWeight: 600 }}>{credential.updatedAt ? new Date(credential.updatedAt).toLocaleString("tr-TR") : "Henüz kaydedilmedi"}</small>
       </div>
     </article>
   );
@@ -1803,97 +1953,117 @@ function SupportContactForm({ session }: { session: AuthSession }) {
   }
 
   return (
-    <section className="workspace-panel support-contact-panel">
-      <PanelHeader kicker="Destek ekibiyle iletişim" title="Bize ulaş" icon={<LifeBuoy size={20} />} />
-      <div className="support-contact-meta">
-        <span>{session.principal.name}</span>
-        <strong>{session.principal.email || roleLabel(session.principal.role)}</strong>
-      </div>
-      {result && <div className="form-success">{result}</div>}
-      {error && <div className="form-error">{error}</div>}
-      <form className="support-contact-form" onSubmit={(event) => void submit(event)}>
-        <label className="field">
-          <span>Talep tipi</span>
-          <div className="field-control">
-            <MessageSquare size={17} />
-            <select value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}>
-              <option value="support">Destek talebi</option>
-              <option value="complaint">Şikayet</option>
-              <option value="suggestion">Öneri</option>
-              <option value="report">Rapor / hata bildirimi</option>
-            </select>
-          </div>
-        </label>
-        <label className="field">
-          <span>Konu</span>
-          <div className="field-control">
-            <Inbox size={17} />
-            <input
-              value={form.subject}
-              onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
-              placeholder="Kısa konu başlığı"
-              maxLength={180}
+    <section className="sa-card support-contact-pane">
+      <PanelHeader kicker="Destek ekibiyle iletişim" title="Bize ulaş" icon={<LifeBuoy size={22} />} />
+      <div className="sa-card-body">
+        <div className="sa-contact-meta">
+          <span>{session.principal.name}</span>
+          <strong>{session.principal.email || roleLabel(session.principal.role)}</strong>
+        </div>
+        {result && <div className="form-success">{result}</div>}
+        {error && <div className="form-error">{error}</div>}
+        <form className="support-contact-form sa-form-stack" onSubmit={(event) => void submit(event)}>
+          <label className="field">
+            <span>Talep tipi</span>
+            <div className="field-control">
+              <MessageSquare size={17} />
+              <select value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}>
+                <option value="support">Destek talebi</option>
+                <option value="complaint">Şikayet</option>
+                <option value="suggestion">Öneri</option>
+                <option value="report">Rapor / hata bildirimi</option>
+              </select>
+            </div>
+          </label>
+          <label className="field">
+            <span>Konu</span>
+            <div className="field-control">
+              <Inbox size={17} />
+              <input
+                value={form.subject}
+                onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
+                placeholder="Kısa konu başlığı"
+                maxLength={180}
+                required
+              />
+            </div>
+          </label>
+          <label className="field">
+            <span>Mesaj</span>
+            <textarea
+              value={form.message}
+              onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+              placeholder="Yaşadığınız sorunu, önerinizi veya raporunuzu yazın"
+              rows={6}
+              maxLength={2500}
               required
             />
-          </div>
-        </label>
-        <label className="field">
-          <span>Mesaj</span>
-          <textarea
-            value={form.message}
-            onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
-            placeholder="Yaşadığınız sorunu, önerinizi veya raporunuzu yazın"
-            rows={6}
-            maxLength={2500}
-            required
-          />
-        </label>
-        <button className="primary-action" type="submit" disabled={loading}>
-          {loading ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
-          Destek ekibine ilet
-        </button>
-      </form>
+          </label>
+          <button className="primary-action" type="submit" disabled={loading}>
+            {loading ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
+            Destek ekibine ilet
+          </button>
+        </form>
+      </div>
     </section>
   );
 }
 
 function RoleFallback({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
   return (
-    <main className="fallback-page">
-      <section className="fallback-layout">
-        <div className="workspace-panel fallback-panel">
-          <PanelHeader kicker="Oturum" title="Bu kullanıcı süper admin değil" icon={<ShieldCheck size={20} />} />
-          <p>{session.principal.name} hesabı `{session.principal.role}` rolüyle giriş yaptı.</p>
-          <button className="ghost-action" type="button" onClick={onLogout}>
-            <LogOut size={18} />
-            Çıkış
-          </button>
-        </div>
+    <main className="fallback-shell">
+      <div className="fallback-grid">
+        <section className="sa-card">
+          <PanelHeader kicker="Oturum" title="Bu kullanıcı süper admin değil" icon={<ShieldCheck size={22} />} />
+          <div className="sa-card-body">
+            <p>
+              {session.principal.name} hesabı `{session.principal.role}` rolüyle giriş yaptı.
+            </p>
+            <button className="ghost-action" type="button" onClick={onLogout}>
+              <LogOut size={18} />
+              Çıkış
+            </button>
+          </div>
+        </section>
         <SupportContactForm session={session} />
-      </section>
+      </div>
     </main>
   );
 }
 
 function Metric({ icon, label, value, tone, hint }: { icon: ReactNode; label: string; value: string | number; tone: string; hint?: string }) {
+  const slate = tone === "sky";
   return (
-    <article className={`metric-card ${tone}`}>
-      <div className="metric-icon">{icon}</div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {hint && <small>{hint}</small>}
+    <article className={slate ? "sa-kpi sa-kpi--slate" : "sa-kpi"}>
+      <div className="sa-kpi-icon">{icon}</div>
+      <label>{label}</label>
+      <span className="sa-kpi-value">{value}</span>
+      {hint ? <span className="sa-kpi-hint">{hint}</span> : null}
     </article>
   );
 }
 
-function PanelHeader({ kicker, title, icon }: { kicker: string; title: string; icon: ReactNode }) {
+function PanelHeader({
+  kicker,
+  title,
+  icon,
+  trailing
+}: {
+  kicker: string;
+  title: string;
+  icon: ReactNode;
+  trailing?: ReactNode;
+}) {
   return (
-    <div className="panel-header">
+    <div className="sa-panel-header sa-panel-header--action">
       <div>
-        <span className="section-kicker">{kicker}</span>
+        <span className="sa-kicker">{kicker}</span>
         <h2>{title}</h2>
       </div>
-      {icon}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {trailing}
+        {icon}
+      </div>
     </div>
   );
 }
@@ -1912,21 +2082,13 @@ function SensitivityBadge({ value }: { value: string }) {
 
 function MiniStat({ label, value, icon }: { label: string; value: string | number; icon: ReactNode }) {
   return (
-    <article className="mini-stat">
-      <div>{icon}</div>
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <article className="sa-mini-card">
+      <div className="sa-mini-card-icon">{icon}</div>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
     </article>
-  );
-}
-
-function ReleaseStep({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="release-step">
-      <CheckCircle2 size={18} />
-      <span>{label}</span>
-      <strong>{statusLabel(value)}</strong>
-    </div>
   );
 }
 
