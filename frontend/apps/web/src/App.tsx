@@ -78,7 +78,7 @@ import {
   storeAuthSession
 } from "./lib/api";
 
-const chartPalette = ["#f9a51b", "#fac95a", "#6b8f86", "#919a9f", "#cfd3d8", "#e8dcd0"];
+const chartPalette = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#f43f5e", "#0ea5e9"];
 
 type SuperAdminState = {
   overview?: SuperAdminOverview;
@@ -494,7 +494,7 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
   return (
     <section className="sa-overview">
       <div className="sa-kpi-row">
-        <article className="sa-kpi">
+        <article className="sa-kpi sa-kpi--blue">
           <div className="sa-kpi-icon">
             <Building2 size={20} />
           </div>
@@ -502,7 +502,7 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
           <span className="sa-kpi-value">{overview?.institutions ?? 0}</span>
           <span className="sa-kpi-hint">Aktif tenant sayısı.</span>
         </article>
-        <article className="sa-kpi sa-kpi--slate">
+        <article className="sa-kpi sa-kpi--purple">
           <div className="sa-kpi-icon">
             <UsersRound size={20} />
           </div>
@@ -510,7 +510,7 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
           <span className="sa-kpi-value">{overview?.activeUsers ?? 0}</span>
           <span className="sa-kpi-hint">Oturum tabanlı aktivite.</span>
         </article>
-        <article className="sa-kpi">
+        <article className="sa-kpi sa-kpi--green">
           <div className="sa-kpi-icon">
             <Activity size={20} />
           </div>
@@ -518,7 +518,7 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
           <span className="sa-kpi-value">{formatTRY(overview?.monthlyRevenueTry ?? 0)}</span>
           <span className="sa-kpi-hint">TAH mini lisans özet.</span>
         </article>
-        <article className="sa-kpi sa-kpi--slate">
+        <article className="sa-kpi sa-kpi--rose">
           <div className="sa-kpi-icon">
             <ShieldCheck size={20} />
           </div>
@@ -543,15 +543,15 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
                 <AreaChart data={usageChartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                   <defs>
                     <linearGradient id="saUsageFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#fac95a" stopOpacity={0.85} />
-                      <stop offset="100%" stopColor="#f9a51b" stopOpacity={0.05} />
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.85} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.05} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e2" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#919a9f" }} axisLine={{ stroke: "#dbdbd9" }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#919a9f" }} axisLine={{ stroke: "#dbdbd9" }} />
                   <Tooltip contentStyle={{ borderRadius: 10, borderColor: "#dbdbd9" }} />
-                  <Area type="monotone" dataKey="value" stroke="#f9a51b" strokeWidth={2} fill="url(#saUsageFill)" name="%" />
+                  <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} fill="url(#saUsageFill)" name="%" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -669,7 +669,7 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
                   <XAxis type="number" tick={{ fontSize: 11, fill: "#919a9f" }} />
                   <YAxis type="category" dataKey="name" width={88} tick={{ fontSize: 10, fill: "#919a9f" }} />
                   <Tooltip />
-                  <Bar dataKey="ms" fill="#6b8f86" radius={[0, 6, 6, 0]} name="ms" />
+                  <Bar dataKey="ms" fill="#8b5cf6" radius={[0, 6, 6, 0]} name="ms" />
                 </BarChart>
               </ResponsiveContainer>
             </div>

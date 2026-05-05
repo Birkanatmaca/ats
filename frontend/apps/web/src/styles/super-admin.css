@@ -306,6 +306,50 @@
   background: linear-gradient(180deg, var(--sa-accent-2), var(--sa-accent));
 }
 
+.sa-kpi--purple {
+  background: linear-gradient(160deg, #fdfbfe 0%, #f8f5fc 100%);
+}
+.sa-kpi--purple::before {
+  background: linear-gradient(180deg, #d8b4fe, #a855f7);
+}
+.sa-kpi--purple .sa-kpi-icon {
+  background: rgba(168, 85, 247, 0.15);
+  color: #7e22ce;
+}
+
+.sa-kpi--blue {
+  background: linear-gradient(160deg, #f8fbfe 0%, #f4f8fd 100%);
+}
+.sa-kpi--blue::before {
+  background: linear-gradient(180deg, #93c5fd, #3b82f6);
+}
+.sa-kpi--blue .sa-kpi-icon {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+}
+
+.sa-kpi--green {
+  background: linear-gradient(160deg, #f8fdfa 0%, #f2fbf6 100%);
+}
+.sa-kpi--green::before {
+  background: linear-gradient(180deg, #86efac, #22c55e);
+}
+.sa-kpi--green .sa-kpi-icon {
+  background: rgba(34, 197, 94, 0.15);
+  color: #15803d;
+}
+
+.sa-kpi--rose {
+  background: linear-gradient(160deg, #fefbfb 0%, #fdf5f6 100%);
+}
+.sa-kpi--rose::before {
+  background: linear-gradient(180deg, #fda4af, #ef4444);
+}
+.sa-kpi--rose .sa-kpi-icon {
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+}
+
 .sa-kpi--slate {
   background: linear-gradient(160deg, #f6f6f4 0%, #f0f0ee 100%);
 }
@@ -321,7 +365,7 @@
   place-items: center;
   border-radius: 12px;
   background: rgba(249, 165, 27, 0.15);
-  color: var(--sa-ink);
+  color: var(--sa-accent);
   margin-bottom: 10px;
 }
 
