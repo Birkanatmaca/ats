@@ -528,8 +528,8 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
         </article>
       </div>
 
-      <div className="sa-dash-grid">
-        <div className="sa-card">
+      <div className="sa-two-col">
+        <div className="sa-card" style={{ display: "flex", flexDirection: "column" }}>
           <div className="sa-panel-header">
             <div>
               <span className="sa-kicker">Kullanım</span>
@@ -537,8 +537,8 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
             </div>
             <Activity size={22} color="var(--sa-accent)" />
           </div>
-          <div className="sa-card-body">
-            <div className="sa-chart-frame">
+          <div className="sa-card-body" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            <div className="sa-chart-frame" style={{ flex: 1, height: "auto", minHeight: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={usageChartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                   <defs>
@@ -558,61 +558,23 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
           </div>
         </div>
 
-        <aside className="sa-insights">
-          <div className="sa-card">
-            <div className="sa-panel-header">
-              <div>
-                <span className="sa-kicker">Operasyon</span>
-                <h2>Anlık görünüm</h2>
-              </div>
-              <ServerCog size={20} />
+        <div className="sa-card" style={{ display: "flex", flexDirection: "column" }}>
+          <div className="sa-panel-header sa-panel-header--action">
+            <div>
+              <span className="sa-kicker">Sistem sağlığı</span>
+              <h2>Altyapı Durumu</h2>
             </div>
-            <div className="sa-card-body">
-              <div className="sa-chip-row">
-                <div className="sa-stat-mini">
-                  <span>Uyarılı servis</span>
-                  <strong>{warningServices}</strong>
-                </div>
-                <div className="sa-stat-mini">
-                  <span>Ortalama kaynak %</span>
-                  <strong>{avgResource}</strong>
-                </div>
-                <div className="sa-stat-mini">
-                  <span>Açık iş</span>
-                  <strong>{incidents.length}</strong>
-                </div>
-              </div>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--sa-muted)", lineHeight: 1.45 }}>
-                Grafikler gerçek zamanlı API verisini yansıtır; servis gecikmesi ve kaynak dağılımı alt kartlarda detaylanır.
-              </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 11, color: "var(--sa-muted)", fontWeight: 600 }}>
+                {systemMetrics?.updatedAt ? new Date(systemMetrics.updatedAt).toLocaleTimeString("tr-TR") : "--:--"}
+              </span>
+              <ServerCog size={20} color="var(--sa-accent)" />
             </div>
           </div>
-          <div className="sa-card">
-            <div className="sa-panel-header">
-              <div>
-                <span className="sa-kicker">Eğitim KPI</span>
-                <h2>Yol haritası</h2>
-              </div>
-              <GraduationCap size={20} />
-            </div>
-            <div className="sa-card-body">
-              <ul className="sa-list-plain">
-                <li>
-                  <span>Bu çeyrek onboarding</span>
-                  <strong>12 kurum</strong>
-                </li>
-                <li>
-                  <span>Yayın planı</span>
-                  <strong>2 modül</strong>
-                </li>
-                <li>
-                  <span>Destek SLA</span>
-                  <strong>&lt; 2 saat</strong>
-                </li>
-              </ul>
-            </div>
+          <div className="sa-card-body" style={{ flex: 1 }}>
+            <SystemOperationsPanel metrics={systemMetrics} />
           </div>
-        </aside>
+        </div>
       </div>
 
       <div className="sa-two-col">
@@ -715,21 +677,60 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
         </div>
       </div>
 
-      <div className="sa-card">
-        <div className="sa-panel-header sa-panel-header--action">
-          <div>
-            <span className="sa-kicker">Sistem sağlığı</span>
-            <h2>Altyapı Durumu</h2>
+      <div className="sa-two-col">
+        <div className="sa-card">
+          <div className="sa-panel-header">
+            <div>
+              <span className="sa-kicker">Operasyon</span>
+              <h2>Anlık görünüm</h2>
+            </div>
+            <ServerCog size={20} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 11, color: "var(--sa-muted)", fontWeight: 600 }}>
-              {systemMetrics?.updatedAt ? new Date(systemMetrics.updatedAt).toLocaleTimeString("tr-TR") : "--:--"}
-            </span>
-            <ServerCog size={20} color="var(--sa-accent)" />
+          <div className="sa-card-body">
+            <div className="sa-chip-row">
+              <div className="sa-stat-mini">
+                <span>Uyarılı servis</span>
+                <strong>{warningServices}</strong>
+              </div>
+              <div className="sa-stat-mini">
+                <span>Ortalama kaynak %</span>
+                <strong>{avgResource}</strong>
+              </div>
+              <div className="sa-stat-mini">
+                <span>Açık iş</span>
+                <strong>{incidents.length}</strong>
+              </div>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--sa-muted)", lineHeight: 1.45 }}>
+              Grafikler gerçek zamanlı API verisini yansıtır; servis gecikmesi ve kaynak dağılımı alt kartlarda detaylanır.
+            </p>
           </div>
         </div>
-        <div className="sa-card-body">
-          <SystemOperationsPanel metrics={systemMetrics} />
+
+        <div className="sa-card">
+          <div className="sa-panel-header">
+            <div>
+              <span className="sa-kicker">Eğitim KPI</span>
+              <h2>Yol haritası</h2>
+            </div>
+            <GraduationCap size={20} />
+          </div>
+          <div className="sa-card-body">
+            <ul className="sa-list-plain">
+              <li>
+                <span>Bu çeyrek onboarding</span>
+                <strong>12 kurum</strong>
+              </li>
+              <li>
+                <span>Yayın planı</span>
+                <strong>2 modül</strong>
+              </li>
+              <li>
+                <span>Destek SLA</span>
+                <strong>&lt; 2 saat</strong>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>
