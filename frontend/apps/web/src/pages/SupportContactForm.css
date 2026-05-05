@@ -1,0 +1,20 @@
+.support-contact-pane .sa-contact-meta {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(249, 165, 27, 0.25);
+  background: rgba(250, 201, 90, 0.12);
+}
+
+.support-contact-pane .sa-contact-meta span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--sa-muted);
+}
+
+.support-contact-pane .sa-contact-meta strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+}

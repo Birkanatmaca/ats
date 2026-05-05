@@ -1467,42 +1467,6 @@
   background: var(--sa-accent);
 }
 
-.fallback-shell {
-  min-height: 100vh;
-  background: linear-gradient(180deg, var(--sa-bg), #efefeb);
-}
-
-.fallback-grid {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 32px 20px;
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(340px, 1.2fr);
-  gap: 20px;
-  align-items: start;
-}
-
-.support-contact-pane .sa-contact-meta {
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(249, 165, 27, 0.25);
-  background: rgba(250, 201, 90, 0.12);
-}
-
-.support-contact-pane .sa-contact-meta span {
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--sa-muted);
-}
-
-.support-contact-pane .sa-contact-meta strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 13px;
-}
-
 .support-ticket-cell small {
   display: block;
   margin-top: 4px;
@@ -2267,10 +2231,6 @@
 
   .sa-detail-hero-loading {
     display: none;
-  }
-
-  .fallback-grid {
-    grid-template-columns: 1fr;
   }
 
   .sa-filter-panel,
