@@ -42,7 +42,7 @@ export function InstitutionsListPage({
   }
 
   return (
-    <section className="sa-page-stack">
+    <section className="sa-page-stack institutions-list-page">
       <div className="sa-kpi-row sa-inst-summary" style={{ marginBottom: "4px" }}>
         <article className="sa-kpi sa-kpi--blue">
           <div className="sa-kpi-icon">

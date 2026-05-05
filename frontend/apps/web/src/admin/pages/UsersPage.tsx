@@ -14,7 +14,8 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
   const [query, setQuery] = useState("");
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [createForm, setCreateForm] = useState({ tenantId: institutions[0]?.id ?? "", email: "", fullName: "", role: "principal" });
-  const [selectedUser, setSelectedUser] = useState<UserAccount | null>(users[0] ?? null);
+  const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
   const [editForm, setEditForm] = useState({ tenantId: "", email: "", fullName: "", role: "principal", status: "active" });
   const [credential, setCredential] = useState<CreatedUserCredential | null>(null);
   const [savingCreate, setSavingCreate] = useState(false);
@@ -27,7 +28,7 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
     const value = `${user.fullName} ${user.email} ${user.tenant} ${user.role} ${user.status}`.toLowerCase();
     return value.includes(query.toLowerCase().trim());
   });
-  const protectedSelection = selectedUser?.role === "super_admin";
+  const protectedSelection = editingUser?.role === "super_admin";
 
   async function createGlobalUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,14 +51,15 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
 
   async function updateGlobalUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedUser || protectedSelection) {
+    if (!editingUser || protectedSelection) {
       return;
     }
     setSavingEdit(true);
     setUserError(null);
     try {
-      const updated = await api.updateSuperAdminUser(selectedUser.id, editForm);
+      const updated = await api.updateSuperAdminUser(editingUser.id, editForm);
       setSelectedUser(updated);
+      setEditingUser(null);
       await onRefresh();
     } catch (updateError) {
       setUserError(updateError instanceof Error ? updateError.message : "Kullanıcı güncellenemedi.");
@@ -95,34 +97,46 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
   }, [createForm.tenantId, institutions]);
 
   useEffect(() => {
-    if (!selectedUser && users[0]) {
-      setSelectedUser(users[0]);
-      return;
-    }
     if (selectedUser) {
       const fresh = users.find((user) => user.id === selectedUser.id && user.tenantId === selectedUser.tenantId);
-      if (fresh && fresh !== selectedUser) {
+      if (!fresh) {
+        setSelectedUser(null);
+      } else if (fresh !== selectedUser) {
         setSelectedUser(fresh);
       }
     }
   }, [users, selectedUser]);
 
   useEffect(() => {
-    if (!selectedUser) {
+    if (!editingUser) {
+      return;
+    }
+    const fresh = users.find((user) => user.id === editingUser.id && user.tenantId === editingUser.tenantId);
+    if (!fresh) {
+      setEditingUser(null);
+      return;
+    }
+    if (fresh !== editingUser) {
+      setEditingUser(fresh);
+    }
+  }, [users, editingUser]);
+
+  useEffect(() => {
+    if (!editingUser) {
       return;
     }
     setEditForm({
-      tenantId: selectedUser.tenantId,
-      email: selectedUser.email,
-      fullName: selectedUser.fullName,
-      role: selectedUser.role === "super_admin" ? "principal" : selectedUser.role,
-      status: selectedUser.status === "passive" ? "passive" : "active"
+      tenantId: editingUser.tenantId,
+      email: editingUser.email,
+      fullName: editingUser.fullName,
+      role: editingUser.role === "super_admin" ? "principal" : editingUser.role,
+      status: editingUser.status === "passive" ? "passive" : "active"
     });
-  }, [selectedUser]);
+  }, [editingUser]);
 
   return (
-    <section className="sa-page-stack">
-      <div className="sa-kpi-row" style={{ marginBottom: "4px" }}>
+    <section className="sa-page-stack users-page">
+      <div className="users-page-kpis">
         <article className="sa-kpi sa-kpi--blue">
           <div className="sa-kpi-icon">
             <UsersRound size={20} />
@@ -151,9 +165,6 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
           <label>Kurum kapsamı</label>
           <span className="sa-kpi-value">{institutions.length}</span>
         </article>
-      </div>
-
-      <div className="sa-kpi-row" style={{ marginBottom: "14px" }}>
         {roles.slice(0, 4).map((role, index) => {
           const colors = ["sa-kpi--slate", "sa-kpi--slate", "sa-kpi--slate", "sa-kpi--slate"];
           return (
@@ -227,7 +238,16 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
                 <span>{roleLabel(user.role)}</span>
                 <StatusBadge value={user.status} />
                 <div className="sa-row-actions">
-                  <button className="sa-icon-btn" type="button" onClick={() => setSelectedUser(user)} aria-label={`${user.fullName} düzenle`}>
+                  <button
+                    className="sa-icon-btn"
+                    type="button"
+                    onClick={() => {
+                      setUserError(null);
+                      setSelectedUser(user);
+                      setEditingUser(user);
+                    }}
+                    aria-label={`${user.fullName} düzenle`}
+                  >
                     <Pencil size={16} />
                   </button>
                   <button className="sa-icon-btn danger" type="button" onClick={() => void deleteGlobalUser(user)} aria-label={`${user.fullName} sil`} disabled={user.role === "super_admin"}>
@@ -295,7 +315,16 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
         </form>
       </Modal>
 
-      <Modal open={Boolean(selectedUser)} onClose={() => setSelectedUser(null)} title="Kullanıcı düzenle" kicker={selectedUser?.fullName ?? ""} icon={<Pencil size={20} />}>
+      <Modal
+        open={editingUser !== null}
+        onClose={() => {
+          setEditingUser(null);
+          setUserError(null);
+        }}
+        title="Kullanıcı düzenle"
+        kicker={editingUser?.fullName ?? ""}
+        icon={<Pencil size={20} />}
+      >
         {userError && <div className="form-error">{userError}</div>}
         <form className="sa-modal-form" onSubmit={(event) => void updateGlobalUser(event)}>
           <label className="field">
@@ -349,7 +378,14 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
           </label>
           {protectedSelection && <p className="empty-text">Süper admin hesabı sistem hesabıdır; bu ekranda değiştirilemez.</p>}
           <div className="sa-modal-actions">
-            <button type="button" className="ghost-action" onClick={() => setSelectedUser(null)}>
+            <button
+              type="button"
+              className="ghost-action"
+              onClick={() => {
+                setEditingUser(null);
+                setUserError(null);
+              }}
+            >
               Vazgeç
             </button>
             <button className="primary-action" type="submit" disabled={savingEdit || protectedSelection}>

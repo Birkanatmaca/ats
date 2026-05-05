@@ -1,1 +1,16 @@
-/* Kullanıcılar — temel stiller styles/super-admin.css */
+/* Kullanıcılar — KPI şeridi tek satır (dar ekranda yatay kaydırma) */
+.users-page .users-page-kpis {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 14px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.users-page .users-page-kpis .sa-kpi {
+  flex: 1 1 0;
+  min-width: 132px;
+}
