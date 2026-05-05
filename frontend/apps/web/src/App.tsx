@@ -466,35 +466,136 @@ function SuperAdminConsole({
 }
 
 function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOverview; systemMetrics?: SystemMetrics }) {
+  const services = systemMetrics?.services ?? [];
+  const resources = systemMetrics?.resources ?? [];
+  const incidents = overview?.incidents ?? [];
+  const warningServices = services.filter((service) => service.status !== "healthy").length;
+  const avgResource = resources.length > 0 ? Math.round(resources.reduce((sum, item) => sum + item.value, 0) / resources.length) : 0;
+  const weekUsage = overview?.usage ?? [];
+
   return (
     <section className="dashboard-page">
-      <SystemOperationsPanel metrics={systemMetrics} />
-
       <section className="metric-board">
-        <Metric icon={<Building2 size={21} />} label="Kurum" value={overview?.institutions ?? 0} tone="mint" hint="aktif tenant" />
-        <Metric icon={<UsersRound size={21} />} label="Aktif kullanıcı" value={overview?.activeUsers ?? 0} tone="sky" hint="oturum ve davet" />
-        <Metric icon={<Activity size={21} />} label="Aylık gelir" value={formatTRY(overview?.monthlyRevenueTry ?? 0)} tone="amber" hint="lisans tahmini" />
-        <Metric icon={<ShieldCheck size={21} />} label="Güvenlik sinyali" value={overview?.openSecuritySignals ?? 0} tone="coral" hint="inceleme bekleyen" />
+        <article className="metric-card mint">
+          <div className="metric-icon">
+            <Building2 size={21} />
+          </div>
+          <span>Kurum</span>
+          <strong>{overview?.institutions ?? 0}</strong>
+          <small>Aktif tenant yapısı</small>
+          <div className="kpi-trend up">
+            <ArrowUpRight size={14} />
+            Son 30 günde yeni kayıt artışı
+          </div>
+        </article>
+        <article className="metric-card sky">
+          <div className="metric-icon">
+            <UsersRound size={21} />
+          </div>
+          <span>Aktif kullanıcı</span>
+          <strong>{overview?.activeUsers ?? 0}</strong>
+          <small>Oturum ve davet trafiği</small>
+          <div className="kpi-trend">
+            <Activity size={14} />
+            Günlük erişim dengeli
+          </div>
+        </article>
+        <article className="metric-card amber">
+          <div className="metric-icon">
+            <Activity size={21} />
+          </div>
+          <span>Aylık gelir</span>
+          <strong>{formatTRY(overview?.monthlyRevenueTry ?? 0)}</strong>
+          <small>Lisans tahmini ve yenileme</small>
+          <div className="kpi-trend up">
+            <ArrowUpRight size={14} />
+            Hedef bandına yakın
+          </div>
+        </article>
+        <article className="metric-card coral">
+          <div className="metric-icon">
+            <ShieldCheck size={21} />
+          </div>
+          <span>Güvenlik sinyali</span>
+          <strong>{overview?.openSecuritySignals ?? 0}</strong>
+          <small>İnceleme bekleyen kayıt</small>
+          <div className="kpi-trend">
+            <AlertCircle size={14} />
+            Önceliklendirme önerildi
+          </div>
+        </article>
       </section>
 
-      <section className="dashboard-grid">
-        <div className="workspace-panel activity-panel">
-          <PanelHeader kicker="Kullanım" title="Haftalık aktivite" icon={<Activity size={20} />} />
-          <div className="usage-chart">
-            {(overview?.usage ?? []).map((point) => (
-              <div className="usage-bar" key={point.label}>
-                <div style={{ height: `${point.value}%` }} />
-                <span>{point.label}</span>
-                <strong>{point.value}</strong>
-              </div>
-            ))}
+      <section className="dashboard-story-grid">
+        <div className="workspace-panel">
+          <div className="chart-card">
+            <div className="chart-header">
+              <strong>Haftalık platform aktivitesi</strong>
+              <span>Kullanım yoğunluğu</span>
+            </div>
+            <div className="usage-chart modern">
+              {weekUsage.map((point) => (
+                <div className="usage-bar" key={point.label}>
+                  <div style={{ height: `${point.value}%` }} />
+                  <span>{point.label}</span>
+                  <em>{point.value}%</em>
+                </div>
+              ))}
+              {weekUsage.length === 0 &&
+                ["Pzt", "Sal", "Car", "Per", "Cum", "Cmt", "Paz"].map((day) => (
+                  <div className="usage-bar" key={day}>
+                    <div style={{ height: "28%" }} />
+                    <span>{day}</span>
+                    <em>0%</em>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
 
+        <aside className="overview-insights">
+          <article className="summary-card">
+            <h3>Operasyon ozeti</h3>
+            <div className="summary-list">
+              <div className="summary-item">
+                <span>Servis uyarilari</span>
+                <strong>{warningServices}</strong>
+              </div>
+              <div className="summary-item">
+                <span>Ortalama kaynak kullanimi</span>
+                <strong>{avgResource}%</strong>
+              </div>
+              <div className="summary-item">
+                <span>Acik incident</span>
+                <strong>{incidents.length}</strong>
+              </div>
+            </div>
+          </article>
+          <article className="summary-card">
+            <h3>Egitim platform hedefi</h3>
+            <div className="summary-list">
+              <div className="summary-item">
+                <span>Bu ay hedef onboarding</span>
+                <strong>12 kurum</strong>
+              </div>
+              <div className="summary-item">
+                <span>Canliya alinacak modul</span>
+                <strong>2 planli surum</strong>
+              </div>
+              <div className="summary-item">
+                <span>Destek geri donus SLA</span>
+                <strong>2 saat</strong>
+              </div>
+            </div>
+          </article>
+        </aside>
+      </section>
+
+      <section className="dashboard-grid">
         <div className="workspace-panel incident-panel">
-          <PanelHeader kicker="İzleme" title="Açık teknik işler" icon={<ServerCog size={20} />} />
+          <PanelHeader kicker="Izleme" title="Acik teknik isler" icon={<ServerCog size={20} />} />
           <div className="incident-list">
-            {(overview?.incidents ?? []).map((incident) => (
+            {incidents.map((incident) => (
               <article className="incident-row" key={incident.id}>
                 <AlertCircle size={18} />
                 <div>
@@ -504,17 +605,26 @@ function OverviewPage({ overview, systemMetrics }: { overview?: SuperAdminOvervi
                 <SeverityBadge value={incident.severity} />
               </article>
             ))}
+            {incidents.length === 0 && <p className="empty-text">Acik incident kaydi bulunmuyor.</p>}
           </div>
         </div>
 
         <div className="workspace-panel release-panel">
-          <PanelHeader kicker="Yönetim" title="Operasyon özeti" icon={<Network size={20} />} />
+          <PanelHeader kicker="Yonetim" title="Operasyon adimlari" icon={<Network size={20} />} />
           <div className="release-list">
-            <ReleaseStep label="Platform sağlığı" value={systemMetrics?.health ?? "loading"} />
-            <ReleaseStep label="Kapasite izlemesi" value={(systemMetrics?.resources ?? []).some((metric) => metric.status !== "healthy") ? "warning" : "healthy"} />
-            <ReleaseStep label="Servis sürekliliği" value={(systemMetrics?.services ?? []).some((service) => service.status !== "healthy") ? "warning" : "healthy"} />
+            <ReleaseStep label="Platform sagligi" value={systemMetrics?.health ?? "loading"} />
+            <ReleaseStep label="Kapasite izlemesi" value={resources.some((metric) => metric.status !== "healthy") ? "warning" : "healthy"} />
+            <ReleaseStep label="Servis surekliligi" value={services.some((service) => service.status !== "healthy") ? "warning" : "healthy"} />
           </div>
         </div>
+      </section>
+
+      <section className="workspace-panel">
+        <div className="chart-header">
+          <strong>Canli kaynak ve servis durumu</strong>
+          <span>Teknik izleme alani</span>
+        </div>
+        <SystemOperationsPanel metrics={systemMetrics} />
       </section>
     </section>
   );
