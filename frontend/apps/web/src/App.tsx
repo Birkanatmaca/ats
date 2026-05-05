@@ -1,6 +1,7 @@
 import {
   Activity,
   AlertCircle,
+  ArrowLeft,
   ArrowUpRight,
   Blocks,
   Bot,
@@ -37,7 +38,8 @@ import {
   Send,
   Trash2,
   UserCog,
-  UsersRound
+  UsersRound,
+  X
 } from "lucide-react";
 import {
   Area,
@@ -56,6 +58,16 @@ import {
 } from "recharts";
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
+import {
+  Link,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams
+} from "react-router-dom";
 import {
   AuditEntry,
   AuthSession,
@@ -105,7 +117,7 @@ const tabs: Array<{ id: AdminTab; label: string; icon: ReactNode }> = [
 export function App() {
   const [session, setSession] = useState<AuthSession | null>(() => readAuthSession());
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showAdminLoginOnMaintenance, setShowAdminLoginOnMaintenance] = useState(false);
 
   useEffect(() => {
     api.systemStatus()
@@ -113,26 +125,103 @@ export function App() {
       .catch(() => setSystemStatus(null));
   }, []);
 
-  if (!session) {
-    if (systemStatus?.maintenance.enabled && !showAdminLogin) {
-      return <MaintenancePage status={systemStatus} onAdminLogin={() => setShowAdminLogin(true)} />;
-    }
-    return <LoginPage onLogin={setSession} />;
-  }
+  const homePath = session
+    ? session.principal.mustChangePassword
+      ? "/first-login"
+      : session.principal.role === "super_admin"
+        ? "/admin/overview"
+        : "/dashboard"
+    : "/login";
 
-  if (systemStatus?.maintenance.enabled && session.principal.role !== "super_admin") {
-    return <MaintenancePage status={systemStatus} onLogout={() => handleLogout(setSession)} />;
-  }
+  return (
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          session ? (
+            <Navigate to={homePath} replace />
+          ) : systemStatus?.maintenance.enabled && !showAdminLoginOnMaintenance ? (
+            <MaintenancePage status={systemStatus} onAdminLogin={() => setShowAdminLoginOnMaintenance(true)} />
+          ) : (
+            <LoginPage onLogin={setSession} />
+          )
+        }
+      />
 
-  if (session.principal.mustChangePassword) {
-    return <FirstLoginPasswordPage session={session} onSessionUpdated={setSession} onLogout={() => handleLogout(setSession)} />;
-  }
+      <Route
+        path="/maintenance"
+        element={
+          systemStatus ? (
+            session?.principal.role === "super_admin" && !session.principal.mustChangePassword ? (
+              <Navigate to="/admin/overview" replace />
+            ) : (
+              <MaintenancePage status={systemStatus} onLogout={session ? () => handleLogout(setSession) : undefined} />
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
 
-  if (session.principal.role === "super_admin") {
-    return <SuperAdminConsole session={session} onLogout={() => handleLogout(setSession)} onSystemStatusChange={setSystemStatus} />;
-  }
+      <Route
+        path="/first-login"
+        element={
+          !session ? (
+            <Navigate to="/login" replace />
+          ) : !session.principal.mustChangePassword ? (
+            <Navigate to={homePath} replace />
+          ) : (
+            <FirstLoginPasswordPage
+              session={session}
+              onSessionUpdated={setSession}
+              onLogout={() => handleLogout(setSession)}
+            />
+          )
+        }
+      />
 
-  return <RoleFallback session={session} onLogout={() => handleLogout(setSession)} />;
+      <Route
+        path="/admin/*"
+        element={
+          !session ? (
+            <Navigate to="/login" replace />
+          ) : session.principal.mustChangePassword ? (
+            <Navigate to="/first-login" replace />
+          ) : session.principal.role !== "super_admin" ? (
+            <Navigate to="/dashboard" replace />
+          ) : systemStatus?.maintenance.enabled && session.principal.role !== "super_admin" ? (
+            <Navigate to="/maintenance" replace />
+          ) : (
+            <SuperAdminConsole
+              session={session}
+              onLogout={() => handleLogout(setSession)}
+              onSystemStatusChange={setSystemStatus}
+            />
+          )
+        }
+      />
+
+      <Route
+        path="/dashboard"
+        element={
+          !session ? (
+            <Navigate to="/login" replace />
+          ) : systemStatus?.maintenance.enabled && session.principal.role !== "super_admin" ? (
+            <Navigate to="/maintenance" replace />
+          ) : session.principal.mustChangePassword ? (
+            <Navigate to="/first-login" replace />
+          ) : session.principal.role === "super_admin" ? (
+            <Navigate to="/admin/overview" replace />
+          ) : (
+            <RoleFallback session={session} onLogout={() => handleLogout(setSession)} />
+          )
+        }
+      />
+
+      <Route path="/" element={<Navigate to={homePath} replace />} />
+      <Route path="*" element={<Navigate to={homePath} replace />} />
+    </Routes>
+  );
 }
 
 function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void }) {
@@ -332,10 +421,14 @@ function SuperAdminConsole({
   onLogout: () => void;
   onSystemStatusChange: (status: SystemStatus) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [state, setState] = useState<SuperAdminState>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+
+  const subPath = location.pathname.replace(/^\/admin\/?/, "");
+  const activeTab = (subPath.split("/")[0] || "overview") as AdminTab;
+  const isInstitutionDetail = /^institutions\/[^/]+/.test(subPath);
 
   async function load() {
     setLoading(true);
@@ -382,6 +475,8 @@ function SuperAdminConsole({
     return () => window.clearInterval(timer);
   }, [activeTab]);
 
+  const showHeader = activeTab !== "overview" && !isInstitutionDetail;
+
   return (
     <div className="admin-shell">
       <header className="admin-navbar">
@@ -413,15 +508,15 @@ function SuperAdminConsole({
       <aside className="admin-sidebar">
         <nav className="admin-nav" aria-label="Süper admin menüsü">
           {tabs.map((tab) => (
-            <button
-              className={activeTab === tab.id ? "nav-button active" : "nav-button"}
+            <NavLink
+              className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")}
               key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
+              to={`/admin/${tab.id}`}
+              end={tab.id === "overview"}
             >
               {tab.icon}
               <span>{tab.label}</span>
-            </button>
+            </NavLink>
           ))}
         </nav>
 
@@ -436,7 +531,7 @@ function SuperAdminConsole({
 
       <main className={`admin-workspace ${activeTab}-workspace`}>
         <div className="sa-main">
-          {activeTab !== "overview" && (
+          {showHeader && (
             <header className="sa-page-header">
               <div>
                 <span className="sa-kicker">Süper admin</span>
@@ -454,15 +549,44 @@ function SuperAdminConsole({
             </div>
           )}
 
-          {activeTab === "overview" && <OverviewPage overview={state.overview} systemMetrics={state.systemMetrics} />}
-          {activeTab === "institutions" && <InstitutionsPage institutions={state.institutions ?? []} onRefresh={load} />}
-          {activeTab === "users" && <UsersPage users={state.users ?? []} institutions={state.institutions ?? []} onRefresh={load} />}
-          {activeTab === "support" && <SupportPage tickets={state.supportTickets ?? []} onRefresh={load} />}
-          {activeTab === "logs" && <LogsPage auditLogs={state.auditLogs ?? []} />}
-          {activeTab === "modules" && <ModulesPage modules={state.overview?.modules ?? []} />}
-          {activeTab === "settings" && (
-            <SettingsPage settings={state.settings} onRefresh={load} onSystemStatusChange={onSystemStatusChange} />
-          )}
+          <Routes>
+            <Route index element={<Navigate to="overview" replace />} />
+            <Route
+              path="overview"
+              element={<OverviewPage overview={state.overview} systemMetrics={state.systemMetrics} />}
+            />
+            <Route
+              path="institutions"
+              element={<InstitutionsListPage institutions={state.institutions ?? []} onRefresh={load} />}
+            />
+            <Route
+              path="institutions/:id"
+              element={<InstitutionDetailPage institutions={state.institutions ?? []} onRefresh={load} />}
+            />
+            <Route
+              path="users"
+              element={
+                <UsersPage users={state.users ?? []} institutions={state.institutions ?? []} onRefresh={load} />
+              }
+            />
+            <Route
+              path="support"
+              element={<SupportPage tickets={state.supportTickets ?? []} onRefresh={load} />}
+            />
+            <Route path="logs" element={<LogsPage auditLogs={state.auditLogs ?? []} />} />
+            <Route path="modules" element={<ModulesPage modules={state.overview?.modules ?? []} />} />
+            <Route
+              path="settings"
+              element={
+                <SettingsPage
+                  settings={state.settings}
+                  onRefresh={load}
+                  onSystemStatusChange={onSystemStatusChange}
+                />
+              }
+            />
+            <Route path="*" element={<Navigate to="overview" replace />} />
+          </Routes>
         </div>
       </main>
     </div>
@@ -810,332 +934,732 @@ function ServiceHealthRow({ service }: { service: ServiceMetric }) {
   );
 }
 
-function InstitutionsPage({ institutions, onRefresh }: { institutions: Institution[]; onRefresh: () => Promise<void> }) {
+function Modal({
+  open,
+  onClose,
+  title,
+  kicker,
+  icon,
+  children,
+  size = "md"
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  kicker?: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  size?: "sm" | "md" | "lg";
+}) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div
+      className="sa-modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className={`sa-modal sa-modal--${size}`}>
+        <div className="sa-modal-header">
+          <div className="sa-modal-heading">
+            {kicker && <span className="sa-kicker">{kicker}</span>}
+            <h2>
+              {icon && <span className="sa-modal-title-icon">{icon}</span>}
+              {title}
+            </h2>
+          </div>
+          <button className="sa-modal-close" type="button" aria-label="Kapat" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="sa-modal-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function planVariant(plan: string): string {
+  const key = plan.toLowerCase();
+  if (key.includes("mvp")) return "mvp";
+  if (key.includes("starter")) return "starter";
+  if (key.includes("growth")) return "growth";
+  if (key.includes("premium")) return "premium";
+  if (key.includes("trial")) return "trial";
+  return "default";
+}
+
+function roleVariant(role: string): string {
+  const key = role.toLowerCase();
+  if (key.includes("super")) return "super";
+  if (key.includes("system")) return "system";
+  if (key.includes("principal")) return "principal";
+  if (key.includes("guidance")) return "guidance";
+  if (key.includes("teacher")) return "teacher";
+  if (key.includes("guardian")) return "guardian";
+  return "default";
+}
+
+function initials(value: string): string {
+  return value
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR"))
+    .join("");
+}
+
+function InstitutionsListPage({
+  institutions,
+  onRefresh
+}: {
+  institutions: Institution[];
+  onRefresh: () => Promise<void>;
+}) {
+  const navigate = useNavigate();
   const totalStudents = institutions.reduce((sum, institution) => sum + institution.students, 0);
   const totalUsers = institutions.reduce((sum, institution) => sum + institution.users, 0);
-  const [selectedId, setSelectedId] = useState<string | null>(institutions[0]?.id ?? null);
-  const [detail, setDetail] = useState<InstitutionDetail | null>(null);
-  const [institutionUsers, setInstitutionUsers] = useState<UserAccount[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [showCreateInstitution, setShowCreateInstitution] = useState(false);
-  const [createInstitutionForm, setCreateInstitutionForm] = useState({ name: "", plan: "MVP", timezone: "Europe/Istanbul" });
-  const [createUserForm, setCreateUserForm] = useState({ email: "", fullName: "", role: "principal" });
-  const [credential, setCredential] = useState<CreatedUserCredential | null>(null);
-  const [savingInstitution, setSavingInstitution] = useState(false);
-  const [savingUser, setSavingUser] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: "", plan: "MVP", timezone: "Europe/Istanbul" });
+  const [saving, setSaving] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  async function loadInstitutionDetail(institutionId: string) {
+  async function createInstitution(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setCreateError(null);
+    try {
+      const created = await api.createSuperAdminInstitution(createForm);
+      setCreateForm({ name: "", plan: "MVP", timezone: "Europe/Istanbul" });
+      setShowCreate(false);
+      await onRefresh();
+      navigate(`/admin/institutions/${created.id}`);
+    } catch (createErr) {
+      setCreateError(createErr instanceof Error ? createErr.message : "Kurum oluşturulamadı.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="sa-page-stack">
+      <div className="sa-kpi-mini-row sa-inst-summary">
+        <MiniStat label="Toplam öğrenci" value={totalStudents} icon={<GraduationCap size={19} />} />
+        <MiniStat label="Toplam kullanıcı" value={totalUsers} icon={<UsersRound size={19} />} />
+        <MiniStat
+          label="Aktif kurum"
+          value={institutions.filter((item) => item.status === "active").length}
+          icon={<CheckCircle2 size={19} />}
+        />
+        <MiniStat label="Kayıtlı tenant" value={institutions.length} icon={<Building2 size={19} />} />
+      </div>
+
+      <div className="sa-inst-grid">
+        <button
+          type="button"
+          className="sa-inst-card sa-inst-card--add"
+          onClick={() => setShowCreate(true)}
+          aria-label="Yeni kurum ekle"
+        >
+          <div className="sa-inst-card-add-icon">
+            <Plus size={28} />
+          </div>
+          <strong>Yeni kurum ekle</strong>
+          <span>Kart şeklinde yeni bir tenant oluştur</span>
+        </button>
+
+        {institutions.map((institution) => {
+          const variant = planVariant(institution.plan);
+          return (
+            <Link
+              key={institution.id}
+              to={`/admin/institutions/${institution.id}`}
+              className={`sa-inst-card sa-inst-card--plan-${variant}`}
+            >
+              <div className="sa-inst-card-band" />
+              <div className="sa-inst-card-head">
+                <div className="sa-inst-card-icon">
+                  <Building2 size={22} />
+                </div>
+                <div className="sa-inst-card-badges">
+                  <span className={`sa-plan-badge sa-plan-badge--${variant}`}>{institution.plan}</span>
+                  <StatusBadge value={institution.status} />
+                </div>
+              </div>
+              <div className="sa-inst-card-body">
+                <h3>{institution.name}</h3>
+                <p className="sa-inst-card-meta">
+                  <Globe2 size={13} />
+                  <span>{institution.timezone}</span>
+                </p>
+              </div>
+              <div className="sa-inst-card-stats">
+                <div>
+                  <GraduationCap size={15} />
+                  <div>
+                    <span>Öğrenci</span>
+                    <strong>{institution.students}</strong>
+                  </div>
+                </div>
+                <div>
+                  <UsersRound size={15} />
+                  <div>
+                    <span>Kullanıcı</span>
+                    <strong>{institution.users}</strong>
+                  </div>
+                </div>
+              </div>
+              <div className="sa-inst-card-foot">
+                <span>
+                  son aktivite{" "}
+                  {new Date(institution.lastActivityAt).toLocaleTimeString("tr-TR", {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                  })}
+                </span>
+                <span className="sa-inst-card-cta">
+                  Detay
+                  <ArrowUpRight size={15} />
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      <Modal
+        open={showCreate}
+        onClose={() => {
+          setShowCreate(false);
+          setCreateError(null);
+        }}
+        title="Kurum oluştur"
+        kicker="Yeni tenant"
+        icon={<Building2 size={20} />}
+      >
+        {createError && <div className="form-error">{createError}</div>}
+        <form className="sa-modal-form" onSubmit={(event) => void createInstitution(event)}>
+          <label className="field">
+            <span>Kurum adı</span>
+            <div className="field-control">
+              <Building2 size={17} />
+              <input
+                value={createForm.name}
+                onChange={(event) => setCreateForm((form) => ({ ...form, name: event.target.value }))}
+                placeholder="Örn. Özel Deniz Koleji"
+                required
+                autoFocus
+              />
+            </div>
+          </label>
+          <label className="field">
+            <span>Plan</span>
+            <div className="field-control">
+              <Database size={17} />
+              <select
+                value={createForm.plan}
+                onChange={(event) => setCreateForm((form) => ({ ...form, plan: event.target.value }))}
+              >
+                <option value="MVP">MVP</option>
+                <option value="Starter">Starter</option>
+                <option value="Growth">Growth</option>
+                <option value="Premium">Premium</option>
+                <option value="Trial">Trial</option>
+              </select>
+            </div>
+          </label>
+          <label className="field">
+            <span>Zaman dilimi</span>
+            <div className="field-control">
+              <Globe2 size={17} />
+              <input
+                value={createForm.timezone}
+                onChange={(event) => setCreateForm((form) => ({ ...form, timezone: event.target.value }))}
+              />
+            </div>
+          </label>
+          <div className="sa-modal-actions">
+            <button
+              type="button"
+              className="ghost-action"
+              onClick={() => {
+                setShowCreate(false);
+                setCreateError(null);
+              }}
+            >
+              Vazgeç
+            </button>
+            <button className="primary-action" type="submit" disabled={saving}>
+              {saving ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
+              Kuruma oluştur
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </section>
+  );
+}
+
+function InstitutionDetailPage({
+  institutions,
+  onRefresh
+}: {
+  institutions: Institution[];
+  onRefresh: () => Promise<void>;
+}) {
+  const params = useParams<{ id: string }>();
+  const institutionId = params.id ?? "";
+  const navigate = useNavigate();
+
+  const [detail, setDetail] = useState<InstitutionDetail | null>(null);
+  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [credential, setCredential] = useState<CreatedUserCredential | null>(null);
+
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [createForm, setCreateForm] = useState({ email: "", fullName: "", role: "principal" });
+  const [savingCreate, setSavingCreate] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [editForm, setEditForm] = useState({
+    tenantId: "",
+    email: "",
+    fullName: "",
+    role: "principal",
+    status: "active"
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const fallbackInstitution = institutions.find((item) => item.id === institutionId);
+
+  async function loadDetail(id: string) {
     setDetailLoading(true);
     setDetailError(null);
     try {
-      const [institutionDetail, users] = await Promise.all([
-        api.superAdminInstitution(institutionId),
-        api.superAdminInstitutionUsers(institutionId)
+      const [institutionDetail, usersList] = await Promise.all([
+        api.superAdminInstitution(id),
+        api.superAdminInstitutionUsers(id)
       ]);
       setDetail(institutionDetail);
-      setInstitutionUsers(users);
+      setUsers(usersList);
     } catch (loadError) {
       setDetail(null);
-      setInstitutionUsers([]);
+      setUsers([]);
       setDetailError(loadError instanceof Error ? loadError.message : "Kurum detayları alınamadı.");
     } finally {
       setDetailLoading(false);
     }
   }
 
-  async function createInstitution(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSavingInstitution(true);
-    setDetailError(null);
-    try {
-      const created = await api.createSuperAdminInstitution(createInstitutionForm);
-      setCreateInstitutionForm({ name: "", plan: "MVP", timezone: "Europe/Istanbul" });
-      setShowCreateInstitution(false);
-      setSelectedId(created.id);
-      await onRefresh();
-      await loadInstitutionDetail(created.id);
-    } catch (createError) {
-      setDetailError(createError instanceof Error ? createError.message : "Kurum oluşturulamadı.");
-    } finally {
-      setSavingInstitution(false);
-    }
-  }
-
-  async function createInstitutionUser(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedId) {
+  useEffect(() => {
+    if (!institutionId) {
       return;
     }
-    setSavingUser(true);
-    setDetailError(null);
-    setCredential(null);
+    void loadDetail(institutionId);
+  }, [institutionId]);
+
+  useEffect(() => {
+    if (!editingUser) {
+      return;
+    }
+    setEditForm({
+      tenantId: editingUser.tenantId,
+      email: editingUser.email,
+      fullName: editingUser.fullName,
+      role: editingUser.role === "super_admin" ? "principal" : editingUser.role,
+      status: editingUser.status === "passive" ? "passive" : "active"
+    });
+    setEditError(null);
+  }, [editingUser]);
+
+  async function createUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!institutionId) {
+      return;
+    }
+    setSavingCreate(true);
+    setCreateError(null);
     try {
-      const created = await api.createSuperAdminInstitutionUser(selectedId, createUserForm);
+      const created = await api.createSuperAdminInstitutionUser(institutionId, createForm);
       setCredential(created);
-      setCreateUserForm({ email: "", fullName: "", role: "principal" });
-      const users = await api.superAdminInstitutionUsers(selectedId);
-      setInstitutionUsers(users);
+      setCreateForm({ email: "", fullName: "", role: "principal" });
+      setShowCreateUser(false);
+      const usersList = await api.superAdminInstitutionUsers(institutionId);
+      setUsers(usersList);
       await onRefresh();
-    } catch (createError) {
-      setDetailError(createError instanceof Error ? createError.message : "Kullanıcı oluşturulamadı.");
+    } catch (createErr) {
+      setCreateError(createErr instanceof Error ? createErr.message : "Kullanıcı oluşturulamadı.");
     } finally {
-      setSavingUser(false);
+      setSavingCreate(false);
     }
   }
 
-  useEffect(() => {
-    if (!selectedId && institutions[0]) {
-      setSelectedId(institutions[0].id);
+  async function updateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingUser) {
+      return;
     }
-  }, [institutions, selectedId]);
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await api.updateSuperAdminUser(editingUser.id, editForm);
+      const usersList = await api.superAdminInstitutionUsers(institutionId);
+      setUsers(usersList);
+      setEditingUser(null);
+      await onRefresh();
+    } catch (updateErr) {
+      setEditError(updateErr instanceof Error ? updateErr.message : "Kullanıcı güncellenemedi.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
-  useEffect(() => {
-    if (selectedId) {
-      void loadInstitutionDetail(selectedId);
+  async function deleteUser(user: UserAccount) {
+    if (user.role === "super_admin") {
+      setDetailError("Süper admin hesabı silinemez.");
+      return;
     }
-  }, [selectedId]);
+    const confirmed = window.confirm(`${user.fullName} hesabı pasifleştirilsin mi?`);
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await api.deleteSuperAdminUser(user.id, user.tenantId);
+      const usersList = await api.superAdminInstitutionUsers(institutionId);
+      setUsers(usersList);
+      await onRefresh();
+    } catch (deleteErr) {
+      setDetailError(deleteErr instanceof Error ? deleteErr.message : "Kullanıcı silinemedi.");
+    }
+  }
+
+  const headInstitution = detail ?? fallbackInstitution;
+  const variant = headInstitution ? planVariant(headInstitution.plan) : "default";
 
   return (
     <section className="sa-page-stack">
-      <div className="sa-tenant-top">
-        <div className="sa-card">
-          <PanelHeader
-            kicker="Tenant haritası"
-            title="Kurum ağı"
-            icon={<Building2 size={22} />}
-            trailing={
-              <button className="primary-action small-action" type="button" onClick={() => setShowCreateInstitution((value) => !value)}>
-                <Plus size={17} />
-                Kurum oluştur
-              </button>
-            }
-          />
-          <div className="sa-card-body">
-            <div className="tenant-map-flex">
-              {institutions.map((institution) => (
-                <button
-                  className={`tenant-chip ${selectedId === institution.id ? "selected" : ""}`}
-                  key={institution.id}
-                  type="button"
-                  onClick={() => setSelectedId(institution.id)}
-                >
-                  <Building2 size={18} />
-                  <strong>{institution.name}</strong>
-                  <span>{institution.students} öğrenci</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="sa-insights" style={{ gap: 10 }}>
-          <MiniStat label="Toplam öğrenci" value={totalStudents} icon={<GraduationCap size={19} />} />
-          <MiniStat label="Toplam kullanıcı" value={totalUsers} icon={<UsersRound size={19} />} />
-          <MiniStat label="Aktif kurum" value={institutions.filter((item) => item.status === "active").length} icon={<CheckCircle2 size={19} />} />
-        </div>
+      <div className="sa-detail-back">
+        <button type="button" className="sa-back-link" onClick={() => navigate("/admin/institutions")}>
+          <ArrowLeft size={16} />
+          Kurumlar
+        </button>
       </div>
 
-      {showCreateInstitution && (
-        <section className="sa-card">
-          <PanelHeader kicker="Yeni tenant" title="Kurum oluştur" icon={<Building2 size={22} />} />
-          <div className="sa-card-body">
-            <form className="inline-form sa-form-grid-four" onSubmit={(event) => void createInstitution(event)}>
-              <label className="field">
-                <span>Kurum adı</span>
-                <div className="field-control">
-                  <Building2 size={17} />
-                  <input
-                    value={createInstitutionForm.name}
-                    onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, name: event.target.value }))}
-                    placeholder="Örn. Özel Deniz Koleji"
-                    required
-                  />
-                </div>
-              </label>
-              <label className="field">
-                <span>Plan</span>
-                <div className="field-control">
-                  <Database size={17} />
-                  <select value={createInstitutionForm.plan} onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, plan: event.target.value }))}>
-                    <option value="MVP">MVP</option>
-                    <option value="Starter">Starter</option>
-                    <option value="Growth">Growth</option>
-                    <option value="Premium">Premium</option>
-                    <option value="Trial">Trial</option>
-                  </select>
-                </div>
-              </label>
-              <label className="field">
-                <span>Zaman dilimi</span>
-                <div className="field-control">
-                  <Globe2 size={17} />
-                  <input value={createInstitutionForm.timezone} onChange={(event) => setCreateInstitutionForm((form) => ({ ...form, timezone: event.target.value }))} />
-                </div>
-              </label>
-              <button className="primary-action form-submit" type="submit" disabled={savingInstitution}>
-                {savingInstitution ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
-                Kaydet
-              </button>
-            </form>
+      <header className={`sa-detail-hero sa-detail-hero--${variant}`}>
+        <div className="sa-detail-hero-icon">
+          <Building2 size={26} />
+        </div>
+        <div className="sa-detail-hero-text">
+          <span className="sa-kicker">Kurum detayı</span>
+          <h1>{headInstitution?.name ?? (detailLoading ? "Yükleniyor..." : "Kurum bulunamadı")}</h1>
+          {headInstitution && (
+            <div className="sa-detail-hero-badges">
+              <span className={`sa-plan-badge sa-plan-badge--${variant}`}>{headInstitution.plan}</span>
+              <StatusBadge value={headInstitution.status} />
+              <span className="sa-detail-hero-meta">
+                <Globe2 size={13} />
+                {headInstitution.timezone}
+              </span>
+            </div>
+          )}
+        </div>
+        {detailLoading && (
+          <div className="sa-detail-hero-loading">
+            <Loader2 className="spin" size={20} />
+          </div>
+        )}
+      </header>
+
+      {detailError && <div className="form-error workspace-error sa-alert">{detailError}</div>}
+
+      {detail && (
+        <section className="sa-detail-info">
+          <div className="sa-kpi-mini-row">
+            <MiniStat label="Plan" value={detail.plan} icon={<DatabaseZap size={19} />} />
+            <MiniStat label="Öğrenci" value={detail.students} icon={<GraduationCap size={19} />} />
+            <MiniStat label="Kullanıcı" value={users.length} icon={<UsersRound size={19} />} />
+            <MiniStat label="Durum" value={statusLabel(detail.status)} icon={<CheckCircle2 size={19} />} />
+          </div>
+          <div className="sa-detail-meta">
+            <div>
+              <span className="sa-kicker">ID</span>
+              <strong>{detail.id}</strong>
+            </div>
+            <div>
+              <span className="sa-kicker">Zaman dilimi</span>
+              <strong>{detail.timezone}</strong>
+            </div>
+            <div>
+              <span className="sa-kicker">Oluşturma</span>
+              <strong>{new Date(detail.createdAt).toLocaleDateString("tr-TR")}</strong>
+            </div>
+            <div>
+              <span className="sa-kicker">Son güncelleme</span>
+              <strong>{new Date(detail.updatedAt).toLocaleDateString("tr-TR")}</strong>
+            </div>
           </div>
         </section>
       )}
 
-      {detailError && <div className="form-error workspace-error sa-alert">{detailError}</div>}
-
-      <section className="sa-card">
-        <PanelHeader kicker="Tenant yönetimi" title="Kurumlar" icon={<Building2 size={22} />} />
-        <div className="sa-card-body">
-          <div className="sa-data-grid">
-            <div className="sa-row-head sa-institutions-head">
-              <span>Kurum</span>
-              <span>Plan</span>
-              <span>Öğrenci</span>
-              <span>Kullanıcı</span>
-              <span>Durum</span>
-              <span>İşlem</span>
-            </div>
-            {institutions.map((institution) => (
-              <div
-                className={`sa-row-body sa-institutions-row ${selectedId === institution.id ? "sa-row-selected" : ""}`}
-                key={institution.id}
-              >
-                <div className="sa-row-body-cell">
-                  <strong>{institution.name}</strong>
-                  <small>
-                    {institution.timezone} · son aktivite {new Date(institution.lastActivityAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
-                  </small>
-                </div>
-                <span>{institution.plan}</span>
-                <span>{institution.students}</span>
-                <span>{institution.users}</span>
-                <StatusBadge value={institution.status} />
-                <button className="sa-icon-btn" type="button" onClick={() => setSelectedId(institution.id)} aria-label={`${institution.name} detay`}>
-                  <ArrowUpRight size={17} />
-                </button>
-              </div>
-            ))}
+      <section className="sa-detail-users">
+        <div className="sa-detail-users-head">
+          <div>
+            <span className="sa-kicker">Kurum kullanıcıları</span>
+            <h2>{users.length} hesap</h2>
           </div>
+          <button
+            className="primary-action"
+            type="button"
+            onClick={() => {
+              setCreateError(null);
+              setShowCreateUser(true);
+            }}
+          >
+            <Plus size={17} />
+            Yeni kullanıcı ekle
+          </button>
+        </div>
+
+        {credential && (
+          <div className="sa-credential-banner">
+            <div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--sa-muted)", textTransform: "uppercase" }}>
+                Geçici giriş bilgisi
+              </span>
+              <strong>{credential.user.email}</strong>
+              <code>{credential.temporaryPassword}</code>
+            </div>
+            <button
+              className="ghost-action"
+              type="button"
+              onClick={() =>
+                void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)
+              }
+            >
+              <Clipboard size={17} />
+              Kopyala
+            </button>
+          </div>
+        )}
+
+        <div className="sa-user-card-grid">
+          {users.map((user) => {
+            const rVariant = roleVariant(user.role);
+            return (
+              <article className={`sa-user-card sa-user-card--${rVariant}`} key={user.id}>
+                <div className={`sa-user-avatar sa-user-avatar--${rVariant}`}>{initials(user.fullName)}</div>
+                <div className="sa-user-card-body">
+                  <strong>{user.fullName}</strong>
+                  <span className="sa-user-email">{user.email}</span>
+                  <div className="sa-user-card-badges">
+                    <span className={`sa-role-badge sa-role-badge--${rVariant}`}>{roleLabel(user.role)}</span>
+                    <StatusBadge value={user.status} />
+                  </div>
+                </div>
+                <div className="sa-user-card-actions">
+                  <button
+                    className="sa-icon-btn"
+                    type="button"
+                    aria-label={`${user.fullName} düzenle`}
+                    onClick={() => setEditingUser(user)}
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    className="sa-icon-btn danger"
+                    type="button"
+                    aria-label={`${user.fullName} sil`}
+                    onClick={() => void deleteUser(user)}
+                    disabled={user.role === "super_admin"}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+          {users.length === 0 && !detailLoading && (
+            <p className="empty-text" style={{ gridColumn: "1 / -1" }}>
+              Bu kuruma bağlı kullanıcı yok. Sağ üstteki "Yeni kullanıcı ekle" ile başlayabilirsin.
+            </p>
+          )}
         </div>
       </section>
 
-      <div className="sa-split">
-        <section className="sa-card">
-          <PanelHeader
-            kicker="Kurum detayı"
-            title={detail?.name ?? "Kurum seç"}
-            icon={detailLoading ? <Loader2 className="spin" size={20} /> : <Building2 size={22} />}
-          />
-          <div className="sa-card-body">
-            {detail ? (
-              <div className="detail-meta-grid">
-                <MiniStat label="Plan" value={detail.plan} icon={<DatabaseZap size={19} />} />
-                <MiniStat label="Kullanıcı" value={institutionUsers.length} icon={<UsersRound size={19} />} />
-                <MiniStat label="Öğrenci" value={detail.students} icon={<GraduationCap size={19} />} />
-                <MiniStat label="Durum" value={statusLabel(detail.status)} icon={<CheckCircle2 size={19} />} />
-              </div>
-            ) : (
-              <p className="empty-text">Detay görmek için bir kurum seç.</p>
-            )}
-            {detail && (
-              <div className="meta-line">
-                <span>ID: {detail.id}</span>
-                <span>Timezone: {detail.timezone}</span>
-                <span>Oluşturma: {new Date(detail.createdAt).toLocaleDateString("tr-TR")}</span>
-                <span>Güncelleme: {new Date(detail.updatedAt).toLocaleDateString("tr-TR")}</span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="sa-card">
-          <PanelHeader kicker="Kurum kişileri" title="Kullanıcılar" icon={<UsersRound size={22} />} />
-          <div className="sa-card-body">
-            <form className="inline-form sa-user-create-grid" onSubmit={(event) => void createInstitutionUser(event)}>
-              <label className="field">
-                <span>E-posta</span>
-                <div className="field-control">
-                  <Mail size={17} />
-                  <input
-                    value={createUserForm.email}
-                    onChange={(event) => setCreateUserForm((form) => ({ ...form, email: event.target.value }))}
-                    type="email"
-                    placeholder="kullanici@kurum.com"
-                    required
-                  />
-                </div>
-              </label>
-              <label className="field">
-                <span>Ad soyad</span>
-                <div className="field-control">
-                  <UserCog size={17} />
-                  <input
-                    value={createUserForm.fullName}
-                    onChange={(event) => setCreateUserForm((form) => ({ ...form, fullName: event.target.value }))}
-                    placeholder="Boş bırakılırsa mailden üretilir"
-                  />
-                </div>
-              </label>
-              <label className="field">
-                <span>Rol</span>
-                <div className="field-control">
-                  <ShieldCheck size={17} />
-                  <select value={createUserForm.role} onChange={(event) => setCreateUserForm((form) => ({ ...form, role: event.target.value }))}>
-                    <option value="principal">Müdür</option>
-                    <option value="guidance">Rehberlik</option>
-                    <option value="teacher">Öğretmen</option>
-                    <option value="guardian">Veli</option>
-                  </select>
-                </div>
-              </label>
-              <button className="primary-action form-submit" type="submit" disabled={!selectedId || savingUser}>
-                {savingUser ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
-                Kullanıcı oluştur
-              </button>
-            </form>
-
-            {credential && (
-              <div className="sa-credential-banner">
-                <div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--sa-muted)", textTransform: "uppercase" }}>Geçici giriş bilgisi</span>
-                  <strong>{credential.user.email}</strong>
-                  <code>{credential.temporaryPassword}</code>
-                </div>
-                <button className="ghost-action" type="button" onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}>
-                  <Clipboard size={17} />
-                  Kopyala
-                </button>
-              </div>
-            )}
-
-            <div className="sa-data-grid">
-              <div className="sa-row-head sa-users-mini-head">
-                <span>Kullanıcı</span>
-                <span>Kurum</span>
-                <span>Rol</span>
-                <span>Durum</span>
-                <span>İşlem</span>
-              </div>
-              {institutionUsers.map((user) => (
-                <div className="sa-row-body sa-users-mini-row" key={user.id}>
-                  <div className="sa-row-body-cell">
-                    <strong>{user.fullName}</strong>
-                    <small>{user.email}</small>
-                  </div>
-                  <span>{user.tenant}</span>
-                  <span>{roleLabel(user.role)}</span>
-                  <StatusBadge value={user.status} />
-                  <button className="sa-icon-btn" type="button" aria-label={`${user.fullName} detay`}>
-                    <ArrowUpRight size={17} />
-                  </button>
-                </div>
-              ))}
-              {institutionUsers.length === 0 && <p className="empty-text">Bu kuruma bağlı kullanıcı yok.</p>}
+      <Modal
+        open={showCreateUser}
+        onClose={() => setShowCreateUser(false)}
+        title="Yeni kullanıcı"
+        kicker={headInstitution?.name ?? "Kurum"}
+        icon={<UserCog size={20} />}
+      >
+        {createError && <div className="form-error">{createError}</div>}
+        <form className="sa-modal-form" onSubmit={(event) => void createUser(event)}>
+          <label className="field">
+            <span>E-posta</span>
+            <div className="field-control">
+              <Mail size={17} />
+              <input
+                type="email"
+                value={createForm.email}
+                onChange={(event) => setCreateForm((form) => ({ ...form, email: event.target.value }))}
+                placeholder="kullanici@kurum.com"
+                required
+                autoFocus
+              />
             </div>
+          </label>
+          <label className="field">
+            <span>Ad soyad</span>
+            <div className="field-control">
+              <UserCog size={17} />
+              <input
+                value={createForm.fullName}
+                onChange={(event) => setCreateForm((form) => ({ ...form, fullName: event.target.value }))}
+                placeholder="Boş bırakılırsa mailden üretilir"
+              />
+            </div>
+          </label>
+          <label className="field">
+            <span>Rol</span>
+            <div className="field-control">
+              <ShieldCheck size={17} />
+              <select
+                value={createForm.role}
+                onChange={(event) => setCreateForm((form) => ({ ...form, role: event.target.value }))}
+              >
+                <option value="principal">Müdür</option>
+                <option value="guidance">Rehberlik</option>
+                <option value="teacher">Öğretmen</option>
+                <option value="guardian">Veli</option>
+              </select>
+            </div>
+          </label>
+          <div className="sa-modal-actions">
+            <button type="button" className="ghost-action" onClick={() => setShowCreateUser(false)}>
+              Vazgeç
+            </button>
+            <button className="primary-action" type="submit" disabled={savingCreate}>
+              {savingCreate ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
+              Kullanıcı oluştur
+            </button>
           </div>
-        </section>
-      </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(editingUser)}
+        onClose={() => setEditingUser(null)}
+        title="Kullanıcı düzenle"
+        kicker={editingUser?.fullName ?? ""}
+        icon={<Pencil size={20} />}
+      >
+        {editError && <div className="form-error">{editError}</div>}
+        <form className="sa-modal-form" onSubmit={(event) => void updateUser(event)}>
+          <label className="field">
+            <span>Kurum</span>
+            <div className="field-control">
+              <Building2 size={17} />
+              <select
+                value={editForm.tenantId}
+                onChange={(event) => setEditForm((form) => ({ ...form, tenantId: event.target.value }))}
+              >
+                {institutions.map((institution) => (
+                  <option value={institution.id} key={institution.id}>
+                    {institution.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </label>
+          <label className="field">
+            <span>E-posta</span>
+            <div className="field-control">
+              <Mail size={17} />
+              <input
+                type="email"
+                value={editForm.email}
+                onChange={(event) => setEditForm((form) => ({ ...form, email: event.target.value }))}
+              />
+            </div>
+          </label>
+          <label className="field">
+            <span>Ad soyad</span>
+            <div className="field-control">
+              <UserCog size={17} />
+              <input
+                value={editForm.fullName}
+                onChange={(event) => setEditForm((form) => ({ ...form, fullName: event.target.value }))}
+              />
+            </div>
+          </label>
+          <label className="field">
+            <span>Rol</span>
+            <div className="field-control">
+              <ShieldCheck size={17} />
+              <select
+                value={editForm.role}
+                onChange={(event) => setEditForm((form) => ({ ...form, role: event.target.value }))}
+              >
+                <option value="principal">Müdür</option>
+                <option value="guidance">Rehberlik</option>
+                <option value="teacher">Öğretmen</option>
+                <option value="guardian">Veli</option>
+              </select>
+            </div>
+          </label>
+          <label className="field">
+            <span>Durum</span>
+            <div className="field-control">
+              <CheckCircle2 size={17} />
+              <select
+                value={editForm.status}
+                onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value }))}
+              >
+                <option value="active">Aktif</option>
+                <option value="passive">Pasif</option>
+              </select>
+            </div>
+          </label>
+          <div className="sa-modal-actions">
+            <button type="button" className="ghost-action" onClick={() => setEditingUser(null)}>
+              Vazgeç
+            </button>
+            <button className="primary-action" type="submit" disabled={savingEdit}>
+              {savingEdit ? <Loader2 className="spin" size={18} /> : <Pencil size={18} />}
+              Kaydet
+            </button>
+          </div>
+        </form>
+      </Modal>
     </section>
   );
 }

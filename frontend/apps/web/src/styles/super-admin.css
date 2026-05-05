@@ -1510,6 +1510,700 @@
   color: var(--sa-muted);
 }
 
+/* ── Kurum kart grid (yeni tasarım) ── */
+
+.sa-inst-summary {
+  margin-bottom: 4px;
+}
+
+.sa-inst-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.sa-inst-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 18px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--sa-border);
+  background: linear-gradient(160deg, #ffffff 0%, #fdfcfa 100%);
+  box-shadow: 0 6px 18px rgba(19, 19, 19, 0.05);
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  min-height: 220px;
+}
+
+.sa-inst-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 32px rgba(19, 19, 19, 0.10);
+}
+
+.sa-inst-card-band {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--sa-accent-2), var(--sa-accent));
+}
+
+.sa-inst-card--plan-mvp .sa-inst-card-band {
+  background: linear-gradient(90deg, #93c5fd, #3b82f6);
+}
+.sa-inst-card--plan-starter .sa-inst-card-band {
+  background: linear-gradient(90deg, #d8b4fe, #8b5cf6);
+}
+.sa-inst-card--plan-growth .sa-inst-card-band {
+  background: linear-gradient(90deg, #86efac, #10b981);
+}
+.sa-inst-card--plan-premium .sa-inst-card-band {
+  background: linear-gradient(90deg, #fcd34d, #f59e0b);
+}
+.sa-inst-card--plan-trial .sa-inst-card-band {
+  background: linear-gradient(90deg, #cbd5e1, #94a3b8);
+}
+
+.sa-inst-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.sa-inst-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(249, 165, 27, 0.16);
+  color: var(--sa-accent);
+}
+
+.sa-inst-card--plan-mvp .sa-inst-card-icon {
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+.sa-inst-card--plan-starter .sa-inst-card-icon {
+  background: rgba(139, 92, 246, 0.14);
+  color: #6d28d9;
+}
+.sa-inst-card--plan-growth .sa-inst-card-icon {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+.sa-inst-card--plan-premium .sa-inst-card-icon {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+.sa-inst-card--plan-trial .sa-inst-card-icon {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
+}
+
+.sa-inst-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.sa-inst-card-body h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.sa-inst-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--sa-muted);
+}
+
+.sa-inst-card-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: auto;
+}
+
+.sa-inst-card-stats > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 11px;
+  border: 1px solid var(--sa-border);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.sa-inst-card-stats svg {
+  color: var(--sa-muted);
+}
+
+.sa-inst-card-stats span {
+  display: block;
+  font-size: 10px;
+  color: var(--sa-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sa-inst-card-stats strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sa-inst-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--sa-muted);
+  padding-top: 8px;
+  border-top: 1px solid rgba(219, 219, 217, 0.6);
+}
+
+.sa-inst-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: var(--sa-accent);
+}
+
+.sa-inst-card:hover .sa-inst-card-cta {
+  color: #d97706;
+}
+
+/* Add new card */
+
+.sa-inst-card--add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  gap: 10px;
+  padding: 24px;
+  border: 2px dashed rgba(249, 165, 27, 0.5);
+  background: linear-gradient(160deg, rgba(255, 252, 244, 0.6), rgba(255, 245, 218, 0.4));
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--sa-ink);
+  min-height: 220px;
+}
+
+.sa-inst-card--add:hover {
+  border-color: var(--sa-accent);
+  background: linear-gradient(160deg, #fff8e8, #fde3a8);
+  box-shadow: 0 14px 30px rgba(249, 165, 27, 0.18);
+}
+
+.sa-inst-card-add-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, var(--sa-accent-2), var(--sa-accent));
+  color: #fff;
+  box-shadow: 0 12px 22px rgba(249, 165, 27, 0.30);
+}
+
+.sa-inst-card--add strong {
+  font-size: 1rem;
+}
+
+.sa-inst-card--add span {
+  font-size: 12px;
+  color: var(--sa-muted);
+  max-width: 200px;
+  line-height: 1.4;
+}
+
+/* ── Plan rozeti ── */
+
+.sa-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(145, 154, 159, 0.18);
+  color: var(--sa-ink);
+  border: 1px solid transparent;
+}
+
+.sa-plan-badge--mvp {
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+.sa-plan-badge--starter {
+  background: rgba(139, 92, 246, 0.14);
+  color: #6d28d9;
+}
+.sa-plan-badge--growth {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+}
+.sa-plan-badge--premium {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+.sa-plan-badge--trial {
+  background: rgba(148, 163, 184, 0.20);
+  color: #334155;
+}
+
+/* ── Kurum detay sayfası ── */
+
+.sa-detail-back {
+  margin: -4px 0 0;
+}
+
+.sa-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--sa-border);
+  background: var(--sa-surface);
+  color: var(--sa-muted);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.sa-back-link:hover {
+  color: var(--sa-ink);
+  border-color: var(--sa-accent);
+  background: #fffaf0;
+}
+
+.sa-detail-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 20px 22px;
+  border-radius: 18px;
+  border: 1px solid var(--sa-border);
+  background: linear-gradient(135deg, #ffffff, #fffaf0);
+  box-shadow: var(--sa-shadow);
+  overflow: hidden;
+}
+
+.sa-detail-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--sa-accent-2), var(--sa-accent));
+}
+
+.sa-detail-hero--mvp::before {
+  background: linear-gradient(180deg, #93c5fd, #3b82f6);
+}
+.sa-detail-hero--starter::before {
+  background: linear-gradient(180deg, #d8b4fe, #8b5cf6);
+}
+.sa-detail-hero--growth::before {
+  background: linear-gradient(180deg, #86efac, #10b981);
+}
+.sa-detail-hero--premium::before {
+  background: linear-gradient(180deg, #fcd34d, #f59e0b);
+}
+.sa-detail-hero--trial::before {
+  background: linear-gradient(180deg, #cbd5e1, #94a3b8);
+}
+
+.sa-detail-hero-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, var(--sa-accent-2), var(--sa-accent));
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(249, 165, 27, 0.22);
+}
+
+.sa-detail-hero--mvp .sa-detail-hero-icon {
+  background: linear-gradient(145deg, #93c5fd, #3b82f6);
+  box-shadow: 0 10px 20px rgba(59, 130, 246, 0.22);
+}
+.sa-detail-hero--starter .sa-detail-hero-icon {
+  background: linear-gradient(145deg, #d8b4fe, #8b5cf6);
+  box-shadow: 0 10px 20px rgba(139, 92, 246, 0.22);
+}
+.sa-detail-hero--growth .sa-detail-hero-icon {
+  background: linear-gradient(145deg, #86efac, #10b981);
+  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.22);
+}
+.sa-detail-hero--premium .sa-detail-hero-icon {
+  background: linear-gradient(145deg, #fcd34d, #f59e0b);
+  box-shadow: 0 10px 20px rgba(245, 158, 11, 0.22);
+}
+.sa-detail-hero--trial .sa-detail-hero-icon {
+  background: linear-gradient(145deg, #cbd5e1, #94a3b8);
+  box-shadow: 0 10px 20px rgba(148, 163, 184, 0.22);
+}
+
+.sa-detail-hero-text h1 {
+  margin: 4px 0 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sa-detail-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.sa-detail-hero-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--sa-muted);
+  font-weight: 600;
+}
+
+.sa-detail-hero-loading {
+  display: grid;
+  place-items: center;
+  color: var(--sa-accent);
+}
+
+.sa-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--sa-border);
+  background: var(--sa-surface);
+  box-shadow: 0 4px 14px rgba(19, 19, 19, 0.04);
+}
+
+.sa-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fafaf8, #fffefb);
+  border: 1px solid var(--sa-border);
+}
+
+.sa-detail-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.sa-detail-meta strong {
+  font-weight: 600;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.sa-detail-users {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--sa-border);
+  background: var(--sa-surface);
+  box-shadow: 0 4px 14px rgba(19, 19, 19, 0.04);
+}
+
+.sa-detail-users-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sa-detail-users-head h2 {
+  margin: 4px 0 0;
+  font-size: 1.05rem;
+}
+
+/* ── Kullanıcı kartları ── */
+
+.sa-user-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.sa-user-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 12px 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--sa-border);
+  background: linear-gradient(180deg, #ffffff, #fafaf8);
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.sa-user-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(19, 19, 19, 0.06);
+  border-color: rgba(249, 165, 27, 0.4);
+}
+
+.sa-user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(145deg, #94a3b8, #475569);
+  flex-shrink: 0;
+}
+
+.sa-user-avatar--super {
+  background: linear-gradient(145deg, #f9a51b, #b45309);
+}
+.sa-user-avatar--system {
+  background: linear-gradient(145deg, #60a5fa, #1d4ed8);
+}
+.sa-user-avatar--principal {
+  background: linear-gradient(145deg, #a78bfa, #6d28d9);
+}
+.sa-user-avatar--guidance {
+  background: linear-gradient(145deg, #34d399, #047857);
+}
+.sa-user-avatar--teacher {
+  background: linear-gradient(145deg, #fbbf24, #b45309);
+}
+.sa-user-avatar--guardian {
+  background: linear-gradient(145deg, #f472b6, #be185d);
+}
+
+.sa-user-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sa-user-card-body strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sa-ink);
+  line-height: 1.2;
+}
+
+.sa-user-email {
+  font-size: 11px;
+  color: var(--sa-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sa-user-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.sa-role-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(145, 154, 159, 0.18);
+  color: var(--sa-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sa-role-badge--super {
+  background: rgba(249, 165, 27, 0.18);
+  color: #b45309;
+}
+.sa-role-badge--system {
+  background: rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+}
+.sa-role-badge--principal {
+  background: rgba(139, 92, 246, 0.16);
+  color: #6d28d9;
+}
+.sa-role-badge--guidance {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+}
+.sa-role-badge--teacher {
+  background: rgba(251, 191, 36, 0.20);
+  color: #92400e;
+}
+.sa-role-badge--guardian {
+  background: rgba(244, 114, 182, 0.18);
+  color: #be185d;
+}
+
+.sa-user-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sa-user-card-actions .sa-icon-btn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ── Modal ── */
+
+.sa-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(19, 19, 19, 0.45);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 100;
+  animation: sa-modal-fade 0.18s ease;
+}
+
+@keyframes sa-modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sa-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid var(--sa-border);
+  box-shadow: 0 24px 60px rgba(19, 19, 19, 0.25);
+  animation: sa-modal-pop 0.22s ease;
+}
+
+@keyframes sa-modal-pop {
+  from { transform: translateY(8px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.sa-modal--sm { max-width: 420px; }
+.sa-modal--lg { max-width: 680px; }
+
+.sa-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--sa-border);
+  background: linear-gradient(90deg, #fffcf4, #ffffff);
+}
+
+.sa-modal-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.sa-modal-title-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: rgba(249, 165, 27, 0.18);
+  color: var(--sa-accent);
+}
+
+.sa-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--sa-border);
+  background: var(--sa-surface);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--sa-muted);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.sa-modal-close:hover {
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.4);
+  background: #fef2f2;
+}
+
+.sa-modal-body {
+  padding: 18px 22px 22px;
+}
+
+.sa-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sa-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sa-border);
+}
+
+.sa-modal-actions .ghost-action,
+.sa-modal-actions .primary-action {
+  min-width: 110px;
+  justify-content: center;
+}
+
 @media (max-width: 1080px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -1567,6 +2261,14 @@
     grid-template-columns: 1fr;
   }
 
+  .sa-detail-hero {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .sa-detail-hero-loading {
+    display: none;
+  }
+
   .fallback-grid {
     grid-template-columns: 1fr;
   }
@@ -1609,5 +2311,22 @@
   .sa-institutions-row,
   .sa-support-row {
     grid-template-columns: 1fr;
+  }
+
+  .sa-inst-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sa-user-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sa-detail-hero h1 {
+    font-size: 1.3rem;
+  }
+
+  .sa-modal {
+    max-height: calc(100vh - 16px);
+    border-radius: 14px;
   }
 }
