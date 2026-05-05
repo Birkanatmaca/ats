@@ -3008,3 +3008,223 @@ strong,
     padding-bottom: 8px;
   }
 }
+
+/* Modern super-admin refresh */
+:root {
+  --paper: #f2f5ff;
+  --surface: #ffffff;
+  --surface-2: #f4f8ff;
+  --ink: #0f172a;
+  --muted: #5b6478;
+  --line: #d8e2f2;
+  --green: #4f46e5;
+  --green-strong: #3730a3;
+  --sky: #2563eb;
+  --amber: #d97706;
+  --coral: #dc2626;
+  --shadow: 0 14px 36px rgba(15, 23, 42, 0.09);
+}
+
+body {
+  font-family: "Inter", "Roboto", "Segoe UI", "Arial", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 10%, rgba(79, 70, 229, 0.16), transparent 24%),
+    radial-gradient(circle at 92% 18%, rgba(37, 99, 235, 0.14), transparent 28%),
+    linear-gradient(180deg, #f8faff 0%, #f2f5ff 100%);
+}
+
+.admin-shell {
+  background: transparent;
+}
+
+.admin-navbar {
+  border-bottom: 1px solid rgba(216, 226, 242, 0.85);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.navbar-brand .admin-mark {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+}
+
+.navbar-profile {
+  border-color: rgba(37, 99, 235, 0.25);
+  background: linear-gradient(180deg, #ffffff, #f8faff);
+}
+
+.profile-avatar {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+}
+
+.navbar-logout {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.admin-sidebar {
+  border-right: 1px solid rgba(216, 226, 242, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(246, 249, 255, 0.9)),
+    radial-gradient(circle at 20% 12%, rgba(79, 70, 229, 0.12), transparent 35%);
+  backdrop-filter: blur(16px);
+}
+
+.nav-button {
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+
+.nav-button.active,
+.nav-button:hover {
+  border-color: rgba(79, 70, 229, 0.26);
+  background: linear-gradient(180deg, #4f46e5, #3730a3);
+  box-shadow: 0 10px 22px rgba(79, 70, 229, 0.24);
+}
+
+.admin-topbar h1 {
+  font-size: 30px;
+  letter-spacing: -0.02em;
+}
+
+.admin-topbar p {
+  color: #68738b;
+  font-size: 14px;
+}
+
+.metric-card,
+.workspace-panel,
+.module-card,
+.tenant-map-card,
+.tenant-summary,
+.log-filter-panel,
+.module-control-strip,
+.role-card,
+.settings-hero,
+.settings-save-bar {
+  border: 1px solid rgba(216, 226, 242, 0.95);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 250, 255, 0.94));
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
+.metric-card {
+  padding: 18px;
+}
+
+.metric-icon,
+.role-icon,
+.mini-stat div,
+.audit-icon,
+.module-icon,
+.support-type-icon,
+.credential-editor-icon {
+  border-radius: 12px;
+}
+
+.metric-card strong {
+  font-size: 27px;
+  letter-spacing: -0.02em;
+}
+
+.panel-header h2 {
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.section-kicker {
+  color: #4f46e5;
+}
+
+.operator-strip {
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  border-radius: 14px;
+  background: linear-gradient(120deg, rgba(79, 70, 229, 0.08), rgba(37, 99, 235, 0.08));
+}
+
+.health-pill {
+  color: #3730a3;
+  background: rgba(79, 70, 229, 0.14);
+}
+
+.table-row,
+.incident-row,
+.audit-row,
+.service-health-row,
+.release-step,
+.tenant-node,
+.mini-stat,
+.credential-editor,
+.support-message {
+  border-radius: 12px;
+  border-color: rgba(216, 226, 242, 0.95);
+  background: linear-gradient(180deg, #ffffff, #f9fbff);
+}
+
+.table-row:hover,
+.incident-row:hover,
+.audit-row:hover,
+.service-health-row:hover,
+.tenant-node:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.selected-row,
+.tenant-node.selected {
+  border-color: rgba(79, 70, 229, 0.35);
+  background: linear-gradient(180deg, rgba(79, 70, 229, 0.12), rgba(37, 99, 235, 0.06));
+}
+
+.primary-action {
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.26);
+}
+
+.primary-action:hover {
+  background: linear-gradient(135deg, #1d4ed8, #4338ca);
+}
+
+.ghost-action {
+  border-radius: 12px;
+  border-color: rgba(79, 70, 229, 0.2);
+  color: #3730a3;
+  background: #ffffff;
+}
+
+.ghost-action:hover {
+  border-color: rgba(79, 70, 229, 0.34);
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.field-control,
+textarea {
+  border-radius: 12px;
+  border-color: rgba(216, 226, 242, 1);
+  background: #ffffff;
+}
+
+.field-control:focus-within,
+textarea:focus {
+  border-color: rgba(79, 70, 229, 0.45);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+}
+
+.status-badge,
+.severity-badge,
+.sensitivity-badge {
+  border-radius: 999px;
+  font-size: 10.5px;
+}
+
+@media (max-width: 760px) {
+  .admin-topbar h1 {
+    font-size: 24px;
+  }
+
+  .metric-card strong {
+    font-size: 22px;
+  }
+}

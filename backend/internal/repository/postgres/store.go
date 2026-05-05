@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"ots/backend/internal/domain/identity"
@@ -1488,20 +1487,6 @@ func readMemoryUsage() (float64, string) {
 	}
 	used := total - available
 	return roundOne(float64(used) * 100 / float64(total)), fmt.Sprintf("%.1f GB / %.1f GB", kbToGB(used), kbToGB(total))
-}
-
-func readDiskUsage(path string) (float64, string) {
-	var stat syscall.Statfs_t
-	if err := syscall.Statfs(path, &stat); err != nil {
-		return 0, "Disk bilgisi okunamadı"
-	}
-	total := stat.Blocks * uint64(stat.Bsize)
-	free := stat.Bavail * uint64(stat.Bsize)
-	if total == 0 {
-		return 0, "Disk bilgisi okunamadı"
-	}
-	used := total - free
-	return roundOne(float64(used) * 100 / float64(total)), fmt.Sprintf("%.1f GB / %.1f GB", bytesToGB(used), bytesToGB(total))
 }
 
 func runtimeHeapUsage() (float64, string) {
