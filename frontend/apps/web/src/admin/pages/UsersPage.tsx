@@ -1,4 +1,4 @@
-import { Building2, CheckCircle2, Clipboard, KeyRound, Loader2, Mail, Pencil, Plus, Search, ShieldCheck, Trash2, UserCog, UsersRound } from "lucide-react";
+import { BookOpen, Building2, CheckCircle2, Clipboard, GraduationCap, KeyRound, Loader2, Mail, Pencil, Plus, Search, ShieldCheck, Trash2, UserCog, UsersRound, Users } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import type { Institution, UserAccount } from "../../lib/api";
@@ -6,8 +6,18 @@ import { api, type CreatedUserCredential } from "../../lib/api";
 import { Modal } from "../components/Modal";
 import { PanelHeader } from "../components/PanelHeader";
 import { StatusBadge } from "../components/StatusBadge";
+import type { LucideIcon } from "lucide-react";
 import { roleLabel } from "../utils/labels";
 import "./UsersPage.css";
+
+type RoleCardDef = { role: string; colorClass: string; icon: LucideIcon };
+
+const ROLE_CARDS: RoleCardDef[] = [
+  { role: "principal", colorClass: "sa-kpi--indigo", icon: ShieldCheck },
+  { role: "guidance", colorClass: "sa-kpi--teal", icon: BookOpen },
+  { role: "teacher", colorClass: "sa-kpi--amber", icon: GraduationCap },
+  { role: "guardian", colorClass: "sa-kpi--coral", icon: Users }
+];
 
 export function UsersPage({ users, institutions, onRefresh }: { users: UserAccount[]; institutions: Institution[]; onRefresh: () => Promise<void> }) {
   const roles = Array.from(new Set(users.map((user) => user.role)));
@@ -165,19 +175,16 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
           <label>Kurum kapsamı</label>
           <span className="sa-kpi-value">{institutions.length}</span>
         </article>
-        {roles.slice(0, 4).map((role, index) => {
-          const colors = ["sa-kpi--slate", "sa-kpi--slate", "sa-kpi--slate", "sa-kpi--slate"];
-          return (
-            <article className={`sa-kpi ${colors[index]}`} key={role}>
-              <div className="sa-kpi-icon">
-                <UserCog size={20} />
-              </div>
-              <label>{roleLabel(role)}</label>
-              <span className="sa-kpi-value">{users.filter((user) => user.role === role).length}</span>
-              <span className="sa-kpi-hint">hesap</span>
-            </article>
-          );
-        })}
+        {ROLE_CARDS.map(({ role, colorClass, icon: RoleIcon }) => (
+          <article className={`sa-kpi ${colorClass}`} key={role}>
+            <div className="sa-kpi-icon">
+              <RoleIcon size={20} />
+            </div>
+            <label>{roleLabel(role)}</label>
+            <span className="sa-kpi-value">{users.filter((u) => u.role === role).length}</span>
+            <span className="sa-kpi-hint">hesap</span>
+          </article>
+        ))}
       </div>
 
       <section className="sa-card">

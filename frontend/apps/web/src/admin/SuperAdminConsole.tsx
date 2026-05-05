@@ -79,7 +79,7 @@ export function SuperAdminConsole({
     return () => window.clearInterval(timer);
   }, [activeTab]);
 
-  const showHeader = activeTab !== "overview" && activeTab !== "institutions" && activeTab !== "users" && !isInstitutionDetail;
+  const showHeader = activeTab !== "overview" && activeTab !== "institutions" && activeTab !== "users" && activeTab !== "support" && !isInstitutionDetail;
 
   return (
     <div className="admin-shell">

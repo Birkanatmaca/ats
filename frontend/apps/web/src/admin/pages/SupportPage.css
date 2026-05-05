@@ -1,1 +1,191 @@
-/* Destek — temel stiller styles/super-admin.css */
+/* ── Destek sayfası başlık alanı ───────────────────────────── */
+.support-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.support-page-header h1 {
+  margin: 4px 0 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* ── Filtre chipleri — panel header içinde ─────────────────── */
+.support-filter-chips {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ── Tablo sütun düzeni ────────────────────────────────────── */
+.support-table-head,
+.support-table-row {
+  grid-template-columns:
+    minmax(160px, 1.4fr)  /* Konu */
+    minmax(140px, 1.8fr)  /* İçerik özeti */
+    0.68fr                /* Tür */
+    minmax(100px, 0.9fr)  /* Kurum */
+    0.7fr                 /* Durum */
+    0.62fr                /* Öncelik */
+    0.58fr                /* Tarih */
+    88px;                 /* İşlem */
+}
+
+/* Konu hücresi */
+.support-cell-subject {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.support-cell-subject strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.support-cell-subject small {
+  display: block;
+  font-size: 11px;
+  color: var(--sa-muted);
+  margin-top: 2px;
+}
+
+/* İçerik özeti */
+.support-cell-preview {
+  font-size: 12px;
+  color: var(--sa-muted);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Kurum */
+.support-cell-tenant {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sa-ink);
+}
+
+/* Tarih */
+.support-cell-date {
+  font-size: 11.5px;
+  color: var(--sa-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Görüntüle modalı ──────────────────────────────────────── */
+.support-view-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.support-view-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #fafaf9, #f4f4f0);
+  border: 1px solid var(--sa-border);
+}
+
+.support-view-meta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.support-view-meta-row span {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sa-muted);
+}
+
+.support-view-meta-row strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sa-ink);
+}
+
+.support-view-message,
+.support-view-existing-note {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--sa-border);
+}
+
+.support-view-message {
+  background: rgba(254, 252, 248, 0.8);
+}
+
+.support-view-existing-note {
+  background: rgba(240, 253, 250, 0.8);
+  border-color: rgba(13, 148, 136, 0.25);
+}
+
+.support-view-message-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sa-muted);
+  margin-bottom: 8px;
+}
+
+.support-view-message p,
+.support-view-existing-note p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--sa-ink);
+  white-space: pre-wrap;
+}
+
+.support-reply-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 1280px) {
+  .support-table-head,
+  .support-table-row {
+    grid-template-columns:
+      minmax(140px, 1.4fr)
+      minmax(120px, 1.6fr)
+      0.7fr
+      0.9fr
+      0.7fr
+      0.62fr
+      0.55fr
+      78px;
+  }
+}
+
+@media (max-width: 900px) {
+  .support-view-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .support-table-head {
+    display: none;
+  }
+
+  .support-table-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}

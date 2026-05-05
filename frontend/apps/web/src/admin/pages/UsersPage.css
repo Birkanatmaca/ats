@@ -1,4 +1,49 @@
-/* Kullanıcılar — KPI şeridi tek satır (dar ekranda yatay kaydırma) */
+/* ── Rol renk varyantları ─────────────────────────────────────── */
+.sa-kpi--indigo {
+  background: linear-gradient(160deg, #f5f3ff 0%, #ede9fe 100%);
+}
+.sa-kpi--indigo::before {
+  background: linear-gradient(180deg, #a5b4fc, #6366f1);
+}
+.sa-kpi--indigo .sa-kpi-icon {
+  background: rgba(99, 102, 241, 0.14);
+  color: #4338ca;
+}
+
+.sa-kpi--teal {
+  background: linear-gradient(160deg, #f0fdfa 0%, #e6f7f5 100%);
+}
+.sa-kpi--teal::before {
+  background: linear-gradient(180deg, #5eead4, #0d9488);
+}
+.sa-kpi--teal .sa-kpi-icon {
+  background: rgba(13, 148, 136, 0.14);
+  color: #0f766e;
+}
+
+.sa-kpi--amber {
+  background: linear-gradient(160deg, #fffbeb 0%, #fef3c7 100%);
+}
+.sa-kpi--amber::before {
+  background: linear-gradient(180deg, #fcd34d, #d97706);
+}
+.sa-kpi--amber .sa-kpi-icon {
+  background: rgba(217, 119, 6, 0.14);
+  color: #b45309;
+}
+
+.sa-kpi--coral {
+  background: linear-gradient(160deg, #fff7f5 0%, #fee2da 100%);
+}
+.sa-kpi--coral::before {
+  background: linear-gradient(180deg, #fca5a5, #e05252);
+}
+.sa-kpi--coral .sa-kpi-icon {
+  background: rgba(224, 82, 82, 0.14);
+  color: #c0392b;
+}
+
+/* ── Kullanıcılar — KPI şeridi tek satır (dar ekranda yatay kaydırma) */
 .users-page .users-page-kpis {
   display: flex;
   flex-wrap: nowrap;
