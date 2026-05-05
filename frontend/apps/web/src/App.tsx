@@ -248,11 +248,14 @@ function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void }) {
   return (
     <main className="login-page">
       <section className="login-brand" aria-label="ÖTS">
-        <div className="login-mark">
-          <GraduationCap size={38} />
+        <div className="login-brand-content">
+          <div className="login-mark">
+            <GraduationCap size={38} />
+          </div>
+          <p>ÖTS Platform</p>
+          <h1>Akıllı Okul Yönetim Sistemi</h1>
+          <h2>Eğitim kurumunuzu tek bir merkezden, güvenle ve kolayca yönetin.</h2>
         </div>
-        <p>ÖTS</p>
-        <h1>Akıllı Okul Yönetim Sistemi</h1>
       </section>
 
       <section className="login-panel" aria-label="Giriş">
