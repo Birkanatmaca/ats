@@ -1,0 +1,98 @@
+.teacher-dashboard .active-lesson-card,
+.teacher-dashboard .attendance-row {
+  display: flex;
+  align-items: center;
+}
+
+.teacher-dashboard .active-lesson-card {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #eef7fb;
+}
+
+.teacher-dashboard .active-lesson-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.teacher-dashboard .active-lesson-card strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+}
+
+.teacher-dashboard .attendance-board {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.teacher-dashboard .attendance-row {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfdff;
+}
+
+.teacher-dashboard .attendance-row strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.teacher-dashboard .attendance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: flex-end;
+}
+
+.teacher-dashboard .attendance-status {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #ffffff;
+  font-size: 11px;
+}
+
+.teacher-dashboard .attendance-status.active {
+  color: #ffffff;
+  border-color: var(--green);
+  background: var(--green);
+}
+
+.teacher-dashboard .observation-form {
+  display: grid;
+  gap: 10px;
+}
+
+.teacher-dashboard .observation-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.teacher-dashboard .observation-form select,
+.teacher-dashboard .observation-form textarea {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 10px;
+  background: #ffffff;
+}
+
+@media (max-width: 720px) {
+  .teacher-dashboard .attendance-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

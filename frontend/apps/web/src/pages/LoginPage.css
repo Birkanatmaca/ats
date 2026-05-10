@@ -181,6 +181,54 @@
   box-shadow: 0 6px 16px rgba(45, 127, 199, 0.35);
 }
 
+.login-demo {
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(22, 34, 53, 0.08);
+  display: grid;
+  gap: 12px;
+}
+
+.login-demo-title {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(22, 34, 53, 0.45);
+}
+
+.login-demo-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.login-demo-chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid rgba(22, 34, 53, 0.12);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.login-demo-chip:hover:not(:disabled) {
+  background: rgba(45, 127, 199, 0.08);
+  border-color: rgba(45, 127, 199, 0.35);
+  transform: translateY(-1px);
+}
+
+.login-demo-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 @media (max-width: 900px) {
   .login-page {
     grid-template-columns: 1fr;

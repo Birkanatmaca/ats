@@ -1,0 +1,35 @@
+.principal-dashboard .class-status-list {
+  display: grid;
+  gap: 8px;
+}
+
+.principal-dashboard .class-status-row {
+  display: grid;
+  grid-template-columns: 0.55fr 0.7fr 0.55fr 0.8fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfdff;
+}
+
+.principal-dashboard .class-status-row strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.principal-dashboard .class-status-row span,
+.principal-dashboard .class-status-row small,
+.principal-dashboard .class-status-row em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+@media (max-width: 720px) {
+  .principal-dashboard .class-status-row {
+    grid-template-columns: 1fr;
+  }
+}

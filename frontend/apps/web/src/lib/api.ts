@@ -281,6 +281,10 @@ export function readAuthSession(): AuthSession | null {
       clearAuthSession();
       return null;
     }
+    if (session.expiresAt && new Date(session.expiresAt).getTime() <= Date.now()) {
+      clearAuthSession();
+      return null;
+    }
     session.principal.mustChangePassword = Boolean(session.principal.mustChangePassword);
     return session as AuthSession;
   } catch {
@@ -305,8 +309,8 @@ function authHeaders(): Record<string, string> {
     Authorization: `Bearer ${session.accessToken}`,
     "X-Tenant-Id": session.principal.tenantId,
     "X-User-Id": session.principal.userId,
-    "X-User-Name": session.principal.name,
-    "X-User-Email": session.principal.email ?? "",
+    "X-User-Name": encodeURIComponent(session.principal.name),
+    "X-User-Email": encodeURIComponent(session.principal.email ?? ""),
     "X-Role": session.principal.role,
     "X-Must-Change-Password": String(session.principal.mustChangePassword)
   };
@@ -412,6 +416,7 @@ export const api = {
     }),
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
+  teacherCalendar: () => request<Lesson[]>("/api/v1/teachers/me/calendar"),
   currentLesson: () => request<CurrentLesson>("/api/v1/attendance/current-lesson"),
   announcements: () => request<Announcement[]>("/api/v1/announcements"),
   observations: () => request<Observation[]>("/api/v1/observations"),

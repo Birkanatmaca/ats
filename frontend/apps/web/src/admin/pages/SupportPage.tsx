@@ -125,14 +125,6 @@ export function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; 
 
   return (
     <section className="sa-page-stack support-page">
-      {/* ── KPI şeridi ── */}
-      <div className="support-page-header">
-        <div>
-          <span className="sa-kicker">Süper admin</span>
-          <h1>Destek</h1>
-        </div>
-      </div>
-
       <section className="sa-kpi-row">
         <Metric icon={<Inbox size={21} />} label="Toplam talep" value={tickets.length} tone="sky" hint="ticket ve öneri" />
         <Metric icon={<MessageSquare size={21} />} label="Açık" value={openCount} tone="mint" hint="yanıt bekleyen" />

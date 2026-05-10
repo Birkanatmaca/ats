@@ -1,0 +1,33 @@
+.guardian-dashboard .guardian-child-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff, #eef7fb);
+  box-shadow: 0 8px 22px rgba(38, 55, 77, 0.055);
+}
+
+.guardian-dashboard .guardian-child-card span,
+.guardian-dashboard .guardian-child-card p {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.guardian-dashboard .guardian-child-card h2 {
+  margin: 5px 0;
+}
+
+.guardian-dashboard .guardian-attendance strong {
+  display: block;
+  font-size: 2rem;
+  color: var(--green-strong);
+}
+
+.guardian-dashboard .guardian-attendance span,
+.guardian-dashboard .guardian-attendance p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}

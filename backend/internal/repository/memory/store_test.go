@@ -29,7 +29,7 @@ func TestActiveLessonForTeacherUsesToleranceWindow(t *testing.T) {
 	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)
 	store := NewStore(func() time.Time { return fixed })
 
-	lesson, found := store.ActiveLessonForTeacher(context.Background(), "tenant-demo", "teacher-1", fixed)
+	lesson, found := store.ActiveLessonForTeacher(context.Background(), "00000000-0000-0000-0000-000000010001", "00000000-0000-0000-0000-000000010112", fixed)
 	if !found {
 		t.Fatal("expected active lesson for teacher")
 	}
@@ -42,7 +42,7 @@ func TestAttendanceSessionCreatesClassRecords(t *testing.T) {
 	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)
 	store := NewStore(func() time.Time { return fixed })
 
-	session, found := store.GetOrCreateAttendanceSession(context.Background(), "tenant-demo", "lesson-1")
+	session, found := store.GetOrCreateAttendanceSession(context.Background(), "00000000-0000-0000-0000-000000010001", "lesson-1")
 	if !found {
 		t.Fatal("expected attendance session")
 	}
@@ -50,7 +50,7 @@ func TestAttendanceSessionCreatesClassRecords(t *testing.T) {
 		t.Fatalf("expected 3 students in class, got %d", len(session.Records))
 	}
 
-	updated, found := store.UpdateAttendanceRecords(context.Background(), "tenant-demo", session.ID, []attendance.RecordUpdate{
+	updated, found := store.UpdateAttendanceRecords(context.Background(), "00000000-0000-0000-0000-000000010001", session.ID, []attendance.RecordUpdate{
 		{StudentID: "student-1", Status: attendance.StatusPresent},
 		{StudentID: "student-2", Status: attendance.StatusAbsent},
 	})

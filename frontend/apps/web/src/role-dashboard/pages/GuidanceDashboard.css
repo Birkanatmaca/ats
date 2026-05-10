@@ -1,0 +1,29 @@
+.guidance-dashboard .observation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.guidance-dashboard .observation-row {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.guidance-dashboard .observation-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+.guidance-dashboard .observation-row span,
+.guidance-dashboard .observation-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.guidance-dashboard .observation-row p {
+  margin: 9px 0;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.55;
+}

@@ -5,18 +5,28 @@ import type { AuthSession } from "../lib/api";
 import { api, storeAuthSession } from "../lib/api";
 import "./LoginPage.css";
 
+/** Yerel geliştirme demo hesapları; TEST_CREDENTIALS.txt ile aynı. */
+const DEMO_ACCOUNTS = [
+  { label: "Süper admin", email: "superadmin@ots.local", password: "OtsAdmin!2026" },
+  { label: "Müdür", email: "mudur@atlas.k12.tr", password: "OtsMudur!2026" },
+  { label: "Öğretmen", email: "ogretmen@atlas.k12.tr", password: "OtsOgretmen!2026" },
+  { label: "Veli", email: "veli@atlas.k12.tr", password: "OtsVeli!2026" },
+  { label: "Rehberlik", email: "rehberlik@atlas.k12.tr", password: "OtsRehberlik!2026" }
+] as const;
+
 export function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void }) {
   const [email, setEmail] = useState("superadmin@ots.local");
   const [password, setPassword] = useState("OtsAdmin!2026");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function performLogin(loginEmail: string, loginPassword: string) {
     setLoading(true);
     setError(null);
+    setEmail(loginEmail);
+    setPassword(loginPassword);
     try {
-      const session = await api.login({ email, password });
+      const session = await api.login({ email: loginEmail, password: loginPassword });
       storeAuthSession(session);
       onLogin(session);
     } catch (loginError) {
@@ -24,6 +34,15 @@ export function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void
     } finally {
       setLoading(false);
     }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await performLogin(email, password);
+  }
+
+  function loginAsDemo(demoEmail: string, demoPassword: string) {
+    void performLogin(demoEmail, demoPassword);
   }
 
   return (
@@ -42,7 +61,7 @@ export function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void
       <section className="login-panel" aria-label="Giriş">
         <form className="login-form" onSubmit={(event) => void submit(event)}>
           <div className="form-heading">
-            <span>Süper admin</span>
+            <span>ÖTS hesabı</span>
             <h2>Giriş yap</h2>
           </div>
 
@@ -68,6 +87,23 @@ export function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void
             {loading ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
             Giriş yap
           </button>
+
+          <div className="login-demo" role="group" aria-label="Demo hesaplarla giriş">
+            <p className="login-demo-title">Demo hesap</p>
+            <div className="login-demo-buttons">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  className="login-demo-chip"
+                  disabled={loading}
+                  onClick={() => loginAsDemo(account.email, account.password)}
+                >
+                  {account.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </form>
       </section>
     </main>

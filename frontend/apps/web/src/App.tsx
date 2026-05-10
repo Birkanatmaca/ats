@@ -7,7 +7,7 @@ import { SuperAdminConsole } from "./admin/SuperAdminConsole";
 import { FirstLoginPasswordPage } from "./pages/FirstLoginPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
-import { RoleFallbackPage } from "./pages/RoleFallbackPage";
+import { RoleDashboardPage } from "./pages/RoleDashboardPage";
 
 export function App() {
   const [session, setSession] = useState<AuthSession | null>(() => readAuthSession());
@@ -26,7 +26,9 @@ export function App() {
       ? "/first-login"
       : session.principal.role === "super_admin"
         ? "/admin/overview"
-        : "/dashboard"
+        : session.principal.role === "principal" || session.principal.role === "system_admin"
+          ? "/dashboard/overview"
+          : "/dashboard"
     : "/login";
 
   return (
@@ -90,7 +92,7 @@ export function App() {
       />
 
       <Route
-        path="/dashboard"
+        path="/dashboard/*"
         element={
           !session ? (
             <Navigate to="/login" replace />
@@ -101,7 +103,7 @@ export function App() {
           ) : session.principal.role === "super_admin" ? (
             <Navigate to="/admin/overview" replace />
           ) : (
-            <RoleFallbackPage session={session} onLogout={() => handleLogout(setSession)} />
+            <RoleDashboardPage session={session} onLogout={() => handleLogout(setSession)} />
           )
         }
       />

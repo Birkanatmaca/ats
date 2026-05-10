@@ -5,7 +5,6 @@ import type { AuthSession, SystemStatus } from "../lib/api";
 import { api } from "../lib/api";
 import { navTabs } from "./config/navTabs";
 import type { AdminTab, SuperAdminState } from "./types";
-import { pageDescription, pageTitle } from "./utils/pageMeta";
 import { InstitutionDetailPage } from "./pages/InstitutionDetailPage";
 import { InstitutionsListPage } from "./pages/InstitutionsListPage";
 import { LogsPage } from "./pages/LogsPage";
@@ -32,7 +31,6 @@ export function SuperAdminConsole({
 
   const subPath = location.pathname.replace(/^\/admin\/?/, "");
   const activeTab = (subPath.split("/")[0] || "overview") as AdminTab;
-  const isInstitutionDetail = /^institutions\/[^/]+/.test(subPath);
 
   async function load() {
     setLoading(true);
@@ -78,8 +76,6 @@ export function SuperAdminConsole({
     }, 15000);
     return () => window.clearInterval(timer);
   }, [activeTab]);
-
-  const showHeader = activeTab !== "overview" && activeTab !== "institutions" && activeTab !== "users" && activeTab !== "support" && !isInstitutionDetail;
 
   return (
     <div className="admin-shell">
@@ -130,16 +126,6 @@ export function SuperAdminConsole({
 
       <main className={`admin-workspace ${activeTab}-workspace`}>
         <div className="sa-main">
-          {showHeader && (
-            <header className="sa-page-header">
-              <div>
-                <span className="sa-kicker">Süper admin</span>
-                <h1>{pageTitle(activeTab)}</h1>
-                <p>{pageDescription(activeTab)}</p>
-              </div>
-            </header>
-          )}
-
           {error && <div className="form-error workspace-error sa-alert">{error}</div>}
           {loading && (
             <div className="loading-line">

@@ -1,0 +1,117 @@
+.principal-teachers-page {
+  gap: 16px;
+}
+
+.principal-teachers-stats {
+  margin-bottom: 2px;
+}
+
+.principal-teachers-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.principal-teachers-toolbar-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink, #162235);
+}
+
+.principal-teachers-toolbar-text h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.principal-teachers-toolbar-text svg {
+  color: var(--sky, #2d7fc7);
+  flex-shrink: 0;
+}
+
+.principal-teachers-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.principal-teachers-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.principal-teachers-search {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--sa-border);
+  background: #fff;
+}
+
+.principal-teachers-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.principal-teachers-select {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--sa-border);
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  min-width: 160px;
+}
+
+.principal-teachers-table-card {
+  margin-top: 4px;
+}
+
+.principal-teachers-username {
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(45, 127, 199, 0.08);
+  color: var(--sky, #2d7fc7);
+}
+
+.principal-teachers-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.principal-teachers-badge--pending {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.principal-teachers-badge--ok {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.16);
+}
+
+.principal-teachers-actions {
+  flex-wrap: wrap;
+}
