@@ -1,7 +1,7 @@
 BACKEND_DIR=backend
 WEB_DIR=frontend/apps/web
 
-.PHONY: backend-dev backend-test backend-build web-dev web-build postgres-up postgres-down
+.PHONY: backend-dev backend-test backend-build web-dev web-build postgres-up postgres-down prod-deploy
 
 backend-dev:
 	cd $(BACKEND_DIR) && go run ./cmd/api
@@ -23,4 +23,8 @@ postgres-up:
 
 postgres-down:
 	docker compose down
+
+# Canlı sunucu: SSH anahtarı ile root@OTS_PROD_HOST (varsayılan 188.132.234.29) /opt/ots
+prod-deploy:
+	bash deploy/scripts/push-prod.sh
 

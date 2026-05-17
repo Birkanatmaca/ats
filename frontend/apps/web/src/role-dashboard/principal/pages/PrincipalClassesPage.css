@@ -1,0 +1,218 @@
+.principal-classes-only {
+  gap: 12px;
+  padding-top: 0;
+}
+
+.principal-classes-controls {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.principal-classes-search,
+.principal-classes-select {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--sa-border);
+  background: #fff;
+}
+
+.principal-classes-search svg,
+.principal-classes-select svg {
+  width: 15px;
+  height: 15px;
+  color: var(--sa-muted);
+}
+
+.principal-classes-search input,
+.principal-classes-select select {
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+}
+
+.principal-classes-search input {
+  width: 100%;
+}
+
+.principal-classes-select select {
+  min-width: 142px;
+}
+
+.principal-classes-card-row.sa-inst-grid {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.principal-class-card-slot.sa-inst-card {
+  min-height: 156px;
+  border-radius: 13px;
+  padding: 13px;
+  gap: 10px;
+  box-shadow: 0 4px 14px rgba(22, 34, 53, 0.045);
+}
+
+.principal-class-card-slot.sa-inst-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(22, 34, 53, 0.08);
+}
+
+.principal-add-class-card.sa-inst-card--add {
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+  border: 1px dashed color-mix(in srgb, var(--sa-accent) 55%, var(--sa-border));
+  background: var(--sa-tint-cream);
+}
+
+.principal-add-class-card.sa-inst-card--add:hover {
+  background: var(--sa-tint-warm);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--sa-accent) 14%, transparent);
+}
+
+.principal-add-class-card .sa-inst-card-add-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--sa-accent) 22%, transparent);
+}
+
+.principal-add-class-card.sa-inst-card--add strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.principal-add-class-card.sa-inst-card--add span {
+  max-width: none;
+  font-size: 11px;
+}
+
+.principal-add-class-hint {
+  margin-top: -4px;
+  line-height: 1.35;
+}
+
+.principal-add-class-form {
+  margin-top: auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+
+.principal-add-class-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+
+.principal-add-class-form .primary-action {
+  min-width: 48px;
+  min-height: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.principal-class-card.sa-inst-card {
+  background: #fff;
+}
+
+.principal-class-card .sa-inst-card-band {
+  height: 3px;
+  background: linear-gradient(90deg, #93c5fd, #2d7fc7);
+}
+
+.principal-class-card-title-block {
+  gap: 9px;
+  margin-top: 2px;
+  min-height: 40px;
+}
+
+.principal-class-card-title-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(45, 127, 199, 0.1);
+  color: var(--sky, #2d7fc7);
+}
+
+.principal-class-card-title-text {
+  font-size: clamp(1.28rem, 2.6vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.principal-class-card-meta {
+  margin-top: 0;
+  font-size: 10.5px;
+}
+
+.principal-class-card-stats.sa-inst-card-stats {
+  gap: 7px;
+}
+
+.principal-class-card-stats.sa-inst-card-stats > div {
+  gap: 7px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  background: #fbfbfa;
+}
+
+.principal-class-card-stats.sa-inst-card-stats svg {
+  width: 13px;
+  height: 13px;
+}
+
+.principal-class-card-stats.sa-inst-card-stats span {
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.035em;
+}
+
+.principal-class-card-stats.sa-inst-card-stats strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.principal-classes-empty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--sa-border);
+  border-radius: 12px;
+  color: var(--sa-muted);
+  background: #fff;
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .principal-classes-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .principal-classes-search {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .principal-classes-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .principal-classes-select select {
+    width: 100%;
+  }
+}

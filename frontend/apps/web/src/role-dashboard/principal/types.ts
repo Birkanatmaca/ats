@@ -36,6 +36,7 @@ export type ClassStudent = {
   guardianPhone: string;
   status: "active" | "passive";
   createdAt: string;
+  updatedAt?: string;
 };
 
 /** Müdür panelinde yönetilen öğretmen kaydı (yerel taslak; API ile eşlenebilir). */

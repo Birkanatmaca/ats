@@ -64,6 +64,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/announcements", h.announcements)
 	mux.HandleFunc("POST /api/v1/support/tickets", h.createSupportTicket)
 	mux.HandleFunc("GET /api/v1/dashboard/principal/summary", h.principalSummary)
+	mux.HandleFunc("GET /api/v1/principal/teachers", h.principalTeachers)
 	mux.HandleFunc("GET /api/v1/super-admin/overview", h.superAdminOverview)
 	mux.HandleFunc("GET /api/v1/super-admin/system/metrics", h.superAdminSystemMetrics)
 	mux.HandleFunc("GET /api/v1/super-admin/institutions", h.superAdminInstitutions)
@@ -262,6 +263,33 @@ func (h *Handler) superAdminInstitution(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, institution, nil)
+}
+
+func (h *Handler) principalTeachers(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipal(w, r)
+	if !ok {
+		return
+	}
+	if principal.Role != identity.RolePrincipal && principal.Role != identity.RoleSystemAdmin && principal.Role != identity.RoleSuperAdmin {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu işlem için yetkiniz yok.", nil)
+		return
+	}
+	users, err := h.superAdmin.InstitutionUsers(r.Context(), principal.TenantID)
+	if errors.Is(err, superadminapp.ErrInstitutionNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "INSTITUTION_NOT_FOUND", "Kurum bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "TEACHERS_FAILED", "Öğretmenler alınamadı.", nil)
+		return
+	}
+	teachers := make([]superadminDomain.UserAccount, 0, len(users))
+	for _, user := range users {
+		if user.Role == string(identity.RoleTeacher) && user.Status == "active" {
+			teachers = append(teachers, user)
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, teachers, nil)
 }
 
 func (h *Handler) superAdminInstitutionUsers(w http.ResponseWriter, r *http.Request) {

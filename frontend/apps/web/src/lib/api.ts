@@ -406,6 +406,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  principalTeachers: () => request<UserAccount[]>("/api/v1/principal/teachers"),
   updateSuperAdminSettings: (payload: {
     maintenance: { enabled: boolean; message: string };
     credentials: Array<{ key: string; value: string; clear?: boolean }>;

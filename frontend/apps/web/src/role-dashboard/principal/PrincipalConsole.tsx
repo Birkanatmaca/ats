@@ -1,9 +1,10 @@
 import { GraduationCap, Loader2, LogOut, School } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
-import type { AuthSession } from "../../lib/api";
+import type { AuthSession, UserAccount } from "../../lib/api";
 import { api } from "../../lib/api";
+import { createClientId } from "../../lib/id";
 import { principalTabs } from "./navTabs";
 import { PrincipalAnnouncementsPage } from "./pages/PrincipalAnnouncementsPage";
 import { PrincipalAttendancePage } from "./pages/PrincipalAttendancePage";
@@ -15,9 +16,11 @@ import { PrincipalOverviewPage } from "./pages/PrincipalOverviewPage";
 import { PrincipalSchedulePage } from "./pages/PrincipalSchedulePage";
 import { PrincipalStudentsPage } from "./pages/PrincipalStudentsPage";
 import { PrincipalTeachersPage } from "./pages/PrincipalTeachersPage";
+import type { StudentFormPayload } from "./components/StudentFormModal";
 import type { TeacherFormPayload } from "./components/TeacherFormModal";
 import { generateOneTimePassword } from "./teacherCredentials";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, PrincipalManagedTeacher, SchoolClass } from "./types";
+import "../../styles/super-admin-app.css";
 import "./PrincipalConsole.css";
 
 function parsePrincipalTeachers(raw: string | null): PrincipalManagedTeacher[] {
@@ -40,11 +43,44 @@ function parsePrincipalTeachers(raw: string | null): PrincipalManagedTeacher[] {
   }
 }
 
+function teacherAccountToManagedTeacher(user: UserAccount): PrincipalManagedTeacher {
+  const tokens = user.fullName.trim().split(/\s+/).filter(Boolean);
+  const firstName = tokens.shift() ?? user.fullName;
+  const lastName = tokens.join(" ");
+  return {
+    id: user.id,
+    firstName,
+    lastName,
+    branch: "",
+    weeklyLessonHours: 0,
+    classId: null,
+    className: null,
+    username: user.email,
+    mustChangePassword: user.mustChangePassword,
+    createdAt: user.createdAt
+  };
+}
+
+function mergeTeacherOptions(dbTeachers: PrincipalManagedTeacher[], localTeachers: PrincipalManagedTeacher[]) {
+  const seen = new Set<string>();
+  const merged: PrincipalManagedTeacher[] = [];
+  for (const teacher of [...dbTeachers, ...localTeachers]) {
+    const key = (teacher.username || teacher.id).toLocaleLowerCase("tr-TR");
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    merged.push(teacher);
+  }
+  return merged;
+}
+
 export function PrincipalConsole({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
   const [data, setData] = useState<PrincipalConsoleData>({ announcements: [] });
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [sections, setSections] = useState<ClassSection[]>([]);
   const [students, setStudents] = useState<ClassStudent[]>([]);
+  const [directoryTeachers, setDirectoryTeachers] = useState<PrincipalManagedTeacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const location = useLocation();
@@ -56,11 +92,18 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
 
   const activePath = location.pathname.replace(/^\/dashboard\/?/, "");
   const activeTab = activePath.split("/")[0] || "overview";
+  const sectionTeacherOptions = useMemo(() => mergeTeacherOptions(directoryTeachers, managedTeachers), [directoryTeachers, managedTeachers]);
 
   async function load() {
     setLoading(true);
     setError(null);
-    const [tenant, summary, schedule, announcements] = await Promise.allSettled([api.tenant(), api.dashboard(), api.schedule(), api.announcements()]);
+    const [tenant, summary, schedule, announcements, teacherAccounts] = await Promise.allSettled([
+      api.tenant(),
+      api.dashboard(),
+      api.schedule(),
+      api.announcements(),
+      api.principalTeachers()
+    ]);
 
     setData({
       tenant: tenant.status === "fulfilled" ? tenant.value : undefined,
@@ -69,7 +112,11 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
       announcements: announcements.status === "fulfilled" ? announcements.value : []
     });
 
-    const failed = [tenant, summary, schedule, announcements].some((result) => result.status === "rejected");
+    if (teacherAccounts.status === "fulfilled") {
+      setDirectoryTeachers(teacherAccounts.value.map(teacherAccountToManagedTeacher));
+    }
+
+    const failed = [tenant, summary, schedule, announcements, teacherAccounts].some((result) => result.status === "rejected");
     if (failed) {
       setError("Bazı müdür paneli verileri alınamadı; erişebildiğin alanlar listeleniyor.");
     }
@@ -122,7 +169,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
 
   function addClass(payload: { name: string }) {
     const classItem: SchoolClass = {
-      id: crypto.randomUUID(),
+      id: createClientId("class"),
       name: payload.name,
       createdAt: new Date().toISOString()
     };
@@ -131,7 +178,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
 
   function addSection(payload: { classId: string; name: string; gradeLevel: string; advisor: string; capacity: number }) {
     const sectionItem: ClassSection = {
-      id: crypto.randomUUID(),
+      id: createClientId("section"),
       classId: payload.classId,
       name: payload.name,
       gradeLevel: payload.gradeLevel,
@@ -150,16 +197,33 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
   function addStudent(payload: Omit<ClassStudent, "id" | "createdAt">) {
     const student: ClassStudent = {
       ...payload,
-      id: crypto.randomUUID(),
+      id: createClientId("student"),
       createdAt: new Date().toISOString()
     };
     setStudents((current) => [student, ...current]);
   }
 
+  function updateStudent(id: string, payload: StudentFormPayload) {
+    const now = new Date().toISOString();
+    setStudents((current) => current.map((item) => (item.id === id ? { ...item, ...payload, updatedAt: now } : item)));
+  }
+
+  function deleteStudent(id: string) {
+    setStudents((current) => current.filter((item) => item.id !== id));
+  }
+
+  function assignStudentsToSection(studentIds: string[], classId: string, sectionId: string) {
+    const selected = new Set(studentIds);
+    const now = new Date().toISOString();
+    setStudents((current) =>
+      current.map((item) => (selected.has(item.id) ? { ...item, classId, sectionId, updatedAt: now } : item))
+    );
+  }
+
   function addManagedTeacher(payload: TeacherFormPayload) {
     const className = payload.classId ? classes.find((c) => c.id === payload.classId)?.name ?? null : null;
     const row: PrincipalManagedTeacher = {
-      id: crypto.randomUUID(),
+      id: createClientId("teacher"),
       firstName: payload.firstName,
       lastName: payload.lastName,
       branch: payload.branch,
@@ -284,13 +348,59 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
                 />
               }
             />
-            <Route path="students" element={<PrincipalStudentsPage classes={classes} sections={sections} students={students} />} />
-            <Route path="schedule" element={<PrincipalSchedulePage data={data} />} />
-            <Route path="attendance" element={<PrincipalAttendancePage data={data} />} />
+            <Route
+              path="students"
+              element={
+                <PrincipalStudentsPage
+                  classes={classes}
+                  sections={sections}
+                  students={students}
+                  onAddStudent={addStudent}
+                  onUpdateStudent={updateStudent}
+                  onDeleteStudent={deleteStudent}
+                />
+              }
+            />
+            <Route
+              path="schedule"
+              element={
+                <PrincipalSchedulePage
+                  mode="overview"
+                  data={data}
+                  classes={classes}
+                  sections={sections}
+                  students={students}
+                  teachers={sectionTeacherOptions}
+                  storageKey={`principal.schedule-builder.${session.principal.tenantId}`}
+                />
+              }
+            />
+            <Route
+              path="schedule/builder"
+              element={
+                <PrincipalSchedulePage
+                  mode="builder"
+                  data={data}
+                  classes={classes}
+                  sections={sections}
+                  students={students}
+                  teachers={sectionTeacherOptions}
+                  storageKey={`principal.schedule-builder.${session.principal.tenantId}`}
+                />
+              }
+            />
+            <Route path="attendance" element={<PrincipalAttendancePage data={data} classes={classes} sections={sections} students={students} />} />
             <Route path="classes" element={<PrincipalClassesPage classes={classes} sections={sections} students={students} onAddClass={addClass} />} />
             <Route
               path="classes/:classId/:sectionId"
-              element={<PrincipalClassStudentsPage classes={classes} sections={sections} students={students} onAddStudent={addStudent} />}
+              element={
+                <PrincipalClassStudentsPage
+                  classes={classes}
+                  sections={sections}
+                  students={students}
+                  onAssignStudentsToSection={assignStudentsToSection}
+                />
+              }
             />
             <Route
               path="classes/:classId"
@@ -299,6 +409,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
                   classes={classes}
                   sections={sections}
                   students={students}
+                  teachers={sectionTeacherOptions}
                   onAddSection={addSection}
                   onDeleteSection={deleteSection}
                 />

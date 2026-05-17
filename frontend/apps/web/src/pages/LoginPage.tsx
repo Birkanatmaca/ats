@@ -1,4 +1,13 @@
-import { GraduationCap, KeyRound, Loader2, LockKeyhole, Mail } from "lucide-react";
+import {
+  GraduationCap,
+  KeyRound,
+  LayoutDashboard,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  ShieldCheck,
+  Sparkles
+} from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
 import type { AuthSession } from "../lib/api";
@@ -48,17 +57,39 @@ export function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void
   return (
     <main className="login-page">
       <section className="login-brand" aria-label="ÖTS">
+        <div className="login-brand-aurora" aria-hidden="true">
+          <span className="login-brand-aurora-blob login-brand-aurora-blob--a" />
+          <span className="login-brand-aurora-blob login-brand-aurora-blob--b" />
+          <span className="login-brand-aurora-blob login-brand-aurora-blob--c" />
+        </div>
+        <div className="login-brand-shimmer" aria-hidden="true" />
+        <div className="login-brand-grid" aria-hidden="true" />
         <div className="login-brand-content">
           <div className="login-mark">
-            <GraduationCap size={38} />
+            <GraduationCap size={38} aria-hidden />
           </div>
           <p>ÖTS Platform</p>
           <h1>Akıllı Okul Yönetim Sistemi</h1>
           <h2>Eğitim kurumunuzu tek bir merkezden, güvenle ve kolayca yönetin.</h2>
+          <ul className="login-brand-highlights" aria-hidden="true">
+            <li>
+              <ShieldCheck size={18} strokeWidth={2.25} />
+              Güvenli erişim
+            </li>
+            <li>
+              <Sparkles size={18} strokeWidth={2.25} />
+              Tek panel
+            </li>
+            <li>
+              <LayoutDashboard size={18} strokeWidth={2.25} />
+              Rol tabanlı
+            </li>
+          </ul>
         </div>
       </section>
 
       <section className="login-panel" aria-label="Giriş">
+        <div className="login-panel-glow" aria-hidden="true" />
         <form className="login-form" onSubmit={(event) => void submit(event)}>
           <div className="form-heading">
             <span>ÖTS hesabı</span>
@@ -67,24 +98,24 @@ export function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void
 
           {error && <div className="form-error">{error}</div>}
 
-          <label className="field">
+          <label className="field login-field">
             <span>E-posta</span>
-            <div className="field-control">
-              <Mail size={18} />
+            <div className="field-control login-field-control">
+              <Mail size={18} aria-hidden />
               <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" />
             </div>
           </label>
 
-          <label className="field">
+          <label className="field login-field">
             <span>Şifre</span>
-            <div className="field-control">
-              <LockKeyhole size={18} />
+            <div className="field-control login-field-control">
+              <LockKeyhole size={18} aria-hidden />
               <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" autoComplete="current-password" />
             </div>
           </label>
 
-          <button className="primary-action" type="submit" disabled={loading}>
-            {loading ? <Loader2 className="spin" size={18} /> : <KeyRound size={18} />}
+          <button className="primary-action login-submit" type="submit" disabled={loading}>
+            {loading ? <Loader2 className="spin" size={18} aria-hidden /> : <KeyRound size={18} aria-hidden />}
             Giriş yap
           </button>
 

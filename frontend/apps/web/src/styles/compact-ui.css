@@ -1,0 +1,283 @@
+/* Kompakt dashboard — kart, boşluk ve kabuk ölçüleri (zoom yok) */
+.admin-shell.super-admin-app,
+.admin-shell.principal-console {
+  font-size: 12px;
+  --sa-radius-lg: 12px;
+  --sa-radius-md: 10px;
+  grid-template-columns: 78px minmax(0, 1fr);
+}
+
+.admin-shell.super-admin-app .admin-navbar,
+.admin-shell.principal-console .admin-navbar {
+  min-height: 48px;
+  padding: 6px 12px;
+}
+
+.admin-shell.super-admin-app .admin-mark,
+.admin-shell.principal-console .admin-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.admin-shell.super-admin-app .profile-avatar,
+.admin-shell.principal-console .profile-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.admin-shell.super-admin-app .navbar-profile,
+.admin-shell.principal-console .navbar-profile {
+  min-height: 32px;
+  padding: 3px 8px 3px 4px;
+}
+
+.admin-shell.super-admin-app .ghost-action.navbar-logout,
+.admin-shell.principal-console .ghost-action.navbar-logout {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.admin-shell.super-admin-app .admin-sidebar,
+.admin-shell.principal-console .admin-sidebar {
+  padding: 8px 6px;
+}
+
+.admin-shell.super-admin-app .nav-button,
+.admin-shell.principal-console .nav-button {
+  min-height: 44px;
+  padding: 5px 3px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.admin-shell.super-admin-app .nav-button svg,
+.admin-shell.principal-console .nav-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-shell.super-admin-app .nav-button span,
+.admin-shell.principal-console .nav-button span {
+  font-size: 9px;
+  max-width: 62px;
+}
+
+.admin-shell.super-admin-app .sa-main,
+.admin-shell.principal-console .sa-main {
+  padding: 14px 20px 24px;
+}
+
+.admin-shell.super-admin-app .sa-overview,
+.admin-shell.principal-console .principal-page-stack,
+.admin-shell.principal-console .teacher-page-stack,
+.admin-shell.principal-console .teacher-main,
+.admin-shell.principal-console .guardian-page-stack,
+.admin-shell.principal-console .guardian-main,
+.admin-shell.principal-console .guidance-page-stack,
+.admin-shell.principal-console .guidance-main {
+  gap: 12px;
+}
+
+.admin-shell.super-admin-app .sa-page-header,
+.admin-shell.principal-console .sa-page-header {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+}
+
+.admin-shell.super-admin-app .sa-page-header h1,
+.admin-shell.principal-console .sa-page-header h1,
+.admin-shell.principal-console .teacher-page-title h1,
+.admin-shell.principal-console .guardian-page-title h1,
+.admin-shell.principal-console .guidance-page-title h1 {
+  font-size: 1.2rem;
+}
+
+.admin-shell.super-admin-app .sa-page-header p,
+.admin-shell.principal-console .sa-page-header p {
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+.admin-shell.super-admin-app .sa-kpi-row,
+.admin-shell.principal-console .principal-kpi-grid,
+.admin-shell.principal-console .teacher-kpi-grid,
+.admin-shell.principal-console .guardian-kpi-grid,
+.admin-shell.principal-console .guidance-kpi-grid,
+.admin-shell.principal-console .principal-stat-grid {
+  gap: 10px;
+}
+
+.admin-shell.super-admin-app .sa-kpi,
+.admin-shell.principal-console .sa-kpi {
+  padding: 11px 12px 11px 15px;
+  border-radius: var(--sa-radius-lg);
+}
+
+.admin-shell.super-admin-app .sa-kpi::before,
+.admin-shell.principal-console .sa-kpi::before {
+  border-radius: var(--sa-radius-lg) 0 0 var(--sa-radius-lg);
+}
+
+.admin-shell.super-admin-app .sa-kpi-icon,
+.admin-shell.principal-console .sa-kpi-icon,
+.admin-shell.principal-console .principal-kpi-icon {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 7px;
+  border-radius: 9px;
+}
+
+.admin-shell.super-admin-app .sa-kpi-value,
+.admin-shell.principal-console .sa-kpi-value {
+  font-size: 1.2rem;
+}
+
+.admin-shell.super-admin-app .sa-kpi label,
+.admin-shell.principal-console .sa-kpi label {
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
+.admin-shell.super-admin-app .sa-kpi-hint,
+.admin-shell.principal-console .sa-kpi-hint {
+  margin-top: 6px;
+  font-size: 10px;
+}
+
+.admin-shell.super-admin-app .sa-card,
+.admin-shell.principal-console .sa-card,
+.admin-shell.principal-console .principal-surface-card,
+.admin-shell.principal-console .principal-kpi-card,
+.admin-shell.principal-console .principal-stat-card {
+  border-radius: var(--sa-radius-lg);
+  box-shadow: 0 1px 12px rgba(15, 23, 42, 0.05);
+}
+
+.admin-shell.super-admin-app .sa-panel-header,
+.admin-shell.principal-console .sa-panel-header {
+  padding: 11px 14px;
+  gap: 10px;
+}
+
+.admin-shell.super-admin-app .sa-panel-header h2,
+.admin-shell.principal-console .sa-panel-header h2,
+.admin-shell.principal-console .principal-card-head h2,
+.admin-shell.principal-console .teacher-card-head h2,
+.admin-shell.principal-console .guardian-card-head h2,
+.admin-shell.principal-console .guidance-card-head h2 {
+  font-size: 0.92rem;
+}
+
+.admin-shell.super-admin-app .sa-card-body,
+.admin-shell.principal-console .sa-card-body {
+  padding: 12px 14px;
+}
+
+.admin-shell.super-admin-app .sa-chart-frame,
+.admin-shell.principal-console .principal-chart-frame {
+  height: 200px;
+}
+
+.admin-shell.principal-console .principal-chart-frame--lg {
+  height: 220px;
+}
+
+.admin-shell.super-admin-app .sa-two-col,
+.admin-shell.super-admin-app .sa-dash-grid,
+.admin-shell.principal-console .principal-visual-grid,
+.admin-shell.principal-console .teacher-overview-grid,
+.admin-shell.principal-console .guardian-overview-grid,
+.admin-shell.principal-console .guidance-overview-grid {
+  gap: 10px;
+}
+
+.admin-shell.principal-console .principal-kpi-card,
+.admin-shell.principal-console .principal-stat-card {
+  padding: 12px 13px 12px 15px;
+}
+
+.admin-shell.principal-console .principal-stat-card {
+  padding: 12px 13px 12px 15px;
+}
+
+.admin-shell.principal-console .principal-stat-card strong {
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+}
+
+.admin-shell.principal-console .principal-kpi-card strong,
+.admin-shell.principal-console .teacher-kpi-card strong,
+.admin-shell.principal-console .guardian-kpi-card strong,
+.admin-shell.principal-console .guidance-kpi-card strong {
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+}
+
+.admin-shell.principal-console .teacher-kpi-card,
+.admin-shell.principal-console .guardian-kpi-card,
+.admin-shell.principal-console .guidance-kpi-card {
+  min-height: 100px;
+  padding: 10px 12px 10px 14px;
+}
+
+.admin-shell.principal-console .principal-surface-card {
+  padding: 12px 14px;
+}
+
+.admin-shell.principal-console .principal-ring {
+  width: 96px;
+  height: 96px;
+}
+
+.admin-shell.principal-console .principal-ring strong {
+  font-size: 1rem;
+}
+
+.admin-shell.principal-console .sa-inst-card:not(.sa-inst-card--add) {
+  padding: 16px 14px 14px;
+  min-height: 0;
+  gap: 12px;
+}
+
+.admin-shell.principal-console .sa-inst-card--add {
+  padding: 20px 16px;
+  min-height: 0;
+}
+
+.admin-shell.super-admin-app .primary-action:not(.navbar-logout),
+.admin-shell.principal-console .primary-action:not(.navbar-logout),
+.admin-shell.super-admin-app .primary-action.small-action,
+.admin-shell.principal-console .primary-action.small-action {
+  min-height: 38px;
+  font-size: 12px;
+}
+
+.admin-shell.super-admin-app .ghost-action:not(.navbar-logout),
+.admin-shell.principal-console .ghost-action:not(.navbar-logout) {
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.admin-shell.super-admin-app .field-control,
+.admin-shell.principal-console .field-control {
+  min-height: 40px;
+  padding: 0 11px;
+  border-radius: 9px;
+}
+
+.admin-shell.principal-console .principal-list-row,
+.admin-shell.principal-console .teacher-lesson-row,
+.admin-shell.principal-console .guardian-lesson-row,
+.admin-shell.principal-console .guidance-observation-row,
+.admin-shell.principal-console .guidance-risk-row {
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+
+@media (max-width: 1080px) {
+  .admin-shell.super-admin-app,
+  .admin-shell.principal-console {
+    grid-template-columns: 1fr;
+  }
+}

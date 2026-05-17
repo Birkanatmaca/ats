@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-
 .admin-shell {
   --sa-bg: #f9f9f8;
   --sa-surface: #ffffff;
@@ -10,6 +8,11 @@
   --sa-accent-2: #fac95a;
   --sa-shadow: 0 12px 32px rgba(19, 19, 19, 0.08);
   --sa-chart-soft: #6b8f86;
+  --sa-tint-warm: #fffaf0;
+  --sa-tint-cream: #fffcf4;
+  --sa-surface-tint: #fefdfb;
+  --sa-accent-deep: #b45309;
+  --sa-accent-mid: #e67e00;
 }
 
 .admin-shell {
@@ -18,7 +21,13 @@
   grid-template-rows: 56px minmax(0, 1fr);
   min-height: 100vh;
   background: linear-gradient(180deg, var(--sa-bg), #efefeb);
-  font-family: "Inter", "Roboto", "Segoe UI", sans-serif;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   color: var(--sa-ink);
 }
 
@@ -77,7 +86,7 @@
   border-radius: 11px;
   color: var(--sa-ink);
   background: linear-gradient(145deg, var(--sa-accent-2), var(--sa-accent));
-  box-shadow: 0 10px 20px rgba(249, 165, 27, 0.25);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--sa-accent) 25%, transparent);
 }
 
 .navbar-profile {
@@ -172,6 +181,7 @@
   color: var(--sa-muted);
   background: transparent;
   text-align: center;
+  text-decoration: none;
   line-height: 1.08;
 }
 
@@ -188,8 +198,8 @@
 .nav-button.active,
 .nav-button:hover {
   color: var(--sa-ink);
-  border-color: rgba(249, 165, 27, 0.35);
-  background: linear-gradient(180deg, var(--sa-surface), #fffaf0);
+  border-color: color-mix(in srgb, var(--sa-accent) 35%, transparent);
+  background: linear-gradient(180deg, var(--sa-surface), var(--sa-tint-warm));
   box-shadow: var(--sa-shadow);
 }
 
@@ -291,7 +301,7 @@
   padding: 16px 16px 16px 20px;
   border-radius: 16px;
   border: 1px solid var(--sa-border);
-  background: linear-gradient(160deg, #ffffff 0%, #fefdfb 100%);
+  background: linear-gradient(160deg, #ffffff 0%, var(--sa-surface-tint) 100%);
   box-shadow: var(--sa-shadow);
   position: relative;
   overflow: hidden;
@@ -364,7 +374,7 @@
   height: 40px;
   place-items: center;
   border-radius: 12px;
-  background: rgba(249, 165, 27, 0.15);
+  background: color-mix(in srgb, var(--sa-accent) 15%, transparent);
   color: var(--sa-accent);
   margin-bottom: 10px;
 }
@@ -408,7 +418,7 @@
 .sa-card {
   border-radius: 16px;
   border: 1px solid var(--sa-border);
-  background: linear-gradient(160deg, #ffffff 0%, #fefdfb 100%);
+  background: linear-gradient(160deg, #ffffff 0%, var(--sa-surface-tint) 100%);
   box-shadow: var(--sa-shadow);
   overflow: hidden;
 }
@@ -419,7 +429,7 @@
   justify-content: space-between;
   gap: 14px;
   padding: 16px 18px;
-  background: linear-gradient(90deg, #fffcf4 0%, #ffffff 100%);
+  background: linear-gradient(90deg, var(--sa-tint-cream) 0%, #ffffff 100%);
   border-bottom: 1px solid rgba(219, 219, 217, 0.7);
 }
 
@@ -620,7 +630,7 @@
 }
 
 .sa-bar-fill--warn {
-  background: linear-gradient(90deg, #f9a51b, #e67e00);
+  background: linear-gradient(90deg, var(--sa-accent), var(--sa-accent-mid));
 }
 
 .sa-bar-fill--critical {
@@ -681,7 +691,7 @@
 }
 
 .sa-health-row:hover {
-  background: rgba(249, 165, 27, 0.06);
+  background: color-mix(in srgb, var(--sa-accent) 6%, transparent);
 }
 
 .sa-health-name {
@@ -761,7 +771,7 @@
   height: 40px;
   place-items: center;
   border-radius: 11px;
-  background: rgba(249, 165, 27, 0.18);
+  background: color-mix(in srgb, var(--sa-accent) 18%, transparent);
   color: var(--sa-ink);
 }
 
@@ -987,7 +997,7 @@
 .sa-settings-tab.is-active {
   background: #fff7df;
   color: var(--sa-ink);
-  box-shadow: inset 0 0 0 1px rgba(249, 165, 27, 0.24);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sa-accent) 24%, transparent);
 }
 
 .sa-settings-tab-icon {
@@ -1000,7 +1010,7 @@
 }
 
 .sa-settings-tab.is-active .sa-settings-tab-icon {
-  background: rgba(249, 165, 27, 0.18);
+  background: color-mix(in srgb, var(--sa-accent) 18%, transparent);
 }
 
 .sa-settings-tab small {
@@ -1181,8 +1191,8 @@
 }
 
 .sa-row-body.sa-row-selected {
-  border-color: rgba(249, 165, 27, 0.45);
-  background: linear-gradient(180deg, rgba(254, 252, 248, 1), rgba(249, 165, 27, 0.08));
+  border-color: color-mix(in srgb, var(--sa-accent) 45%, transparent);
+  background: linear-gradient(180deg, var(--sa-tint-cream), color-mix(in srgb, var(--sa-accent) 8%, transparent));
 }
 
 .sa-row-body-cell small {
@@ -1256,7 +1266,7 @@
 }
 
 .sa-chip.is-active {
-  background: rgba(249, 165, 27, 0.9);
+  background: color-mix(in srgb, var(--sa-accent) 90%, transparent);
   border-color: var(--sa-accent);
   color: var(--sa-ink);
 }
@@ -1287,7 +1297,7 @@
 .admin-shell .status-badge.normal,
 .admin-shell .status-badge.warning,
 .admin-shell .status-badge.suggestion {
-  background: rgba(249, 165, 27, 0.22);
+  background: color-mix(in srgb, var(--sa-accent) 22%, transparent);
   color: var(--sa-ink);
 }
 
@@ -1357,7 +1367,7 @@
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: rgba(249, 165, 27, 0.15);
+  background: color-mix(in srgb, var(--sa-accent) 15%, transparent);
   color: var(--sa-ink);
 }
 
@@ -1424,7 +1434,7 @@
   justify-content: space-between;
   padding: 14px;
   border-radius: 14px;
-  border: 1px solid rgba(249, 165, 27, 0.45);
+  border: 1px solid color-mix(in srgb, var(--sa-accent) 45%, transparent);
   background: rgba(250, 201, 90, 0.15);
 }
 
@@ -1481,7 +1491,7 @@
 }
 
 .tenant-chip.selected {
-  border-color: rgba(249, 165, 27, 0.5);
+  border-color: color-mix(in srgb, var(--sa-accent) 50%, transparent);
   background: rgba(250, 201, 90, 0.12);
 }
 
@@ -1534,6 +1544,7 @@
   color: var(--sa-ink);
   background: linear-gradient(145deg, var(--sa-accent-2), var(--sa-accent));
   border: none;
+  text-decoration: none;
 }
 
 .admin-shell .primary-action:not(.navbar-logout):hover {
@@ -1544,6 +1555,7 @@
   border-color: var(--sa-border);
   color: var(--sa-ink);
   background: var(--sa-surface);
+  text-decoration: none;
 }
 
 .admin-shell .ghost-action:not(.navbar-logout):hover {
@@ -1642,7 +1654,7 @@
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: rgba(249, 165, 27, 0.16);
+  background: color-mix(in srgb, var(--sa-accent) 16%, transparent);
   color: var(--sa-accent);
 }
 
@@ -1660,7 +1672,7 @@
 }
 .sa-inst-card--plan-premium .sa-inst-card-icon {
   background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
+  color: var(--sa-accent-deep);
 }
 .sa-inst-card--plan-trial .sa-inst-card-icon {
   background: rgba(148, 163, 184, 0.18);
@@ -1760,7 +1772,7 @@
   text-align: center;
   gap: 10px;
   padding: 24px;
-  border: 2px dashed rgba(249, 165, 27, 0.5);
+  border: 2px dashed color-mix(in srgb, var(--sa-accent) 50%, transparent);
   background: linear-gradient(160deg, rgba(255, 252, 244, 0.6), rgba(255, 245, 218, 0.4));
   cursor: pointer;
   font-family: inherit;
@@ -1771,7 +1783,7 @@
 .sa-inst-card--add:hover {
   border-color: var(--sa-accent);
   background: linear-gradient(160deg, #fff8e8, #fde3a8);
-  box-shadow: 0 14px 30px rgba(249, 165, 27, 0.18);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--sa-accent) 18%, transparent);
 }
 
 .sa-inst-card-add-icon {
@@ -1782,7 +1794,7 @@
   place-items: center;
   background: linear-gradient(145deg, var(--sa-accent-2), var(--sa-accent));
   color: #fff;
-  box-shadow: 0 12px 22px rgba(249, 165, 27, 0.30);
+  box-shadow: 0 12px 22px color-mix(in srgb, var(--sa-accent) 30%, transparent);
 }
 
 .sa-inst-card--add strong {
@@ -1826,7 +1838,7 @@
 }
 .sa-plan-badge--premium {
   background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
+  color: var(--sa-accent-deep);
 }
 .sa-plan-badge--trial {
   background: rgba(148, 163, 184, 0.20);
@@ -1857,7 +1869,7 @@
 .sa-back-link:hover {
   color: var(--sa-ink);
   border-color: var(--sa-accent);
-  background: #fffaf0;
+  background: var(--sa-tint-warm);
 }
 
 .sa-detail-hero {
@@ -1869,7 +1881,7 @@
   padding: 20px 22px;
   border-radius: 18px;
   border: 1px solid var(--sa-border);
-  background: linear-gradient(135deg, #ffffff, #fffaf0);
+  background: linear-gradient(135deg, #ffffff, var(--sa-tint-warm));
   box-shadow: var(--sa-shadow);
   overflow: hidden;
 }
@@ -1906,7 +1918,7 @@
   place-items: center;
   background: linear-gradient(145deg, var(--sa-accent-2), var(--sa-accent));
   color: #fff;
-  box-shadow: 0 10px 20px rgba(249, 165, 27, 0.22);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--sa-accent) 22%, transparent);
 }
 
 .sa-detail-hero--mvp .sa-detail-hero-icon {
@@ -2041,7 +2053,7 @@
 .sa-user-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 22px rgba(19, 19, 19, 0.06);
-  border-color: rgba(249, 165, 27, 0.4);
+  border-color: color-mix(in srgb, var(--sa-accent) 40%, transparent);
 }
 
 .sa-user-avatar {
@@ -2058,7 +2070,7 @@
 }
 
 .sa-user-avatar--super {
-  background: linear-gradient(145deg, #f9a51b, #b45309);
+  background: linear-gradient(145deg, var(--sa-accent), var(--sa-accent-deep));
 }
 .sa-user-avatar--system {
   background: linear-gradient(145deg, #60a5fa, #1d4ed8);
@@ -2070,7 +2082,7 @@
   background: linear-gradient(145deg, #34d399, #047857);
 }
 .sa-user-avatar--teacher {
-  background: linear-gradient(145deg, #fbbf24, #b45309);
+  background: linear-gradient(145deg, #fbbf24, var(--sa-accent-deep));
 }
 .sa-user-avatar--guardian {
   background: linear-gradient(145deg, #f472b6, #be185d);
@@ -2118,8 +2130,8 @@
 }
 
 .sa-role-badge--super {
-  background: rgba(249, 165, 27, 0.18);
-  color: #b45309;
+  background: color-mix(in srgb, var(--sa-accent) 18%, transparent);
+  color: var(--sa-accent-deep);
 }
 .sa-role-badge--system {
   background: rgba(59, 130, 246, 0.16);
@@ -2199,7 +2211,7 @@
   gap: 12px;
   padding: 18px 22px 12px;
   border-bottom: 1px solid var(--sa-border);
-  background: linear-gradient(90deg, #fffcf4, #ffffff);
+  background: linear-gradient(90deg, var(--sa-tint-cream), #ffffff);
 }
 
 .sa-modal-heading h2 {
@@ -2217,7 +2229,7 @@
   width: 28px;
   height: 28px;
   border-radius: 9px;
-  background: rgba(249, 165, 27, 0.18);
+  background: color-mix(in srgb, var(--sa-accent) 18%, transparent);
   color: var(--sa-accent);
 }
 

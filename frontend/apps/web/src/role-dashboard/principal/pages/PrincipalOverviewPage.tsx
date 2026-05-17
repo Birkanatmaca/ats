@@ -116,7 +116,7 @@ export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) 
                 <YAxis tick={{ fontSize: 11, fill: "#919a9f" }} />
                 <Tooltip />
                 <Bar dataKey="absent" fill="#ef4444" radius={[6, 6, 0, 0]} name="Devamsız" />
-                <Bar dataKey="completed" fill="#f59e0b" radius={[6, 6, 0, 0]} name="Yoklama tamam" />
+                <Bar dataKey="completed" fill="#14b8a6" radius={[6, 6, 0, 0]} name="Yoklama tamam" />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -13,6 +13,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SupportPage } from "./pages/SupportPage";
 import { UsersPage } from "./pages/UsersPage";
+import "../styles/super-admin-app.css";
 import "./SuperAdminConsole.css";
 
 export function SuperAdminConsole({
@@ -78,7 +79,7 @@ export function SuperAdminConsole({
   }, [activeTab]);
 
   return (
-    <div className="admin-shell">
+    <div className="admin-shell super-admin-app">
       <header className="admin-navbar">
         <div className="navbar-brand">
           <div className="admin-mark">
