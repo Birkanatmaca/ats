@@ -234,10 +234,14 @@
 
 .guidance-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
   gap: 10px;
-  align-items: center;
   margin-bottom: 12px;
+}
+
+.guidance-toolbar-fields {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) minmax(140px, 180px) minmax(220px, 1fr);
+  gap: 10px;
 }
 
 .guidance-filter-row {
@@ -266,6 +270,8 @@
   background: var(--sa-tint-warm);
 }
 
+.guidance-toolbar-fields input,
+.guidance-toolbar-fields select,
 .guidance-toolbar input {
   min-height: 36px;
   border: 1px solid var(--sa-border);

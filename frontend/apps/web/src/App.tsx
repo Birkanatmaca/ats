@@ -5,8 +5,10 @@ import { api, readAuthSession } from "./lib/api";
 import { handleLogout } from "./auth/handleLogout";
 import { SuperAdminConsole } from "./admin/SuperAdminConsole";
 import { FirstLoginPasswordPage } from "./pages/FirstLoginPasswordPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { RoleDashboardPage } from "./pages/RoleDashboardPage";
 
 export function App() {
@@ -73,6 +75,9 @@ export function App() {
           )
         }
       />
+
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route
         path="/admin/*"

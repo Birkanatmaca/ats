@@ -583,6 +583,32 @@
   }
 }
 
+.login-footer-link {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.login-footer-link a {
+  color: #c27803;
+  text-decoration: none;
+}
+
+.login-footer-link a:hover {
+  text-decoration: underline;
+}
+
+.login-panel--solo {
+  width: min(100%, 28rem);
+  margin: 0 auto;
+}
+
+.login-subcopy {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-brand-aurora-blob,
   .login-brand-shimmer,

@@ -1,14 +1,20 @@
 import { AlertCircle, CheckCircle2, Clock3, XCircle } from "lucide-react";
-import { guardianAttendanceRecords } from "../data";
+import type { GuardianAttendanceRecord } from "../../../lib/api";
 import { GuardianAttendanceList } from "../components/GuardianAttendanceList";
 import { GuardianKpiCard } from "../components/GuardianKpiCard";
 import type { GuardianChild } from "../types";
 
-export function GuardianAttendancePage({ child }: { child: GuardianChild }) {
-  const presentCount = guardianAttendanceRecords.filter((record) => record.status === "present").length;
-  const absentCount = guardianAttendanceRecords.filter((record) => record.status === "absent").length;
-  const lateCount = guardianAttendanceRecords.filter((record) => record.status === "late").length;
-  const excusedCount = guardianAttendanceRecords.filter((record) => record.status === "excused").length;
+export function GuardianAttendancePage({
+  child,
+  records
+}: {
+  child: GuardianChild;
+  records: GuardianAttendanceRecord[];
+}) {
+  const presentCount = records.filter((record) => record.status === "present").length;
+  const absentCount = records.filter((record) => record.status === "absent").length;
+  const lateCount = records.filter((record) => record.status === "late").length;
+  const excusedCount = records.filter((record) => record.status === "excused").length;
 
   return (
     <section className="guardian-page-stack">
@@ -31,7 +37,7 @@ export function GuardianAttendancePage({ child }: { child: GuardianChild }) {
             <p>Öğretmenlerin aldığı yoklamalardan veliye yansıyan kayıtlar.</p>
           </div>
         </div>
-        <GuardianAttendanceList records={guardianAttendanceRecords} />
+        <GuardianAttendanceList records={records} />
       </section>
     </section>
   );

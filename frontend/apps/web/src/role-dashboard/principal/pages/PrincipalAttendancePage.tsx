@@ -1,9 +1,10 @@
 import { ArrowLeft, Check, ClipboardCheck, Search, UsersRound, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api, type AttendanceDayRecord } from "../../../lib/api";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, SchoolClass } from "../types";
 import "./PrincipalAttendancePage.css";
 
-type AttendanceStatus = "present" | "absent";
+type AttendanceStatus = "present" | "absent" | "unset";
 
 export function PrincipalAttendancePage({
   data,
@@ -21,6 +22,41 @@ export function PrincipalAttendancePage({
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [date, setDate] = useState(() => formatDateInputValue(new Date()));
+  const [dayRecords, setDayRecords] = useState<AttendanceDayRecord[]>([]);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setReportLoading(true);
+    api
+      .attendanceToday(date)
+      .then((report) => {
+        if (!cancelled) {
+          setDayRecords(report.records ?? []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDayRecords([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setReportLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
+  const statusByStudent = useMemo(() => {
+    const map = new Map<string, AttendanceDayRecord["status"]>();
+    for (const record of dayRecords) {
+      map.set(record.studentId, record.status);
+    }
+    return map;
+  }, [dayRecords]);
 
   const classNameById = useMemo(() => new Map(classes.map((item) => [item.id, item.name])), [classes]);
   const studentsBySection = useMemo(() => {
@@ -34,23 +70,51 @@ export function PrincipalAttendancePage({
     return map;
   }, [students]);
 
+  const resolveStatus = (studentId: string): AttendanceStatus => {
+    const raw = statusByStudent.get(studentId);
+    if (!raw) {
+      return "unset";
+    }
+    if (raw === "absent" || raw === "late") {
+      return "absent";
+    }
+    if (raw === "present" || raw === "excused") {
+      return "present";
+    }
+    return "unset";
+  };
+
   const sectionRows = useMemo(
     () =>
       sections.map((section) => {
         const sectionStudents = studentsBySection.get(section.id) ?? [];
-        const absent = sectionStudents.filter((student) => attendanceStatusFor(student.id, date) === "absent").length;
-        const present = sectionStudents.length - absent;
-        const completion = sectionStudents.length > 0 ? 100 : 0;
+        let present = 0;
+        let absent = 0;
+        let recorded = 0;
+        for (const student of sectionStudents) {
+          const status = resolveStatus(student.id);
+          if (status === "unset") {
+            continue;
+          }
+          recorded++;
+          if (status === "absent") {
+            absent++;
+          } else {
+            present++;
+          }
+        }
+        const completion = sectionStudents.length > 0 && recorded > 0 ? Math.round((recorded / sectionStudents.length) * 100) : 0;
         return {
           section,
           className: classNameById.get(section.classId) ?? "—",
           studentCount: sectionStudents.length,
           present,
           absent,
+          recorded,
           completion
         };
       }),
-    [classNameById, date, sections, studentsBySection]
+    [classNameById, sections, studentsBySection, statusByStudent]
   );
 
   const filteredRows = useMemo(() => {
@@ -60,10 +124,10 @@ export function PrincipalAttendancePage({
         if (classFilter && row.section.classId !== classFilter) {
           return false;
         }
-        if (statusFilter === "taken" && row.studentCount === 0) {
+        if (statusFilter === "taken" && row.recorded === 0) {
           return false;
         }
-        if (statusFilter === "waiting" && row.studentCount > 0) {
+        if (statusFilter === "waiting" && row.recorded > 0) {
           return false;
         }
         if (!q) {
@@ -74,14 +138,14 @@ export function PrincipalAttendancePage({
       .sort((a, b) => compareSectionName(a.className, a.section.name, b.className, b.section.name));
   }, [classFilter, search, sectionRows, statusFilter]);
 
-  const selectedSection = selectedSectionId ? sections.find((section) => section.id === selectedSectionId) ?? null : null;
-  const selectedClass = selectedSection ? classes.find((item) => item.id === selectedSection.classId) ?? null : null;
+  const selectedSection = selectedSectionId ? (sections.find((section) => section.id === selectedSectionId) ?? null) : null;
+  const selectedClass = selectedSection ? (classes.find((item) => item.id === selectedSection.classId) ?? null) : null;
   const selectedStudents = selectedSection ? [...(studentsBySection.get(selectedSection.id) ?? [])].sort(compareStudents) : [];
 
   const totalStudents = sectionRows.reduce((acc, row) => acc + row.studentCount, 0);
   const totalAbsent = sectionRows.reduce((acc, row) => acc + row.absent, 0);
   const totalPresent = sectionRows.reduce((acc, row) => acc + row.present, 0);
-  const takenSections = sectionRows.filter((row) => row.studentCount > 0).length;
+  const takenSections = sectionRows.filter((row) => row.recorded > 0).length;
   const completionRate = sections.length > 0 ? Math.round((takenSections / sections.length) * 100) : 0;
 
   if (selectedSection && selectedClass) {
@@ -101,9 +165,11 @@ export function PrincipalAttendancePage({
         </div>
 
         <article className="principal-surface-card principal-attendance-table-card">
-          {selectedStudents.length === 0 ? (
+          {reportLoading ? <p className="empty-text">Yoklama verisi yükleniyor…</p> : null}
+          {!reportLoading && selectedStudents.length === 0 ? (
             <p className="empty-text">Bu şubeye atanmış öğrenci yok.</p>
-          ) : (
+          ) : null}
+          {!reportLoading && selectedStudents.length > 0 ? (
             <div className="principal-table-wrap">
               <table className="principal-table principal-attendance-student-table">
                 <thead>
@@ -115,7 +181,7 @@ export function PrincipalAttendancePage({
                 </thead>
                 <tbody>
                   {selectedStudents.map((student) => {
-                    const status = attendanceStatusFor(student.id, date);
+                    const status = resolveStatus(student.id);
                     return (
                       <tr key={student.id}>
                         <td>
@@ -125,10 +191,14 @@ export function PrincipalAttendancePage({
                           {student.firstName} {student.lastName}
                         </td>
                         <td>
-                          <span className={`principal-attendance-status principal-attendance-status--${status}`}>
-                            {status === "present" ? <Check size={13} /> : <X size={13} />}
-                            {status === "present" ? "Geldi" : "Gelmedi"}
-                          </span>
+                          {status === "unset" ? (
+                            <span className="principal-attendance-status">Kayıt yok</span>
+                          ) : (
+                            <span className={`principal-attendance-status principal-attendance-status--${status}`}>
+                              {status === "present" ? <Check size={13} /> : <X size={13} />}
+                              {status === "present" ? "Geldi" : "Gelmedi"}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -136,7 +206,7 @@ export function PrincipalAttendancePage({
                 </tbody>
               </table>
             </div>
-          )}
+          ) : null}
         </article>
       </section>
     );
@@ -149,25 +219,28 @@ export function PrincipalAttendancePage({
           <ClipboardCheck size={17} />
           <span>Toplam şube</span>
           <strong>{sections.length}</strong>
-          <small>{takenSections} şubede öğrenci var</small>
+          <small>{takenSections} şubede yoklama kaydı var</small>
         </article>
         <article className="principal-attendance-stat principal-attendance-stat--emerald">
           <UsersRound size={17} />
           <span>Geldi</span>
           <strong>{totalPresent}</strong>
-          <small>{totalStudents} öğrenci içinde</small>
+          <small>{totalStudents} öğrenci içinde (kayıtlı)</small>
         </article>
         <article className="principal-attendance-stat principal-attendance-stat--rose">
           <X size={17} />
           <span>Gelmedi</span>
           <strong>{totalAbsent}</strong>
-          <small>Seçili tarih bazlı</small>
+          <small>Seçili tarih — API verisi</small>
         </article>
         <article className="principal-attendance-stat principal-attendance-stat--amber">
           <Check size={17} />
           <span>Tamamlanma</span>
-          <strong>%{completionRate}</strong>
-          <small>{takenSections} / {sections.length} şube hazır</small>
+          <strong>%{data.summary?.attendanceCompletionPct ?? completionRate}</strong>
+          <small>
+            {takenSections} / {sections.length} şube kayıtlı
+            {reportLoading ? " · yükleniyor" : ""}
+          </small>
         </article>
       </div>
 
@@ -186,8 +259,8 @@ export function PrincipalAttendancePage({
         </select>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Yoklama filtresi">
           <option value="">Tüm şubeler</option>
-          <option value="taken">Öğrencili şubeler</option>
-          <option value="waiting">Öğrencisiz şubeler</option>
+          <option value="taken">Yoklaması alınan</option>
+          <option value="waiting">Yoklaması alınmayan</option>
         </select>
         <label className="principal-attendance-date principal-attendance-date--compact">
           <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
@@ -195,9 +268,11 @@ export function PrincipalAttendancePage({
       </div>
 
       <article className="principal-surface-card principal-attendance-table-card">
-        {filteredRows.length === 0 ? (
+        {reportLoading ? <p className="empty-text">Yoklama verisi yükleniyor…</p> : null}
+        {!reportLoading && filteredRows.length === 0 ? (
           <p className="empty-text">{sections.length === 0 ? "Henüz şube oluşturulmadı." : "Filtrelere uyan şube yok."}</p>
-        ) : (
+        ) : null}
+        {!reportLoading && filteredRows.length > 0 ? (
           <div className="principal-table-wrap">
             <table className="principal-table principal-attendance-section-table">
               <thead>
@@ -239,19 +314,10 @@ export function PrincipalAttendancePage({
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </article>
     </section>
   );
-}
-
-function attendanceStatusFor(studentId: string, date: string): AttendanceStatus {
-  const seed = `${studentId}-${date}`;
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) % 9973;
-  }
-  return hash % 7 === 0 ? "absent" : "present";
 }
 
 function formatDateInputValue(date: Date) {

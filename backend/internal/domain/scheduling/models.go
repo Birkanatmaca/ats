@@ -44,3 +44,54 @@ type GenerationResult struct {
 	SoftWarnings   []string `json:"softWarnings"`
 	Recommendation string   `json:"recommendation"`
 }
+
+type ClassSubjectRequirement struct {
+	ID          string `json:"id"`
+	TenantID    string `json:"tenantId"`
+	ClassID     string `json:"classId"`
+	ClassName   string `json:"className"`
+	SubjectID   string `json:"subjectId"`
+	SubjectName string `json:"subjectName"`
+	WeeklyHours int    `json:"weeklyHours"`
+}
+
+type RequirementInput struct {
+	ClassID     string `json:"classId"`
+	SubjectID   string `json:"subjectId"`
+	WeeklyHours int    `json:"weeklyHours"`
+}
+
+type TeacherAvailability struct {
+	ID               string `json:"id"`
+	TenantID         string `json:"tenantId"`
+	TeacherID        string `json:"teacherId"`
+	TeacherUserID    string `json:"teacherUserId"`
+	TeacherName      string `json:"teacherName"`
+	DayOfWeek        int    `json:"dayOfWeek"`
+	StartTime        string `json:"startTime"`
+	EndTime          string `json:"endTime"`
+	AvailabilityType string `json:"availabilityType"`
+}
+
+type AvailabilityInput struct {
+	TeacherID        string `json:"teacherId"`
+	DayOfWeek        int    `json:"dayOfWeek"`
+	StartTime        string `json:"startTime"`
+	EndTime          string `json:"endTime"`
+	AvailabilityType string `json:"availabilityType"`
+}
+
+type UpdateLessonInput struct {
+	TeacherID *string `json:"teacherId"`
+	SubjectID *string `json:"subjectId"`
+	DayOfWeek *int    `json:"dayOfWeek"`
+	StartTime *string `json:"startTime"`
+	EndTime   *string `json:"endTime"`
+	Room      *string `json:"room"`
+}
+
+type ValidationResult struct {
+	Valid         bool     `json:"valid"`
+	HardConflicts []string `json:"hardConflicts"`
+	SoftWarnings  []string `json:"softWarnings"`
+}

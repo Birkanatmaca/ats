@@ -1,11 +1,15 @@
 import { AlertCircle, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import type { GuardianAttendanceRecord } from "../types";
 
-const statusMeta = {
+const statusMeta: Record<
+  GuardianAttendanceRecord["status"],
+  { label: string; className: string; icon: React.ReactNode }
+> = {
   present: { label: "Geldi", className: "active", icon: <CheckCircle2 size={15} /> },
   absent: { label: "Gelmedi", className: "critical", icon: <XCircle size={15} /> },
   late: { label: "Geç", className: "warning", icon: <Clock3 size={15} /> },
-  excused: { label: "İzinli", className: "normal", icon: <AlertCircle size={15} /> }
+  excused: { label: "İzinli", className: "normal", icon: <AlertCircle size={15} /> },
+  unknown: { label: "Bekliyor", className: "normal", icon: <AlertCircle size={15} /> }
 };
 
 export function GuardianAttendanceList({ records, limit }: { records: GuardianAttendanceRecord[]; limit?: number }) {
@@ -18,7 +22,7 @@ export function GuardianAttendanceList({ records, limit }: { records: GuardianAt
   return (
     <div className="guardian-attendance-list">
       {visibleRecords.map((record) => {
-        const meta = statusMeta[record.status];
+        const meta = statusMeta[record.status] ?? statusMeta.unknown;
         return (
           <article className="guardian-attendance-row" key={record.id}>
             <div>

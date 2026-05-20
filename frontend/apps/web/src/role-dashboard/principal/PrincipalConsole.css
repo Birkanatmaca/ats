@@ -971,6 +971,125 @@
   flex-shrink: 0;
 }
 
+.principal-alert-banner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid transparent;
+}
+
+.principal-alert-banner strong {
+  display: block;
+}
+
+.principal-alert-banner p {
+  margin: 0.2rem 0 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.principal-alert-banner--warning {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.principal-alert-banner--amber {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.principal-alert-banner--risk {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.principal-operations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.principal-operation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #e8ecea;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.principal-operation-row:hover {
+  border-color: #f9a51b;
+  background: #fffaf2;
+}
+
+.principal-operation-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.principal-op-priority {
+  display: inline-flex;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.principal-op-priority--urgent {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.principal-op-priority--high {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.principal-op-priority--normal {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.principal-operation-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #c27803;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.principal-operation-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #64748b;
+}
+
+.principal-announcement-audience-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.principal-announcement-audience {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 @media (max-width: 520px) {
   .principal-teacher-form-grid {
     grid-template-columns: 1fr;
@@ -978,5 +1097,13 @@
 
   .principal-field--full {
     grid-column: 1;
+  }
+
+  .principal-announcement-audience-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .principal-alert-banner {
+    grid-template-columns: 1fr;
   }
 }

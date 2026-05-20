@@ -34,3 +34,8 @@ type CreateInput struct {
 	Category  Category `json:"category"`
 	Note      string   `json:"note"`
 }
+
+type UpdateInput struct {
+	Category *Category `json:"category,omitempty"`
+	Note     *string   `json:"note,omitempty"`
+}

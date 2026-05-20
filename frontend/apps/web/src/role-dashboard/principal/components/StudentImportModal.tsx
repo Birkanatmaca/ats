@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, FileSpreadsheet, UploadCloud, X } from "lucide-react";
 import { readSheet } from "read-excel-file/browser";
 import { useMemo, useState, type ChangeEvent } from "react";
+import type { SchoolClass } from "../types";
 import type { StudentFormPayload } from "./StudentFormModal";
 
 type SheetCell = string | number | boolean | Date | null | undefined;
@@ -23,19 +24,24 @@ const FULL_NAME_KEYS = ["adsoyad", "adsoyadi", "advesoyad", "adivesoyadi", "isim
 
 export function StudentImportModal({
   open,
+  classes,
   existingSchoolNumbers,
   onClose,
   onImport
 }: {
   open: boolean;
+  classes: SchoolClass[];
   existingSchoolNumbers: string[];
   onClose: () => void;
-  onImport: (payloads: StudentFormPayload[]) => void;
+  onImport: (classId: string, payloads: StudentFormPayload[]) => Promise<{ created: number; failed: number; errors?: string[] }>;
 }) {
   const [fileName, setFileName] = useState("");
+  const [classId, setClassId] = useState("");
   const [rows, setRows] = useState<ParsedStudentRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const stats = useMemo(
     () => ({
@@ -48,9 +54,12 @@ export function StudentImportModal({
 
   function reset() {
     setFileName("");
+    setClassId("");
     setRows([]);
     setError(null);
+    setSuccess(null);
     setParsing(false);
+    setImporting(false);
   }
 
   function close() {
@@ -86,28 +95,45 @@ export function StudentImportModal({
     }
   }
 
-  function importValidRows() {
+  async function importValidRows() {
     const validRows = rows.filter((row) => row.status === "valid");
+    if (!classId) {
+      setError("Lütfen öğrencilerin atanacağı sınıfı seçin.");
+      return;
+    }
     if (validRows.length === 0) {
       setError("Aktarmak için en az bir geçerli öğrenci satırı olmalı.");
       return;
     }
 
-    onImport(
-      validRows.map((row) => ({
-        classId: "",
-        sectionId: "",
-        schoolNumber: row.schoolNumber,
-        firstName: row.firstName,
-        lastName: row.lastName,
-        gender: "",
-        birthDate: "",
-        guardianName: "",
-        guardianPhone: "",
-        status: "active"
-      }))
-    );
-    close();
+    setImporting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const result = await onImport(
+        classId,
+        validRows.map((row) => ({
+          classId,
+          sectionId: "",
+          schoolNumber: row.schoolNumber,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          gender: "",
+          birthDate: "",
+          guardianName: "",
+          guardianPhone: "",
+          status: "active"
+        }))
+      );
+      setSuccess(`${result.created} öğrenci eklendi${result.failed > 0 ? `, ${result.failed} satır başarısız` : ""}.`);
+      if (result.failed === 0) {
+        close();
+      }
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : "İçe aktarma başarısız.");
+    } finally {
+      setImporting(false);
+    }
   }
 
   if (!open) {
@@ -131,6 +157,24 @@ export function StudentImportModal({
               {error}
             </div>
           ) : null}
+          {success ? (
+            <div className="form-success principal-modal-error">
+              <CheckCircle2 size={15} />
+              {success}
+            </div>
+          ) : null}
+
+          <label className="field">
+            <span>Hedef sınıf</span>
+            <select value={classId} onChange={(event) => setClassId(event.target.value)} required>
+              <option value="">Sınıf seçin</option>
+              {classes.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className="principal-student-import-drop">
             <input type="file" accept=".xlsx,.csv,text/csv" onChange={(event) => void handleFileChange(event)} />
@@ -197,7 +241,7 @@ export function StudentImportModal({
           <button className="ghost-action" type="button" onClick={close}>
             Vazgeç
           </button>
-          <button className="primary-action" type="button" onClick={importValidRows} disabled={stats.valid === 0 || parsing}>
+          <button className="primary-action" type="button" onClick={() => void importValidRows()} disabled={stats.valid === 0 || parsing || importing}>
             {stats.valid > 0 ? `${stats.valid} öğrenciyi aktar` : "Aktar"}
           </button>
         </footer>

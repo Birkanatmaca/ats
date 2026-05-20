@@ -12,6 +12,7 @@ import (
 
 	"ots/backend/internal/domain/attendance"
 	"ots/backend/internal/domain/dashboard"
+	guardiandomain "ots/backend/internal/domain/guardian"
 	"ots/backend/internal/domain/identity"
 	"ots/backend/internal/domain/observation"
 	"ots/backend/internal/domain/scheduling"
@@ -33,15 +34,52 @@ type Store struct {
 	students       []school.Student
 	teachers       []school.Teacher
 	subjects       []school.Subject
+	academicYears  []school.AcademicYear
+	terms          []school.Term
+	studentMeta    map[string]memoryStudentMeta
 	schedule       scheduling.Schedule
+	schedules      map[string]scheduling.Schedule
+	requirements   []scheduling.ClassSubjectRequirement
+	availabilities []scheduling.TeacherAvailability
 	sessions       map[string]attendance.Session
 	observations   []observation.Observation
-	announcements  []school.Announcement
+	announcements     []school.Announcement
+	notifications     []memoryNotification
+	studentGuardians  []memoryStudentGuardian
+	resetTokens       map[string]memoryResetToken
+}
+
+type memoryResetToken struct {
+	userID  string
+	expires time.Time
+}
+
+type memoryNotification struct {
+	ID        string
+	TenantID  string
+	UserID    string
+	Title     string
+	Body      string
+	Kind      string
+	ReadAt    *time.Time
+	CreatedAt time.Time
+}
+
+type memoryStudentGuardian struct {
+	GuardianUserID string
+	StudentID      string
+	Relation       string
 }
 
 type memoryCredential struct {
 	Value     string
 	UpdatedAt *time.Time
+}
+
+type memoryStudentMeta struct {
+	Gender        string
+	GuardianName  string
+	GuardianPhone string
 }
 
 type systemUser struct {
@@ -100,6 +138,13 @@ func NewStore(clock func() time.Time) *Store {
 		{ID: "subject-life", TenantID: tenant.ID, Name: "Yaşam Becerileri", Code: "YAS"},
 	}
 
+	academicYears := []school.AcademicYear{
+		{ID: "ay-2025", TenantID: tenant.ID, Name: "2025-2026", StartsOn: "2025-09-01", EndsOn: "2026-06-30", IsActive: true},
+	}
+	terms := []school.Term{
+		{ID: "term-1", TenantID: tenant.ID, AcademicYearID: "ay-2025", Name: "1. Dönem", StartsOn: "2025-09-01", EndsOn: "2026-01-31", IsActive: true},
+	}
+
 	lessons := []scheduling.Lesson{
 		newLesson(tenant.ID, "lesson-1", "schedule-published", classes[0], teachers[0], subjects[0], today, "09:00", "09:40", "Derslik 5A"),
 		newLesson(tenant.ID, "lesson-2", "schedule-published", classes[0], teachers[1], subjects[1], today, "10:00", "10:40", "Derslik 5A"),
@@ -116,6 +161,10 @@ func NewStore(clock func() time.Time) *Store {
 		Score:     91,
 		Lessons:   lessons,
 		UpdatedAt: now.Add(-2 * time.Hour),
+	}
+
+	schedules := map[string]scheduling.Schedule{
+		schedule.ID: schedule,
 	}
 
 	observations := []observation.Observation{
@@ -240,11 +289,15 @@ func NewStore(clock func() time.Time) *Store {
 			Message: "Sistem bakımı devam ediyor. Kısa süre sonra tekrar deneyebilirsiniz.",
 		},
 		credentials:  map[string]memoryCredential{},
-		classes:      classes,
-		students:     students,
-		teachers:     teachers,
-		subjects:     subjects,
-		schedule:     schedule,
+		classes:       classes,
+		students:      students,
+		teachers:      teachers,
+		subjects:      subjects,
+		academicYears: academicYears,
+		terms:         terms,
+		studentMeta:   map[string]memoryStudentMeta{},
+		schedule:      schedule,
+		schedules:     schedules,
 		sessions:     map[string]attendance.Session{},
 		observations: observations,
 		announcements: []school.Announcement{
@@ -265,6 +318,21 @@ func NewStore(clock func() time.Time) *Store {
 				PublishedAt: now.Add(-90 * time.Minute),
 			},
 		},
+		studentGuardians: []memoryStudentGuardian{
+			{GuardianUserID: "00000000-0000-0000-0000-000000010113", StudentID: "student-2", Relation: "Anne"},
+		},
+		notifications: []memoryNotification{
+			{
+				ID:        "notification-1",
+				TenantID:  tenant.ID,
+				UserID:    "00000000-0000-0000-0000-000000010113",
+				Title:     "Devamsızlık bildirimi",
+				Body:      "Efe Demir (502) öğrencisi için yoklama kaydı oluşturuldu.",
+				Kind:      "attendance_absence:demo",
+				CreatedAt: now.Add(-2 * time.Hour),
+			},
+		},
+		resetTokens: map[string]memoryResetToken{},
 	}
 }
 
@@ -311,6 +379,62 @@ func (s *Store) SetPassword(_ context.Context, userID string, newPassword string
 			Name:               s.users[index].FullName,
 			Email:              s.users[index].Email,
 			MustChangePassword: false,
+		}, true, nil
+	}
+	return identity.Principal{}, false, nil
+}
+
+func (s *Store) RequestPasswordReset(_ context.Context, email string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	email = strings.ToLower(strings.TrimSpace(email))
+	for _, user := range s.users {
+		if strings.ToLower(user.Email) != email || user.Status != "active" {
+			continue
+		}
+		token := fmt.Sprintf("reset-%d", s.clock().UnixNano())
+		s.resetTokens[token] = memoryResetToken{userID: user.ID, expires: s.clock().Add(30 * time.Minute)}
+		return token, nil
+	}
+	return "", nil
+}
+
+func (s *Store) ResetPasswordWithToken(_ context.Context, token string, newPassword string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, ok := s.resetTokens[token]
+	if !ok || s.clock().After(entry.expires) {
+		return identity.ErrInvalidResetToken
+	}
+	delete(s.resetTokens, token)
+	for index := range s.users {
+		if s.users[index].ID != entry.userID {
+			continue
+		}
+		salt := fmt.Sprintf("memory-%d", s.clock().UnixNano())
+		s.users[index].PasswordSalt = salt
+		s.users[index].PasswordHash = hashPassword(salt, newPassword)
+		s.users[index].MustChangePassword = false
+		return nil
+	}
+	return identity.ErrUserNotFound
+}
+
+func (s *Store) GetUserPrincipal(_ context.Context, userID string) (identity.Principal, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, user := range s.users {
+		if user.ID != userID || user.Status != "active" {
+			continue
+		}
+		return identity.Principal{
+			UserID:             user.ID,
+			TenantID:           user.TenantID,
+			Role:               user.Role,
+			Name:               user.FullName,
+			Email:              user.Email,
+			MustChangePassword: user.MustChangePassword,
 		}, true, nil
 	}
 	return identity.Principal{}, false, nil
@@ -746,6 +870,208 @@ func (s *Store) ListAnnouncements(_ context.Context, tenantID string) []school.A
 	return out
 }
 
+func (s *Store) CreateAnnouncement(_ context.Context, tenantID string, _ string, input school.CreateAnnouncementInput) (school.Announcement, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return school.Announcement{}, false
+	}
+	created := school.Announcement{
+		ID:          fmt.Sprintf("announcement-%d", len(s.announcements)+1),
+		TenantID:    tenantID,
+		Title:       input.Title,
+		Body:        input.Body,
+		Audience:    input.Audience,
+		PublishedAt: s.clock(),
+	}
+	s.announcements = append(s.announcements, created)
+	return created, true
+}
+
+func (s *Store) UpdateAnnouncement(_ context.Context, tenantID string, announcementID string, input school.UpdateAnnouncementInput) (school.Announcement, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return school.Announcement{}, false
+	}
+	for index := range s.announcements {
+		if s.announcements[index].ID != announcementID {
+			continue
+		}
+		if input.Title != nil {
+			s.announcements[index].Title = *input.Title
+		}
+		if input.Body != nil {
+			s.announcements[index].Body = *input.Body
+		}
+		if input.Audience != nil {
+			s.announcements[index].Audience = *input.Audience
+		}
+		return s.announcements[index], true
+	}
+	return school.Announcement{}, false
+}
+
+func (s *Store) GuardianHasStudent(_ context.Context, tenantID string, guardianUserID string, studentID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return false
+	}
+	for _, link := range s.studentGuardians {
+		if link.GuardianUserID == guardianUserID && link.StudentID == studentID {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) ListGuardianStudents(_ context.Context, tenantID string, guardianUserID string) []guardiandomain.Student {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return []guardiandomain.Student{}
+	}
+	out := make([]guardiandomain.Student, 0)
+	for _, link := range s.studentGuardians {
+		if link.GuardianUserID != guardianUserID {
+			continue
+		}
+		student, ok := s.studentByIDLocked(link.StudentID)
+		if !ok {
+			continue
+		}
+		className := ""
+		if class, found := s.classByIDLocked(student.ClassID); found {
+			className = class.Name
+		}
+		out = append(out, guardiandomain.Student{
+			ID:           student.ID,
+			FullName:     student.FullName,
+			ClassName:    className,
+			SchoolNumber: student.Number,
+			Relation:     link.Relation,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].FullName < out[j].FullName })
+	return out
+}
+
+func (s *Store) StudentScheduleForGuardian(_ context.Context, tenantID string, guardianUserID string, studentID string) (guardiandomain.StudentSchedule, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID || !s.guardianHasStudentLocked(guardianUserID, studentID) {
+		return guardiandomain.StudentSchedule{}, false
+	}
+	student, ok := s.studentByIDLocked(studentID)
+	if !ok {
+		return guardiandomain.StudentSchedule{}, false
+	}
+	lessons := make([]scheduling.Lesson, 0)
+	for _, lesson := range s.schedule.Lessons {
+		if lesson.ClassID == student.ClassID {
+			lessons = append(lessons, lesson)
+		}
+	}
+	return guardiandomain.StudentSchedule{StudentID: studentID, Lessons: lessons}, true
+}
+
+func (s *Store) StudentAttendanceForGuardian(_ context.Context, tenantID string, guardianUserID string, studentID string) (guardiandomain.StudentAttendance, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID || !s.guardianHasStudentLocked(guardianUserID, studentID) {
+		return guardiandomain.StudentAttendance{}, false
+	}
+
+	records := make([]guardiandomain.AttendanceRecord, 0)
+	for _, session := range s.sessions {
+		if session.FinalizedAt == nil {
+			continue
+		}
+		for _, record := range session.Records {
+			if record.StudentID != studentID {
+				continue
+			}
+			records = append(records, guardiandomain.AttendanceRecord{
+				ID:     fmt.Sprintf("%s-%s", session.ID, record.StudentID),
+				Date:   session.StartedAt.Format("2006-01-02"),
+				Lesson: session.SubjectName,
+				Status: record.Status,
+				Note:   record.Note,
+			})
+		}
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].Date > records[j].Date })
+	return guardiandomain.StudentAttendance{StudentID: studentID, Records: records}, true
+}
+
+func (s *Store) ListGuardianAnnouncements(_ context.Context, tenantID string) []school.Announcement {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return []school.Announcement{}
+	}
+	out := make([]school.Announcement, 0)
+	for _, item := range s.announcements {
+		if item.Audience == "guardians" || item.Audience == "all" {
+			out = append(out, item)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].PublishedAt.After(out[j].PublishedAt) })
+	return out
+}
+
+func (s *Store) ListGuardianNotifications(_ context.Context, tenantID string, userID string) []guardiandomain.Notification {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return []guardiandomain.Notification{}
+	}
+	out := make([]guardiandomain.Notification, 0)
+	for _, item := range s.notifications {
+		if item.UserID != userID {
+			continue
+		}
+		out = append(out, guardiandomain.Notification{
+			ID:        item.ID,
+			Title:     item.Title,
+			Body:      item.Body,
+			Kind:      item.Kind,
+			ReadAt:    item.ReadAt,
+			CreatedAt: item.CreatedAt,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out
+}
+
+func (s *Store) MarkGuardianNotificationRead(_ context.Context, tenantID string, userID string, notificationID string) (guardiandomain.Notification, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return guardiandomain.Notification{}, false
+	}
+	for index := range s.notifications {
+		if s.notifications[index].ID != notificationID || s.notifications[index].UserID != userID {
+			continue
+		}
+		if s.notifications[index].ReadAt == nil {
+			readAt := s.clock()
+			s.notifications[index].ReadAt = &readAt
+		}
+		item := s.notifications[index]
+		return guardiandomain.Notification{
+			ID:        item.ID,
+			Title:     item.Title,
+			Body:      item.Body,
+			Kind:      item.Kind,
+			ReadAt:    item.ReadAt,
+			CreatedAt: item.CreatedAt,
+		}, true
+	}
+	return guardiandomain.Notification{}, false
+}
+
 func (s *Store) PrincipalRoster(_ context.Context, tenantID string) (school.PrincipalRoster, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -773,21 +1099,7 @@ func (s *Store) PrincipalRoster(_ context.Context, tenantID string) (school.Prin
 	}
 	students := make([]school.PrincipalRosterStudent, 0, len(s.students))
 	for _, student := range s.students {
-		first, last := splitMemoryFullName(student.FullName)
-		sectionID := ""
-		if student.ClassID != "" {
-			sectionID = student.ClassID + "-default"
-		}
-		students = append(students, school.PrincipalRosterStudent{
-			ID:           student.ID,
-			ClassID:      student.ClassID,
-			SectionID:    sectionID,
-			SchoolNumber: student.Number,
-			FirstName:    first,
-			LastName:     last,
-			Status:       "active",
-			CreatedAt:    now,
-		})
+		students = append(students, memoryStudentToRoster(student, s.studentMeta[student.ID], now))
 	}
 	return school.PrincipalRoster{
 		Classes:  classes,
@@ -813,25 +1125,115 @@ func (s *Store) PrincipalSummary(_ context.Context, tenantID string) dashboard.P
 	if tenantID != s.tenant.ID {
 		return dashboard.PrincipalSummary{}
 	}
+
+	todayWeekday := isoWeekdayMemory(s.clock())
+	todayLessons := 0
+	for _, lesson := range s.schedule.Lessons {
+		if lesson.DayOfWeek == todayWeekday {
+			todayLessons++
+		}
+	}
+
+	dayStart := time.Date(s.clock().Year(), s.clock().Month(), s.clock().Day(), 0, 0, 0, 0, s.clock().Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
+	finalizedToday := 0
+	absentToday := 0
+	for _, session := range s.sessions {
+		if session.FinalizedAt == nil || session.StartedAt.Before(dayStart) || !session.StartedAt.Before(dayEnd) {
+			continue
+		}
+		finalizedToday++
+		for _, record := range session.Records {
+			if record.Status == "absent" {
+				absentToday++
+			}
+		}
+	}
+
+	attendancePct := 0
+	if todayLessons > 0 {
+		attendancePct = finalizedToday * 100 / todayLessons
+	}
+
+	classAttendance := []dashboard.ClassAttendance{}
+	for _, class := range s.classes {
+		total := 0
+		completed := 0
+		absent := 0
+		for _, lesson := range s.schedule.Lessons {
+			if lesson.ClassID == class.ID && lesson.DayOfWeek == todayWeekday {
+				total++
+			}
+		}
+		for _, session := range s.sessions {
+			if session.ClassID != class.ID || session.FinalizedAt == nil || session.StartedAt.Before(dayStart) || !session.StartedAt.Before(dayEnd) {
+				continue
+			}
+			completed++
+			for _, record := range session.Records {
+				if record.Status == "absent" {
+					absent++
+				}
+			}
+		}
+		attention := "Normal"
+		if completed < total {
+			attention = "Yoklama bekliyor"
+		}
+		if absent > 0 {
+			attention = "Devamsızlık"
+		}
+		classAttendance = append(classAttendance, dashboard.ClassAttendance{
+			ClassName: class.Name, Completed: completed, Total: maxInt(1, total), Absent: absent, AttentionNeed: attention,
+		})
+	}
+
 	return dashboard.PrincipalSummary{
 		ActiveStudents:          len(s.students),
 		ActiveTeachers:          len(s.teachers),
 		Classes:                 len(s.classes),
-		TodayLessons:            len(s.schedule.Lessons),
-		AttendanceCompletionPct: 67,
-		AbsentToday:             3,
+		TodayLessons:            todayLessons,
+		AttendanceCompletionPct: attendancePct,
+		AbsentToday:             absentToday,
 		OpenObservationSignals:  len(s.observations),
-		ClassAttendance: []dashboard.ClassAttendance{
-			{ClassName: "5/A", Completed: 2, Total: 3, Absent: 1, AttentionNeed: "Dikkat takibi"},
-			{ClassName: "6/B", Completed: 1, Total: 2, Absent: 2, AttentionNeed: "Devamsızlık"},
-			{ClassName: "Ana Sınıfı", Completed: 1, Total: 1, Absent: 0, AttentionNeed: "Normal"},
-		},
-		Operations: []dashboard.OperationItem{
-			{ID: "op-1", Title: "5/A ikinci saat yoklaması bekliyor", Status: "pending", Priority: "high"},
-			{ID: "op-2", Title: "Yeni program taslağı yayın onayı bekliyor", Status: "review", Priority: "medium"},
-			{ID: "op-3", Title: "Rehberlik biriminde 1 yeni gözlem kaydı var", Status: "new", Priority: "medium"},
-		},
+		ClassAttendance:         classAttendance,
+		Operations: buildMemoryPrincipalOperations(todayLessons, finalizedToday, string(s.schedule.Status), classAttendance),
 	}
+}
+
+func buildMemoryPrincipalOperations(todayLessons, finalizedToday int, scheduleStatus string, classAttendance []dashboard.ClassAttendance) []dashboard.OperationItem {
+	operations := []dashboard.OperationItem{}
+	if scheduleStatus != "published" {
+		operations = append(operations, dashboard.OperationItem{
+			ID: "op-schedule-missing", Title: "Yayınlanmış ders programı yok",
+			Status: "review", Priority: "urgent", Kind: "schedule", TargetPath: "/dashboard/schedule/builder",
+		})
+	}
+	if todayLessons > 0 && finalizedToday < todayLessons {
+		operations = append(operations, dashboard.OperationItem{
+			ID: "op-attendance-pending", Title: fmt.Sprintf("%d ders yoklaması bekliyor", todayLessons-finalizedToday),
+			Status: "pending", Priority: "high", Kind: "attendance", TargetPath: "/dashboard/attendance",
+		})
+	}
+	for _, item := range classAttendance {
+		if item.AttentionNeed == "Devamsızlık" || item.AttentionNeed == "Yoklama bekliyor" {
+			operations = append(operations, dashboard.OperationItem{
+				ID: "op-class-" + item.ClassName, Title: item.ClassName + ": " + item.AttentionNeed,
+				Status: "pending", Priority: "high", Kind: "attendance", TargetPath: "/dashboard/attendance",
+			})
+		}
+	}
+	if len(operations) == 0 {
+		operations = append(operations, dashboard.OperationItem{ID: "op-all-clear", Title: "Bugün için bekleyen kritik operasyon yok", Status: "operational", Priority: "normal", Kind: "info", TargetPath: "/dashboard/operations"})
+	}
+	return operations
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func (s *Store) CurrentSchedule(_ context.Context, tenantID string) (scheduling.Schedule, bool) {
@@ -841,35 +1243,6 @@ func (s *Store) CurrentSchedule(_ context.Context, tenantID string) (scheduling.
 		return scheduling.Schedule{}, false
 	}
 	return s.schedule, true
-}
-
-func (s *Store) GenerateDraftSchedule(_ context.Context, tenantID string) scheduling.GenerationResult {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if tenantID != s.tenant.ID {
-		return scheduling.GenerationResult{}
-	}
-
-	draft := s.schedule
-	draft.ID = "schedule-draft"
-	draft.Name = "AI Taslak Program"
-	draft.Status = scheduling.ScheduleDraft
-	draft.Version = s.schedule.Version + 1
-	draft.Score = 88
-	draft.UpdatedAt = s.clock()
-	for i := range draft.Lessons {
-		draft.Lessons[i].ScheduleID = draft.ID
-	}
-
-	return scheduling.GenerationResult{
-		Schedule:      draft,
-		HardConflicts: 0,
-		SoftWarnings: []string{
-			"5/A Matematik dersi haftanın ilk günlerinde yoğunlaşıyor.",
-			"Ayşe Kara için çarşamba günü boşluk azaltılabilir.",
-		},
-		Recommendation: "Taslak yayınlanabilir durumda. Soft uyarılar manuel düzenleme ekranında iyileştirilebilir.",
-	}
 }
 
 func (s *Store) TeacherCalendar(_ context.Context, tenantID string, teacherID string) []scheduling.Lesson {
@@ -904,7 +1277,21 @@ func (s *Store) ActiveLessonForTeacher(_ context.Context, tenantID string, teach
 	return scheduling.Lesson{}, false
 }
 
-func (s *Store) GetOrCreateAttendanceSession(_ context.Context, tenantID string, lessonID string) (attendance.Session, bool) {
+func (s *Store) GetAttendanceSession(_ context.Context, tenantID string, sessionID string) (attendance.Session, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return attendance.Session{}, false
+	}
+	for _, session := range s.sessions {
+		if session.ID == sessionID {
+			return session, true
+		}
+	}
+	return attendance.Session{}, false
+}
+
+func (s *Store) GetOrCreateAttendanceSession(_ context.Context, tenantID string, lessonID string, _ string) (attendance.Session, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if tenantID != s.tenant.ID {
@@ -943,7 +1330,7 @@ func (s *Store) GetOrCreateAttendanceSession(_ context.Context, tenantID string,
 	return session, true
 }
 
-func (s *Store) UpdateAttendanceRecords(_ context.Context, tenantID string, sessionID string, updates []attendance.RecordUpdate) (attendance.Session, bool) {
+func (s *Store) UpdateAttendanceRecords(_ context.Context, tenantID string, sessionID string, _ string, updates []attendance.RecordUpdate) (attendance.Session, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if tenantID != s.tenant.ID {
@@ -963,6 +1350,9 @@ func (s *Store) UpdateAttendanceRecords(_ context.Context, tenantID string, sess
 	if !ok {
 		return attendance.Session{}, false
 	}
+	if session.FinalizedAt != nil {
+		return attendance.Session{}, false
+	}
 
 	updatesByStudent := map[string]attendance.RecordUpdate{}
 	for _, update := range updates {
@@ -976,6 +1366,256 @@ func (s *Store) UpdateAttendanceRecords(_ context.Context, tenantID string, sess
 	}
 	s.sessions[sessionKey] = session
 	return session, true
+}
+
+func (s *Store) FinalizeAttendanceSession(_ context.Context, tenantID string, sessionID string, finalizedAt time.Time, _ string) (attendance.Session, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return attendance.Session{}, false
+	}
+	for key, session := range s.sessions {
+		if session.ID != sessionID {
+			continue
+		}
+		newlyFinalized := session.FinalizedAt == nil
+		if newlyFinalized {
+			finalized := finalizedAt
+			session.FinalizedAt = &finalized
+			s.sessions[key] = session
+			s.emitAttendanceAbsenceNotifications(tenantID, sessionID, s.sessions[key])
+		}
+		return s.sessions[key], true
+	}
+	return attendance.Session{}, false
+}
+
+func (s *Store) StudentAttendanceSummary(_ context.Context, tenantID string, studentID string) (attendance.StudentSummary, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return attendance.StudentSummary{}, false
+	}
+	foundStudent := false
+	for _, student := range s.students {
+		if student.ID == studentID {
+			foundStudent = true
+			break
+		}
+	}
+	if !foundStudent {
+		return attendance.StudentSummary{}, false
+	}
+	summary := attendance.StudentSummary{StudentID: studentID, Records: []attendance.SummaryEntry{}}
+	for _, session := range s.sessions {
+		if session.FinalizedAt == nil {
+			continue
+		}
+		for _, record := range session.Records {
+			if record.StudentID != studentID {
+				continue
+			}
+			summary.Records = append(summary.Records, attendance.SummaryEntry{
+				Date:        session.StartedAt.Format("2006-01-02"),
+				SubjectName: session.SubjectName,
+				ClassName:   session.ClassName,
+				Status:      record.Status,
+			})
+			switch record.Status {
+			case attendance.StatusPresent:
+				summary.Present++
+			case attendance.StatusAbsent:
+				summary.Absent++
+			case attendance.StatusLate:
+				summary.Late++
+			case attendance.StatusExcused:
+				summary.Excused++
+			}
+		}
+	}
+	return summary, true
+}
+
+func (s *Store) AttendanceDayReport(_ context.Context, tenantID string, date time.Time) attendance.DayReport {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return attendance.DayReport{Date: date.Format("2006-01-02")}
+	}
+
+	dayStart := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
+	byStudent := map[string]attendance.DayRecord{}
+
+	for _, session := range s.sessions {
+		if session.StartedAt.Before(dayStart) || !session.StartedAt.Before(dayEnd) {
+			continue
+		}
+		if session.FinalizedAt == nil {
+			continue
+		}
+		for _, record := range session.Records {
+			current, exists := byStudent[record.StudentID]
+			if !exists || memoryStatusPriority(record.Status) > memoryStatusPriority(current.Status) {
+				byStudent[record.StudentID] = attendance.DayRecord{
+					StudentID: record.StudentID,
+					ClassID:   session.ClassID,
+					Status:    record.Status,
+				}
+			}
+		}
+	}
+
+	out := make([]attendance.DayRecord, 0, len(byStudent))
+	for _, record := range byStudent {
+		out = append(out, record)
+	}
+	return attendance.DayReport{
+		Date:    dayStart.Format("2006-01-02"),
+		Records: out,
+	}
+}
+
+func memoryStatusPriority(status attendance.Status) int {
+	switch status {
+	case attendance.StatusAbsent:
+		return 5
+	case attendance.StatusLate:
+		return 4
+	case attendance.StatusUnknown:
+		return 3
+	case attendance.StatusExcused:
+		return 2
+	case attendance.StatusPresent:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func (s *Store) emitAttendanceAbsenceNotifications(tenantID string, sessionID string, session attendance.Session) {
+	for _, record := range session.Records {
+		if record.Status != attendance.StatusAbsent && record.Status != attendance.StatusLate {
+			continue
+		}
+		statusLabel := "gelmedi"
+		if record.Status == attendance.StatusLate {
+			statusLabel = "geç kaldı"
+		}
+		title := "Devamsızlık bildirimi"
+		body := fmt.Sprintf(
+			"%s (%s) öğrencisi %s sınıfında %s dersinde %s. Oturum: %s",
+			record.StudentName,
+			record.Number,
+			session.ClassName,
+			session.SubjectName,
+			statusLabel,
+			sessionID,
+		)
+		for _, link := range s.studentGuardians {
+			if link.StudentID != record.StudentID {
+				continue
+			}
+			kind := fmt.Sprintf("attendance_absence:%s:%s:%s", sessionID, record.StudentID, link.GuardianUserID)
+			duplicate := false
+			for _, existing := range s.notifications {
+				if existing.Kind == kind {
+					duplicate = true
+					break
+				}
+			}
+			if duplicate {
+				continue
+			}
+			s.notifications = append(s.notifications, memoryNotification{
+				ID:        fmt.Sprintf("notification-%d", len(s.notifications)+1),
+				TenantID:  tenantID,
+				UserID:    link.GuardianUserID,
+				Title:     title,
+				Body:      body,
+				Kind:      kind,
+				CreatedAt: s.clock(),
+			})
+		}
+	}
+}
+
+func (s *Store) guardianHasStudentLocked(guardianUserID string, studentID string) bool {
+	for _, link := range s.studentGuardians {
+		if link.GuardianUserID == guardianUserID && link.StudentID == studentID {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) studentByIDLocked(id string) (school.Student, bool) {
+	for _, student := range s.students {
+		if student.ID == id {
+			return student, true
+		}
+	}
+	return school.Student{}, false
+}
+
+func (s *Store) classByIDLocked(id string) (school.Class, bool) {
+	for _, class := range s.classes {
+		if class.ID == id {
+			return class, true
+		}
+	}
+	return school.Class{}, false
+}
+
+func (s *Store) GetObservation(_ context.Context, tenantID string, observationID string) (observation.Observation, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return observation.Observation{}, false
+	}
+	for _, item := range s.observations {
+		if item.ID == observationID {
+			return item, true
+		}
+	}
+	return observation.Observation{}, false
+}
+
+func (s *Store) UpdateObservation(_ context.Context, tenantID string, observationID string, input observation.UpdateInput) (observation.Observation, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return observation.Observation{}, false
+	}
+	for index := range s.observations {
+		if s.observations[index].ID != observationID {
+			continue
+		}
+		if input.Category != nil {
+			s.observations[index].Category = *input.Category
+		}
+		if input.Note != nil {
+			s.observations[index].Note = *input.Note
+		}
+		return s.observations[index], true
+	}
+	return observation.Observation{}, false
+}
+
+func (s *Store) DeleteObservation(_ context.Context, tenantID string, observationID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return false
+	}
+	for index := range s.observations {
+		if s.observations[index].ID != observationID {
+			continue
+		}
+		s.observations = append(s.observations[:index], s.observations[index+1:]...)
+		return true
+	}
+	return false
 }
 
 func (s *Store) ListObservations(_ context.Context, tenantID string) []observation.Observation {

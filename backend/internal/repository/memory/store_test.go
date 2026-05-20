@@ -42,7 +42,7 @@ func TestAttendanceSessionCreatesClassRecords(t *testing.T) {
 	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)
 	store := NewStore(func() time.Time { return fixed })
 
-	session, found := store.GetOrCreateAttendanceSession(context.Background(), "00000000-0000-0000-0000-000000010001", "lesson-1")
+	session, found := store.GetOrCreateAttendanceSession(context.Background(), "00000000-0000-0000-0000-000000010001", "lesson-1", "00000000-0000-0000-0000-000000010112")
 	if !found {
 		t.Fatal("expected attendance session")
 	}
@@ -50,7 +50,7 @@ func TestAttendanceSessionCreatesClassRecords(t *testing.T) {
 		t.Fatalf("expected 3 students in class, got %d", len(session.Records))
 	}
 
-	updated, found := store.UpdateAttendanceRecords(context.Background(), "00000000-0000-0000-0000-000000010001", session.ID, []attendance.RecordUpdate{
+	updated, found := store.UpdateAttendanceRecords(context.Background(), "00000000-0000-0000-0000-000000010001", session.ID, "00000000-0000-0000-0000-000000010112", []attendance.RecordUpdate{
 		{StudentID: "student-1", Status: attendance.StatusPresent},
 		{StudentID: "student-2", Status: attendance.StatusAbsent},
 	})
@@ -67,5 +67,52 @@ func TestAttendanceSessionCreatesClassRecords(t *testing.T) {
 	}
 	if statuses["student-2"] != attendance.StatusAbsent {
 		t.Fatalf("expected student-2 absent, got %s", statuses["student-2"])
+	}
+}
+
+func TestFinalizeAttendanceSessionLocksUpdates(t *testing.T) {
+	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)
+	store := NewStore(func() time.Time { return fixed })
+
+	session, found := store.GetOrCreateAttendanceSession(context.Background(), "00000000-0000-0000-0000-000000010001", "lesson-1", "00000000-0000-0000-0000-000000010112")
+	if !found {
+		t.Fatal("expected attendance session")
+	}
+
+	finalized, found := store.FinalizeAttendanceSession(context.Background(), "00000000-0000-0000-0000-000000010001", session.ID, fixed, "00000000-0000-0000-0000-000000010112")
+	if !found || finalized.FinalizedAt == nil {
+		t.Fatal("expected finalized session")
+	}
+
+	_, found = store.UpdateAttendanceRecords(context.Background(), "00000000-0000-0000-0000-000000010001", session.ID, "00000000-0000-0000-0000-000000010112", []attendance.RecordUpdate{
+		{StudentID: "student-1", Status: attendance.StatusAbsent},
+	})
+	if found {
+		t.Fatal("expected finalized session update to be rejected")
+	}
+}
+
+func TestFinalizeAttendanceSessionCreatesAbsenceNotification(t *testing.T) {
+	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)
+	store := NewStore(func() time.Time { return fixed })
+
+	session, found := store.GetOrCreateAttendanceSession(context.Background(), "00000000-0000-0000-0000-000000010001", "lesson-1", "00000000-0000-0000-0000-000000010112")
+	if !found {
+		t.Fatal("expected attendance session")
+	}
+	_, found = store.UpdateAttendanceRecords(context.Background(), "00000000-0000-0000-0000-000000010001", session.ID, "00000000-0000-0000-0000-000000010112", []attendance.RecordUpdate{
+		{StudentID: "student-2", Status: attendance.StatusAbsent},
+	})
+	if !found {
+		t.Fatal("expected session update")
+	}
+
+	before := len(store.notifications)
+	_, found = store.FinalizeAttendanceSession(context.Background(), "00000000-0000-0000-0000-000000010001", session.ID, fixed, "00000000-0000-0000-0000-000000010112")
+	if !found {
+		t.Fatal("expected finalized session")
+	}
+	if len(store.notifications) <= before {
+		t.Fatal("expected absence notification to be created")
 	}
 }

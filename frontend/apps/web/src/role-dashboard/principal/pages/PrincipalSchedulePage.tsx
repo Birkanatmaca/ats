@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { Lesson } from "../../../lib/api";
+import { api } from "../../../lib/api";
 import { createClientId } from "../../../lib/id";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, PrincipalManagedTeacher, SchoolClass } from "../types";
 import "./PrincipalSchedulePage.css";
@@ -128,7 +130,8 @@ export function PrincipalSchedulePage({
   sections,
   students,
   teachers,
-  storageKey
+  storageKey,
+  onScheduleChange
 }: {
   mode?: SchedulePageMode;
   data: PrincipalConsoleData;
@@ -137,6 +140,7 @@ export function PrincipalSchedulePage({
   students: ClassStudent[];
   teachers: PrincipalManagedTeacher[];
   storageKey: string;
+  onScheduleChange?: () => void;
 }) {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<ScheduleSettings>(DEFAULT_SETTINGS);
@@ -148,6 +152,8 @@ export function PrincipalSchedulePage({
   const [previewSectionId, setPreviewSectionId] = useState("");
   const [scheduleName, setScheduleName] = useState("");
   const [builderMessage, setBuilderMessage] = useState<string | null>(null);
+  const [apiGenerating, setApiGenerating] = useState(false);
+  const [apiPublishing, setApiPublishing] = useState(false);
 
   const classNameById = useMemo(() => new Map(classes.map((item) => [item.id, item.name])), [classes]);
   const teacherById = useMemo(() => new Map(teachers.map((item) => [item.id, item])), [teachers]);
@@ -188,6 +194,7 @@ export function PrincipalSchedulePage({
     [subjectPlans, teacherById]
   );
 
+  const publishedApiSchedule = data.schedule?.status === "published" ? data.schedule : null;
   const activeSchedule = useMemo(
     () =>
       savedSchedules.find((schedule) => schedule.id === activeScheduleId && schedule.status === "active") ??
@@ -195,7 +202,7 @@ export function PrincipalSchedulePage({
       null,
     [activeScheduleId, savedSchedules]
   );
-  const displayedSchedule = activeSchedule ?? draft;
+  const displayedSchedule = activeSchedule ?? draft ?? (publishedApiSchedule ? mapApiScheduleToDraft(publishedApiSchedule, settings, activeSubjectPlans, sectionOptions, teachers) : null);
   const displayedSettings = displayedSchedule?.settings ?? settings;
   const displayedSubjects = displayedSchedule?.subjects ?? activeSubjectPlans;
   const displayedSlots = useMemo(() => buildTimeSlots(displayedSettings), [displayedSettings]);
@@ -316,15 +323,41 @@ export function PrincipalSchedulePage({
     setSubjectPlans((current) => current.filter((item) => item.id !== id));
   }
 
-  function generateDraft() {
-    const result = generateScheduleDraft({
-      settings,
-      subjectPlans: activeSubjectPlans,
-      sections: sectionOptions,
-      teachers
-    });
-    setDraft(result);
-    setBuilderMessage(result.unplaced.length > 0 ? "Program üretildi; yerleşmeyen dersler uyarılarda listeleniyor." : "Program önizlemesi oluşturuldu.");
+  async function generateDraft() {
+    setApiGenerating(true);
+    setBuilderMessage(null);
+    try {
+      const result = await api.generateSchedule();
+      const mapped = mapApiScheduleToDraft(result.schedule, settings, activeSubjectPlans, sectionOptions, teachers);
+      setDraft({
+        ...mapped,
+        hardConflicts: result.hardConflicts,
+        softWarnings: result.softWarnings,
+        score: result.schedule.score
+      });
+      const warningText =
+        result.softWarnings.length > 0 ? ` ${result.softWarnings.length} uyarı var.` : "";
+      setBuilderMessage(
+        result.hardConflicts > 0
+          ? `Program üretildi; ${result.hardConflicts} sert çakışma.${warningText}`
+          : `Program önizlemesi oluşturuldu.${warningText}`
+      );
+    } catch (generateError) {
+      const local = generateScheduleDraft({
+        settings,
+        subjectPlans: activeSubjectPlans,
+        sections: sectionOptions,
+        teachers
+      });
+      setDraft(local);
+      setBuilderMessage(
+        generateError instanceof Error
+          ? `${generateError.message} (yerel önizleme kullanıldı)`
+          : "API üretimi başarısız; yerel önizleme kullanıldı."
+      );
+    } finally {
+      setApiGenerating(false);
+    }
   }
 
   function resetBuilder() {
@@ -334,24 +367,40 @@ export function PrincipalSchedulePage({
     setBuilderMessage(null);
   }
 
-  function saveDraftAsActive() {
+  async function saveDraftAsActive() {
     if (!draft || draft.lessons.length === 0) {
       setBuilderMessage("Kaydetmek için önce otomatik program önizlemesi oluşturun.");
       return;
     }
-    const saved: SavedSchedule = {
-      ...draft,
-      id: createClientId("saved-schedule"),
-      name: scheduleName.trim() || defaultScheduleName(),
-      status: "active",
-      savedAt: new Date().toISOString(),
-      activatedAt: new Date().toISOString()
-    };
-    setSavedSchedules((current) => [saved, ...current.map((item) => ({ ...item, status: "passive" as const }))]);
-    setActiveScheduleId(saved.id);
-    setDraft(null);
+    setApiPublishing(true);
     setBuilderMessage(null);
-    navigate("/dashboard/schedule");
+    try {
+      await api.publishSchedule(draft.id);
+      onScheduleChange?.();
+      setDraft(null);
+      setBuilderMessage("Program yayınlandı.");
+      navigate("/dashboard/schedule");
+    } catch (publishError) {
+      const saved: SavedSchedule = {
+        ...draft,
+        id: draft.id || createClientId("saved-schedule"),
+        name: scheduleName.trim() || defaultScheduleName(),
+        status: "active",
+        savedAt: new Date().toISOString(),
+        activatedAt: new Date().toISOString()
+      };
+      setSavedSchedules((current) => [saved, ...current.map((item) => ({ ...item, status: "passive" as const }))]);
+      setActiveScheduleId(saved.id);
+      setDraft(null);
+      setBuilderMessage(
+        publishError instanceof Error
+          ? `${publishError.message} (yerel taslak aktif edildi)`
+          : "Yayın başarısız; yerel taslak aktif edildi."
+      );
+      navigate("/dashboard/schedule");
+    } finally {
+      setApiPublishing(false);
+    }
   }
 
   function setScheduleActive(scheduleId: string) {
@@ -433,9 +482,14 @@ export function PrincipalSchedulePage({
             <span>Ders programı yenileme</span>
             <h1>Otomatik program oluşturucu</h1>
           </div>
-          <button className="primary-action principal-schedule-save" type="button" onClick={saveDraftAsActive} disabled={!draft || draft.lessons.length === 0}>
+          <button
+            className="primary-action principal-schedule-save"
+            type="button"
+            onClick={() => void saveDraftAsActive()}
+            disabled={!draft || draft.lessons.length === 0 || apiPublishing}
+          >
             <Save size={16} />
-            Kaydet ve aktif yap
+            {apiPublishing ? "Yayınlanıyor…" : "Yayınla"}
           </button>
         </div>
 
@@ -511,9 +565,14 @@ export function PrincipalSchedulePage({
               <ReadinessItem ok={activeSubjectPlans.length > 0} label={`${activeSubjectPlans.length} ders yükü hazır`} />
               <ReadinessItem ok={builderWarnings.every((warning) => !warning.includes("kapasitesi aşılıyor"))} label="Öğretmen kapasite kontrolü" />
             </div>
-            <button className="primary-action principal-schedule-generate" type="button" onClick={generateDraft} disabled={sectionOptions.length === 0 || activeSubjectPlans.length === 0}>
+            <button
+              className="primary-action principal-schedule-generate"
+              type="button"
+              onClick={() => void generateDraft()}
+              disabled={sectionOptions.length === 0 || activeSubjectPlans.length === 0 || apiGenerating}
+            >
               <Wand2 size={16} />
-              Otomatik program oluştur
+              {apiGenerating ? "Üretiliyor…" : "Otomatik program oluştur"}
             </button>
             {builderMessage ? <p className="principal-schedule-builder-message">{builderMessage}</p> : null}
           </article>
@@ -1413,4 +1472,51 @@ function defaultScheduleName() {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("tr-TR");
+}
+
+function mapApiScheduleToDraft(
+  schedule: { id: string; score: number; lessons: Lesson[]; updatedAt: string },
+  settings: ScheduleSettings,
+  subjectPlans: SubjectPlan[],
+  sections: SectionOption[],
+  teachers: PrincipalManagedTeacher[]
+): GeneratedScheduleDraft {
+  const slots = buildTimeSlots(settings);
+  const slotByStart = new Map(slots.map((slot) => [slot.startTime, slot.slotIndex]));
+
+  const lessons: GeneratedLesson[] = schedule.lessons.map((lesson) => {
+    const section = sections.find((item) => item.classId === lesson.classId);
+    const plan = subjectPlans.find(
+      (item) => item.subjectName === lesson.subjectName || item.teacherId === lesson.teacherId
+    );
+    const teacher = teachers.find((item) => item.id === lesson.teacherId);
+    return {
+      id: lesson.id,
+      subjectPlanId: plan?.id ?? lesson.subjectId,
+      dayId: Math.min(6, Math.max(1, lesson.dayOfWeek || 1)) as DayId,
+      slotIndex: slotByStart.get(lesson.startTime) ?? 1,
+      startTime: lesson.startTime,
+      endTime: lesson.endTime,
+      classId: lesson.classId,
+      sectionId: section?.id ?? "",
+      className: lesson.className,
+      sectionName: section?.sectionName ?? "",
+      subjectName: lesson.subjectName,
+      teacherId: lesson.teacherId,
+      teacherName: lesson.teacherName || (teacher ? teacherFullName(teacher) : ""),
+      room: lesson.room
+    };
+  });
+
+  return {
+    id: schedule.id,
+    generatedAt: schedule.updatedAt,
+    score: schedule.score,
+    hardConflicts: 0,
+    softWarnings: [],
+    unplaced: [],
+    settings,
+    subjects: subjectPlans,
+    lessons
+  };
 }

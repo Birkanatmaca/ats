@@ -2,14 +2,14 @@ package middleware
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 
 	"ots/backend/internal/domain/identity"
+	platformauth "ots/backend/internal/platform/auth"
 	"ots/backend/internal/platform/httpx"
 )
 
-func DemoAuth() Middleware {
+func JWTAuth(jwtIssuer *platformauth.JWT) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if isPublicPath(r.URL.Path) {
@@ -17,44 +17,46 @@ func DemoAuth() Middleware {
 				return
 			}
 
-			userID := strings.TrimSpace(r.Header.Get("X-User-Id"))
-			token := strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
-			if userID == "" || token == "" || token != "dev-session-"+userID {
+			token := bearerToken(r.Header.Get("Authorization"))
+			if token == "" {
 				httpx.WriteError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "Geçerli oturum tokenı bulunamadı.", nil)
 				return
 			}
 
-			tenantID := headerOrDefault(r, "X-Tenant-Id", "")
-			role := identity.Role(headerOrDefault(r, "X-Role", string(identity.RolePrincipal)))
-			name := headerOrDefault(r, "X-User-Name", "Kullanıcı")
-			email := headerOrDefault(r, "X-User-Email", "")
-			mustChangePassword := strings.EqualFold(r.Header.Get("X-Must-Change-Password"), "true")
-
-			principal := identity.Principal{
-				UserID:             userID,
-				TenantID:           tenantID,
-				Role:               role,
-				Name:               name,
-				Email:              email,
-				MustChangePassword: mustChangePassword,
+			claims, err := jwtIssuer.ParseAccess(token)
+			if err != nil {
+				httpx.WriteError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "Geçerli oturum tokenı bulunamadı.", nil)
+				return
 			}
+
+			principal := platformauth.PrincipalFromClaims(claims)
+			if principal.UserID == "" || principal.TenantID == "" || principal.Role == "" {
+				httpx.WriteError(w, http.StatusUnauthorized, "UNAUTHENTICATED", "Token içinde geçersiz kullanıcı bilgisi.", nil)
+				return
+			}
+
 			next.ServeHTTP(w, r.WithContext(identity.WithPrincipal(r.Context(), principal)))
 		})
 	}
 }
 
 func isPublicPath(path string) bool {
-	return path == "/healthz" || path == "/api/v1/system/status" || path == "/api/v1/auth/login"
+	switch path {
+	case "/healthz", "/api/v1/system/status", "/api/v1/auth/login", "/api/v1/auth/refresh":
+		return true
+	default:
+		return false
+	}
 }
 
-func headerOrDefault(r *http.Request, key string, fallback string) string {
-	value := r.Header.Get(key)
+func bearerToken(value string) string {
+	value = strings.TrimSpace(value)
 	if value == "" {
-		return fallback
+		return ""
 	}
-	decoded, err := url.QueryUnescape(value)
-	if err != nil {
-		return value
+	const prefix = "Bearer "
+	if len(value) > len(prefix) && strings.EqualFold(value[:len(prefix)], prefix) {
+		return strings.TrimSpace(value[len(prefix):])
 	}
-	return decoded
+	return value
 }

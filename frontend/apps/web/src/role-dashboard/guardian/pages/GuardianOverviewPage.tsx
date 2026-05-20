@@ -1,6 +1,6 @@
 import { Bell, CalendarDays, CheckCircle2, ClipboardCheck, UserRound } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { guardianAttendanceRecords, guardianNotices } from "../data";
+import type { GuardianNotification } from "../../../lib/api";
 import { GuardianAnnouncementList } from "../components/GuardianAnnouncementList";
 import { GuardianAttendanceList } from "../components/GuardianAttendanceList";
 import { GuardianChildCard } from "../components/GuardianChildCard";
@@ -9,9 +9,29 @@ import { GuardianLessonList } from "../components/GuardianLessonList";
 import { GuardianNoticeList } from "../components/GuardianNoticeList";
 import type { GuardianChild, GuardianData } from "../types";
 
-export function GuardianOverviewPage({ child, data, lessons }: { child: GuardianChild; data: GuardianData; lessons: GuardianData["scheduleLessons"] }) {
-  const absentCount = guardianAttendanceRecords.filter((record) => record.status === "absent").length;
-  const lateCount = guardianAttendanceRecords.filter((record) => record.status === "late").length;
+function mapNotificationsToNotices(notifications: GuardianNotification[]) {
+  return notifications.slice(0, 5).map((item) => ({
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    tone: item.readAt ? ("success" as const) : item.kind === "attendance" ? ("warning" as const) : ("info" as const)
+  }));
+}
+
+export function GuardianOverviewPage({
+  child,
+  data,
+  lessons,
+  onMarkNotificationRead
+}: {
+  child: GuardianChild;
+  data: GuardianData;
+  lessons: GuardianData["scheduleLessons"];
+  onMarkNotificationRead?: (notificationId: string) => void;
+}) {
+  const absentCount = data.attendanceRecords.filter((record) => record.status === "absent").length;
+  const lateCount = data.attendanceRecords.filter((record) => record.status === "late").length;
+  const unreadNotifications = data.notifications.filter((item) => !item.readAt).length;
 
   return (
     <section className="guardian-page-stack">
@@ -19,7 +39,7 @@ export function GuardianOverviewPage({ child, data, lessons }: { child: Guardian
         <GuardianKpiCard icon={<UserRound size={17} />} label="Öğrenci" value={child.fullName} detail={`${child.className} · No ${child.schoolNumber}`} tone="sky" />
         <GuardianKpiCard icon={<CalendarDays size={17} />} label="Ders programı" value={lessons.length} detail="Yayınlanmış ders bloğu" tone="emerald" />
         <GuardianKpiCard icon={<ClipboardCheck size={17} />} label="Devamsızlık" value={absentCount} detail={`${lateCount} geç katılım kaydı`} tone="amber" />
-        <GuardianKpiCard icon={<Bell size={17} />} label="Duyuru" value={data.announcements.length} detail="Kurum bilgilendirmesi" tone="violet" />
+        <GuardianKpiCard icon={<Bell size={17} />} label="Duyuru" value={data.announcements.length} detail={`${unreadNotifications} okunmamış bildirim`} tone="violet" />
       </div>
 
       <div className="guardian-overview-grid">
@@ -35,7 +55,10 @@ export function GuardianOverviewPage({ child, data, lessons }: { child: Guardian
             </span>
           </div>
           <GuardianChildCard child={child} />
-          <GuardianNoticeList notices={guardianNotices} />
+          <GuardianNoticeList
+            notices={mapNotificationsToNotices(data.notifications)}
+            onNoticeClick={onMarkNotificationRead}
+          />
         </section>
 
         <section className="principal-surface-card">
@@ -63,7 +86,7 @@ export function GuardianOverviewPage({ child, data, lessons }: { child: Guardian
               Detay
             </NavLink>
           </div>
-          <GuardianAttendanceList records={guardianAttendanceRecords} limit={4} />
+          <GuardianAttendanceList records={data.attendanceRecords} limit={4} />
         </section>
 
         <section className="principal-surface-card">

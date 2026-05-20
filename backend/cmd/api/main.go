@@ -16,6 +16,7 @@ import (
 	superadminapp "ots/backend/internal/app/superadmin"
 	httphandlers "ots/backend/internal/http/handlers"
 	"ots/backend/internal/http/middleware"
+	platformauth "ots/backend/internal/platform/auth"
 	"ots/backend/internal/platform/config"
 	"ots/backend/internal/repository/memory"
 	"ots/backend/internal/repository/postgres"
@@ -24,6 +25,7 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
+	jwtIssuer := platformauth.NewJWT(cfg.JWTSecret, 8*time.Hour, 7*24*time.Hour)
 
 	memoryStore := memory.NewStore(time.Now)
 	identityRepo := identityapp.Repository(memoryStore)
@@ -33,6 +35,7 @@ func main() {
 	var schedulingRepo schedulingapp.Repository = memoryStore
 	var dashboardRepo dashboardapp.Repository = memoryStore
 	var observationRepo observationapp.Repository = memoryStore
+	var attendanceRepo attendanceapp.Repository = memoryStore
 
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {
@@ -53,14 +56,15 @@ func main() {
 		schedulingRepo = postgresStore
 		dashboardRepo = postgresStore
 		observationRepo = postgresStore
+		attendanceRepo = postgresStore
 		logger.Info("postgres repository connected")
 	}
 
 	handlers := httphandlers.New(httphandlers.Dependencies{
-		Identity:    identityapp.NewService(identityRepo, time.Now),
+		Identity:    identityapp.NewService(identityRepo, jwtIssuer, time.Now),
 		School:      schoolapp.NewService(schoolRepo),
 		Scheduling:  schedulingapp.NewService(schedulingRepo),
-		Attendance:  attendanceapp.NewService(memoryStore),
+		Attendance:  attendanceapp.NewService(attendanceRepo),
 		Observation: observationapp.NewService(observationRepo),
 		Dashboard:   dashboardapp.NewService(dashboardRepo),
 		SuperAdmin:  superadminapp.NewService(superAdminRepo),
@@ -75,7 +79,7 @@ func main() {
 		middleware.RequestID(),
 		middleware.Logger(logger),
 		middleware.CORS(cfg.CORSAllowedOrigins),
-		middleware.DemoAuth(),
+		middleware.JWTAuth(jwtIssuer),
 	)
 
 	server := &http.Server{

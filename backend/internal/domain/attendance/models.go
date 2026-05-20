@@ -48,3 +48,30 @@ type RecordUpdate struct {
 	Status    Status `json:"status"`
 	Note      string `json:"note,omitempty"`
 }
+
+type DayReport struct {
+	Date    string       `json:"date"`
+	Records []DayRecord  `json:"records"`
+}
+
+type DayRecord struct {
+	StudentID string `json:"studentId"`
+	ClassID   string `json:"classId"`
+	Status    Status `json:"status"`
+}
+
+type StudentSummary struct {
+	StudentID string         `json:"studentId"`
+	Records   []SummaryEntry `json:"records"`
+	Present   int            `json:"present"`
+	Absent    int            `json:"absent"`
+	Late      int            `json:"late"`
+	Excused   int            `json:"excused"`
+}
+
+type SummaryEntry struct {
+	Date        string `json:"date"`
+	SubjectName string `json:"subjectName"`
+	ClassName   string `json:"className"`
+	Status      Status `json:"status"`
+}

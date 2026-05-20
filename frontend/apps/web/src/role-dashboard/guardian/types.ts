@@ -1,4 +1,4 @@
-import type { Announcement, Lesson, PrincipalSummary, Tenant } from "../../lib/api";
+import type { Announcement, GuardianAttendanceRecord, GuardianNotification, Lesson, Tenant } from "../../lib/api";
 
 export type GuardianChild = {
   id: string;
@@ -7,14 +7,6 @@ export type GuardianChild = {
   schoolNumber: string;
   tenantName: string;
   avatarTone: "amber" | "sky" | "emerald";
-};
-
-export type GuardianAttendanceRecord = {
-  id: string;
-  date: string;
-  lesson: string;
-  status: "present" | "absent" | "late" | "excused";
-  note: string;
 };
 
 export type GuardianNotice = {
@@ -26,7 +18,10 @@ export type GuardianNotice = {
 
 export type GuardianData = {
   tenant?: Tenant;
-  summary?: PrincipalSummary;
   scheduleLessons: Lesson[];
   announcements: Announcement[];
+  attendanceRecords: GuardianAttendanceRecord[];
+  notifications: GuardianNotification[];
 };
+
+export type { GuardianAttendanceRecord, GuardianNotification };

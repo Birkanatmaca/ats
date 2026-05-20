@@ -16,7 +16,7 @@ export function PrincipalTeachersPage({
 }: {
   teachers: PrincipalManagedTeacher[];
   classes: SchoolClass[];
-  onAddTeacher: (payload: TeacherFormPayload) => void;
+  onAddTeacher: (payload: TeacherFormPayload) => Promise<string | void>;
   onUpdateTeacher: (
     id: string,
     payload: {
@@ -29,7 +29,7 @@ export function PrincipalTeachersPage({
     }
   ) => void;
   onDeleteTeacher: (id: string) => void;
-  onResetPassword: (id: string) => string;
+  onResetPassword: (id: string) => Promise<string>;
   /** Öğretmen ilk girişte şifresini değiştirdiğinde (API entegrasyonu öncesi manuel işaretleme). */
   onMarkFirstLoginComplete: (id: string) => void;
 }) {
@@ -80,6 +80,8 @@ export function PrincipalTeachersPage({
     return { total: teachers.length, pendingFirstLogin, weeklyHoursTotal, branchCount, withClass };
   }, [teachers]);
 
+  const [submitting, setSubmitting] = useState(false);
+
   function openCreate() {
     setModalMode("create");
     setEditing(null);
@@ -92,16 +94,21 @@ export function PrincipalTeachersPage({
     setModalOpen(true);
   }
 
-  function handleFormSubmit(payload: TeacherFormPayload) {
+  async function handleFormSubmit(payload: TeacherFormPayload) {
     if (modalMode === "create") {
-      onAddTeacher(payload);
-      setModalOpen(false);
-      setCredential({
-        title: "Öğretmen oluşturuldu",
-        username: payload.username,
-        password: payload.password,
-        hint: "Bu bilgileri öğretmene güvenli kanaldan iletin. Şifre yalnızca ilk girişte kullanılır; öğretmen giriş yaptığında yeni şifresini belirler."
-      });
+      setSubmitting(true);
+      try {
+        const tempPassword = await onAddTeacher(payload);
+        setModalOpen(false);
+        setCredential({
+          title: "Öğretmen oluşturuldu",
+          username: payload.username.includes("@") ? payload.username : `${payload.username}@ots.local`,
+          password: typeof tempPassword === "string" ? tempPassword : payload.password,
+          hint: "Bu bilgileri öğretmene güvenli kanaldan iletin. İlk girişte kalıcı şifre belirlemesi istenir."
+        });
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
     if (editing) {
@@ -125,14 +132,18 @@ export function PrincipalTeachersPage({
     onDeleteTeacher(row.id);
   }
 
-  function handleResetPassword(row: PrincipalManagedTeacher) {
-    const pwd = onResetPassword(row.id);
-    setCredential({
-      title: "Yeni tek kullanımlık şifre",
-      username: row.username,
-      password: pwd,
-      hint: "Öğretmen bir sonraki girişinde bu şifreyi kullanıp kalıcı şifresini güncellemelidir."
-    });
+  async function handleResetPassword(row: PrincipalManagedTeacher) {
+    try {
+      const pwd = await onResetPassword(row.id);
+      setCredential({
+        title: "Yeni tek kullanımlık şifre",
+        username: row.username,
+        password: pwd,
+        hint: "Öğretmen bir sonraki girişinde bu şifreyi kullanıp kalıcı şifresini güncellemelidir."
+      });
+    } catch {
+      /* parent shows error */
+    }
   }
 
   return (
@@ -281,7 +292,7 @@ export function PrincipalTeachersPage({
         initial={editing}
         existingUsernames={existingUsernames}
         onClose={() => setModalOpen(false)}
-        onSubmit={handleFormSubmit}
+        onSubmit={(payload) => void handleFormSubmit(payload)}
       />
 
       <CredentialRevealDialog

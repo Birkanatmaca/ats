@@ -8,8 +8,16 @@ import (
 )
 
 type Repository interface {
+	ListRequirements(ctx context.Context, tenantID string) []domain.ClassSubjectRequirement
+	SaveRequirements(ctx context.Context, tenantID string, items []domain.RequirementInput) ([]domain.ClassSubjectRequirement, error)
+	ListTeacherAvailabilities(ctx context.Context, tenantID string) []domain.TeacherAvailability
+	SaveTeacherAvailabilities(ctx context.Context, tenantID string, items []domain.AvailabilityInput) ([]domain.TeacherAvailability, error)
 	CurrentSchedule(ctx context.Context, tenantID string) (domain.Schedule, bool)
+	GetSchedule(ctx context.Context, tenantID string, scheduleID string) (domain.Schedule, bool)
 	GenerateDraftSchedule(ctx context.Context, tenantID string) domain.GenerationResult
+	UpdateScheduleLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, input domain.UpdateLessonInput) (domain.Lesson, bool, error)
+	ValidateSchedule(ctx context.Context, tenantID string, scheduleID string) domain.ValidationResult
+	PublishSchedule(ctx context.Context, tenantID string, scheduleID string) (domain.Schedule, bool, error)
 	TeacherCalendar(ctx context.Context, tenantID string, teacherID string) []domain.Lesson
 	ActiveLessonForTeacher(ctx context.Context, tenantID string, teacherID string, now time.Time) (domain.Lesson, bool)
 }
@@ -22,12 +30,44 @@ func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
+func (s *Service) ListRequirements(ctx context.Context, tenantID string) []domain.ClassSubjectRequirement {
+	return s.repo.ListRequirements(ctx, tenantID)
+}
+
+func (s *Service) SaveRequirements(ctx context.Context, tenantID string, items []domain.RequirementInput) ([]domain.ClassSubjectRequirement, error) {
+	return s.repo.SaveRequirements(ctx, tenantID, items)
+}
+
+func (s *Service) ListTeacherAvailabilities(ctx context.Context, tenantID string) []domain.TeacherAvailability {
+	return s.repo.ListTeacherAvailabilities(ctx, tenantID)
+}
+
+func (s *Service) SaveTeacherAvailabilities(ctx context.Context, tenantID string, items []domain.AvailabilityInput) ([]domain.TeacherAvailability, error) {
+	return s.repo.SaveTeacherAvailabilities(ctx, tenantID, items)
+}
+
 func (s *Service) CurrentSchedule(ctx context.Context, tenantID string) (domain.Schedule, bool) {
 	return s.repo.CurrentSchedule(ctx, tenantID)
 }
 
+func (s *Service) GetSchedule(ctx context.Context, tenantID string, scheduleID string) (domain.Schedule, bool) {
+	return s.repo.GetSchedule(ctx, tenantID, scheduleID)
+}
+
 func (s *Service) GenerateDraft(ctx context.Context, tenantID string) domain.GenerationResult {
 	return s.repo.GenerateDraftSchedule(ctx, tenantID)
+}
+
+func (s *Service) UpdateLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, input domain.UpdateLessonInput) (domain.Lesson, bool, error) {
+	return s.repo.UpdateScheduleLesson(ctx, tenantID, scheduleID, lessonID, input)
+}
+
+func (s *Service) ValidateSchedule(ctx context.Context, tenantID string, scheduleID string) domain.ValidationResult {
+	return s.repo.ValidateSchedule(ctx, tenantID, scheduleID)
+}
+
+func (s *Service) PublishSchedule(ctx context.Context, tenantID string, scheduleID string) (domain.Schedule, bool, error) {
+	return s.repo.PublishSchedule(ctx, tenantID, scheduleID)
 }
 
 func (s *Service) TeacherCalendar(ctx context.Context, tenantID string, teacherID string) []domain.Lesson {

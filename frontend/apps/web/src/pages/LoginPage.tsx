@@ -119,6 +119,10 @@ export function LoginPage({ onLogin }: { onLogin: (session: AuthSession) => void
             Giriş yap
           </button>
 
+          <p className="login-footer-link">
+            <a href="/forgot-password">Şifremi unuttum</a>
+          </p>
+
           <div className="login-demo" role="group" aria-label="Demo hesaplarla giriş">
             <p className="login-demo-title">Demo hesap</p>
             <div className="login-demo-buttons">

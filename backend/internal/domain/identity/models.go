@@ -1,6 +1,9 @@
 package identity
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 type Role string
 
@@ -31,10 +34,35 @@ type PasswordChangeInput struct {
 	NewPassword string `json:"newPassword"`
 }
 
+type PasswordForgotInput struct {
+	Email string `json:"email"`
+}
+
+type PasswordResetInput struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"newPassword"`
+}
+
+type PasswordForgotResult struct {
+	Message string `json:"message"`
+	// Dev/demo ortamında sıfırlama bağlantısı önizlemesi (production'da e-posta ile gider).
+	ResetToken string `json:"resetToken,omitempty"`
+}
+
+var ErrInvalidResetToken = errors.New("invalid reset token")
+var ErrWeakPassword = errors.New("weak password")
+var ErrUserNotFound = errors.New("user not found")
+
 type AuthSession struct {
-	AccessToken string    `json:"accessToken"`
-	Principal   Principal `json:"principal"`
-	ExpiresAt   string    `json:"expiresAt"`
+	AccessToken      string    `json:"accessToken"`
+	RefreshToken     string    `json:"refreshToken"`
+	Principal        Principal `json:"principal"`
+	ExpiresAt        string    `json:"expiresAt"`
+	RefreshExpiresAt string    `json:"refreshExpiresAt,omitempty"`
+}
+
+type RefreshInput struct {
+	RefreshToken string `json:"refreshToken"`
 }
 
 type contextKey string

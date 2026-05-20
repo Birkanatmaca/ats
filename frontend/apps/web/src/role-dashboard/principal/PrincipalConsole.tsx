@@ -1,10 +1,10 @@
 import { GraduationCap, Loader2, LogOut, School } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
-import type { AuthSession, UserAccount } from "../../lib/api";
+import type { AuthSession, PrincipalSchoolRoster, SchoolTeacherRecord, UserAccount } from "../../lib/api";
 import { api } from "../../lib/api";
-import { createClientId } from "../../lib/id";
+import { NotificationBell } from "../components/NotificationBell";
 import { principalTabs } from "./navTabs";
 import { PrincipalAnnouncementsPage } from "./pages/PrincipalAnnouncementsPage";
 import { PrincipalAttendancePage } from "./pages/PrincipalAttendancePage";
@@ -18,61 +18,64 @@ import { PrincipalStudentsPage } from "./pages/PrincipalStudentsPage";
 import { PrincipalTeachersPage } from "./pages/PrincipalTeachersPage";
 import type { StudentFormPayload } from "./components/StudentFormModal";
 import type { TeacherFormPayload } from "./components/TeacherFormModal";
-import { generateOneTimePassword } from "./teacherCredentials";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, PrincipalManagedTeacher, SchoolClass } from "./types";
 import "../../styles/super-admin-app.css";
 import "./PrincipalConsole.css";
 
-function parsePrincipalTeachers(raw: string | null): PrincipalManagedTeacher[] {
-  if (!raw) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed
-      .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object" && "id" in row && "username" in row))
-      .map((row) => ({
-        ...(row as PrincipalManagedTeacher),
-        mustChangePassword: Boolean((row as PrincipalManagedTeacher).mustChangePassword)
-      }));
-  } catch {
-    return [];
-  }
+function mergeTeacherRows(accounts: UserAccount[], records: SchoolTeacherRecord[]): PrincipalManagedTeacher[] {
+  const recordByUserId = new Map(records.map((record) => [record.userId, record]));
+  return accounts.map((user) => {
+    const record = recordByUserId.get(user.id);
+    const tokens = user.fullName.trim().split(/\s+/).filter(Boolean);
+    const firstName = tokens.shift() ?? user.fullName;
+    const lastName = tokens.join(" ");
+    return {
+      id: record?.id ?? user.id,
+      userId: user.id,
+      firstName,
+      lastName,
+      branch: record?.title ?? "",
+      weeklyLessonHours: 0,
+      classId: null,
+      className: null,
+      username: user.email,
+      mustChangePassword: user.mustChangePassword,
+      createdAt: user.createdAt
+    };
+  });
 }
 
-function teacherAccountToManagedTeacher(user: UserAccount): PrincipalManagedTeacher {
-  const tokens = user.fullName.trim().split(/\s+/).filter(Boolean);
-  const firstName = tokens.shift() ?? user.fullName;
-  const lastName = tokens.join(" ");
+function mapRoster(roster: PrincipalSchoolRoster) {
   return {
-    id: user.id,
-    firstName,
-    lastName,
-    branch: "",
-    weeklyLessonHours: 0,
-    classId: null,
-    className: null,
-    username: user.email,
-    mustChangePassword: user.mustChangePassword,
-    createdAt: user.createdAt
+    classes: roster.classes.map((item) => ({
+      id: item.id,
+      name: item.name,
+      createdAt: item.createdAt
+    })),
+    sections: roster.sections.map((item) => ({
+      id: item.id,
+      classId: item.classId,
+      name: item.name,
+      gradeLevel: item.gradeLevel,
+      advisor: item.advisor,
+      capacity: item.capacity,
+      createdAt: item.createdAt
+    })),
+    students: roster.students.map((item) => ({
+      id: item.id,
+      classId: item.classId,
+      sectionId: item.sectionId,
+      schoolNumber: item.schoolNumber,
+      firstName: item.firstName,
+      lastName: item.lastName,
+      gender: item.gender,
+      birthDate: item.birthDate,
+      guardianName: item.guardianName,
+      guardianPhone: item.guardianPhone,
+      status: (item.status === "passive" ? "passive" : "active") as ClassStudent["status"],
+      createdAt: item.createdAt
+    }))
   };
-}
-
-function mergeTeacherOptions(dbTeachers: PrincipalManagedTeacher[], localTeachers: PrincipalManagedTeacher[]) {
-  const seen = new Set<string>();
-  const merged: PrincipalManagedTeacher[] = [];
-  for (const teacher of [...dbTeachers, ...localTeachers]) {
-    const key = (teacher.username || teacher.id).toLocaleLowerCase("tr-TR");
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    merged.push(teacher);
-  }
-  return merged;
 }
 
 export function PrincipalConsole({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
@@ -80,53 +83,36 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [sections, setSections] = useState<ClassSection[]>([]);
   const [students, setStudents] = useState<ClassStudent[]>([]);
-  const [directoryTeachers, setDirectoryTeachers] = useState<PrincipalManagedTeacher[]>([]);
+  const [teachers, setTeachers] = useState<PrincipalManagedTeacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rosterError, setRosterError] = useState<string | null>(null);
   const location = useLocation();
-  const storageKey = `principal.class-management.${session.principal.tenantId}`;
-  const teachersStorageKey = `principal.teachers.${session.principal.tenantId}`;
-  const [managedTeachers, setManagedTeachers] = useState<PrincipalManagedTeacher[]>(() =>
-    typeof window !== "undefined" ? parsePrincipalTeachers(window.localStorage.getItem(`principal.teachers.${session.principal.tenantId}`)) : []
-  );
 
   const activePath = location.pathname.replace(/^\/dashboard\/?/, "");
   const activeTab = activePath.split("/")[0] || "overview";
-  const sectionTeacherOptions = useMemo(() => mergeTeacherOptions(directoryTeachers, managedTeachers), [directoryTeachers, managedTeachers]);
+  const sectionTeacherOptions = useMemo(() => teachers, [teachers]);
 
-  function applyRosterFromApi(roster: {
-    classes: SchoolClass[];
-    sections: ClassSection[];
-    students: ClassStudent[];
-  }) {
-    if (roster.students.length === 0 && roster.classes.length === 0) {
-      return;
+  const reloadTeachers = useCallback(async () => {
+    const [accounts, records] = await Promise.allSettled([api.principalTeachers(), api.listTeachers()]);
+    if (accounts.status === "fulfilled") {
+      const teacherRecords = records.status === "fulfilled" ? (records.value ?? []) : [];
+      setTeachers(mergeTeacherRows(accounts.value, teacherRecords));
     }
-    setClasses(roster.classes);
-    setSections(roster.sections);
-    setStudents(roster.students);
-  }
+  }, []);
 
-  function loadClassManagementFromStorage() {
-    const raw = window.localStorage.getItem(storageKey);
-    if (!raw) {
-      return;
-    }
+  const reloadRoster = useCallback(async () => {
+    setRosterError(null);
     try {
-      const parsed = JSON.parse(raw) as {
-        classes?: SchoolClass[];
-        sections?: ClassSection[];
-        students?: ClassStudent[];
-      };
-      setClasses(parsed.classes ?? []);
-      setSections(parsed.sections ?? []);
-      setStudents(parsed.students ?? []);
-    } catch {
-      setClasses([]);
-      setSections([]);
-      setStudents([]);
+      const roster = await api.principalRoster();
+      const mapped = mapRoster(roster);
+      setClasses(mapped.classes);
+      setSections(mapped.sections);
+      setStudents(mapped.students);
+    } catch (loadError) {
+      setRosterError(loadError instanceof Error ? loadError.message : "Okul listesi alınamadı.");
     }
-  }
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -148,47 +134,17 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
     });
 
     if (teacherAccounts.status === "fulfilled") {
-      setDirectoryTeachers(teacherAccounts.value.map(teacherAccountToManagedTeacher));
+      const teacherRecords = await api.listTeachers().catch(() => []);
+      setTeachers(mergeTeacherRows(teacherAccounts.value, teacherRecords ?? []));
     }
 
     if (roster.status === "fulfilled") {
-      const mapped = {
-        classes: roster.value.classes.map((item) => ({
-          id: item.id,
-          name: item.name,
-          createdAt: item.createdAt
-        })),
-        sections: roster.value.sections.map((item) => ({
-          id: item.id,
-          classId: item.classId,
-          name: item.name,
-          gradeLevel: item.gradeLevel,
-          advisor: item.advisor,
-          capacity: item.capacity,
-          createdAt: item.createdAt
-        })),
-        students: roster.value.students.map((item) => ({
-          id: item.id,
-          classId: item.classId,
-          sectionId: item.sectionId,
-          schoolNumber: item.schoolNumber,
-          firstName: item.firstName,
-          lastName: item.lastName,
-          gender: item.gender,
-          birthDate: item.birthDate,
-          guardianName: item.guardianName,
-          guardianPhone: item.guardianPhone,
-          status: (item.status === "passive" ? "passive" : "active") as ClassStudent["status"],
-          createdAt: item.createdAt
-        }))
-      };
-      if (mapped.students.length > 0 || mapped.classes.length > 0) {
-        applyRosterFromApi(mapped);
-      } else {
-        loadClassManagementFromStorage();
-      }
+      const mapped = mapRoster(roster.value);
+      setClasses(mapped.classes);
+      setSections(mapped.sections);
+      setStudents(mapped.students);
     } else {
-      loadClassManagementFromStorage();
+      setRosterError("Sınıf ve öğrenci listesi alınamadı.");
     }
 
     const failed = [tenant, summary, schedule, announcements, teacherAccounts, roster].some((result) => result.status === "rejected");
@@ -202,46 +158,43 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
     void load();
   }, [session.principal.userId]);
 
-  useEffect(() => {
-    setManagedTeachers(parsePrincipalTeachers(window.localStorage.getItem(teachersStorageKey)));
-  }, [teachersStorageKey]);
-
-  useEffect(() => {
-    window.localStorage.setItem(teachersStorageKey, JSON.stringify(managedTeachers));
-  }, [managedTeachers, teachersStorageKey]);
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      storageKey,
-      JSON.stringify({
-        classes,
-        sections,
-        students
-      })
-    );
-  }, [classes, sections, students, storageKey]);
-
-  function addClass(payload: { name: string }) {
-    const classItem: SchoolClass = {
-      id: createClientId("class"),
-      name: payload.name,
-      createdAt: new Date().toISOString()
-    };
-    setClasses((current) => [classItem, ...current]);
+  async function refreshAnnouncements() {
+    try {
+      const announcements = await api.announcements();
+      setData((current) => ({ ...current, announcements }));
+    } catch {
+      setError("Duyurular yenilenemedi.");
+    }
   }
 
-  function deleteClass(classId: string) {
+  async function refreshSchedule() {
+    try {
+      const schedule = await api.schedule();
+      setData((current) => ({ ...current, schedule }));
+    } catch {
+      setError("Ders programı yenilenemedi.");
+    }
+  }
+
+  async function addClass(payload: { name: string }) {
+    setRosterError(null);
+    try {
+      await api.createClass({ name: payload.name });
+      await reloadRoster();
+    } catch (createError) {
+      setRosterError(createError instanceof Error ? createError.message : "Sınıf oluşturulamadı.");
+    }
+  }
+
+  async function deleteClass(classId: string) {
     setClasses((current) => current.filter((item) => item.id !== classId));
     setSections((current) => current.filter((item) => item.classId !== classId));
     setStudents((current) => current.filter((item) => item.classId !== classId));
-    setManagedTeachers((current) =>
-      current.map((item) => (item.classId === classId ? { ...item, classId: null, className: null } : item))
-    );
   }
 
   function addSection(payload: { classId: string; name: string; gradeLevel: string; advisor: string; capacity: number }) {
     const sectionItem: ClassSection = {
-      id: createClientId("section"),
+      id: `section-${payload.classId}-${payload.name}`,
       classId: payload.classId,
       name: payload.name,
       gradeLevel: payload.gradeLevel,
@@ -257,50 +210,88 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
     setStudents((current) => current.filter((item) => item.sectionId !== sectionId));
   }
 
-  function addStudent(payload: Omit<ClassStudent, "id" | "createdAt">) {
-    const student: ClassStudent = {
-      ...payload,
-      id: createClientId("student"),
-      createdAt: new Date().toISOString()
-    };
-    setStudents((current) => [student, ...current]);
+  async function addStudent(payload: Omit<ClassStudent, "id" | "createdAt">) {
+    setRosterError(null);
+    try {
+      await api.createStudent({
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        schoolNumber: payload.schoolNumber,
+        classId: payload.classId,
+        birthDate: payload.birthDate,
+        gender: payload.gender,
+        status: payload.status,
+        guardianName: payload.guardianName,
+        guardianPhone: payload.guardianPhone
+      });
+      await reloadRoster();
+    } catch (createError) {
+      setRosterError(createError instanceof Error ? createError.message : "Öğrenci oluşturulamadı.");
+    }
   }
 
-  function updateStudent(id: string, payload: StudentFormPayload) {
-    const now = new Date().toISOString();
-    setStudents((current) => current.map((item) => (item.id === id ? { ...item, ...payload, updatedAt: now } : item)));
+  async function updateStudent(id: string, payload: StudentFormPayload) {
+    setRosterError(null);
+    try {
+      await api.patchStudent(id, {
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        schoolNumber: payload.schoolNumber,
+        classId: payload.classId,
+        birthDate: payload.birthDate,
+        gender: payload.gender,
+        status: payload.status,
+        guardianName: payload.guardianName,
+        guardianPhone: payload.guardianPhone
+      });
+      await reloadRoster();
+    } catch (updateError) {
+      setRosterError(updateError instanceof Error ? updateError.message : "Öğrenci güncellenemedi.");
+    }
   }
 
-  function deleteStudent(id: string) {
-    setStudents((current) => current.filter((item) => item.id !== id));
+  async function deleteStudent(id: string) {
+    setRosterError(null);
+    try {
+      await api.patchStudent(id, { status: "passive" });
+      await reloadRoster();
+    } catch (deleteError) {
+      setRosterError(deleteError instanceof Error ? deleteError.message : "Öğrenci pasifleştirilemedi.");
+    }
   }
 
-  function assignStudentsToSection(studentIds: string[], classId: string, sectionId: string) {
-    const selected = new Set(studentIds);
-    const now = new Date().toISOString();
-    setStudents((current) =>
-      current.map((item) => (selected.has(item.id) ? { ...item, classId, sectionId, updatedAt: now } : item))
-    );
+  async function assignStudentsToSection(studentIds: string[], classId: string, _sectionId: string) {
+    setRosterError(null);
+    const startsOn = new Date().toISOString().slice(0, 10);
+    try {
+      for (const studentId of studentIds) {
+        await api.assignClassStudent(classId, { studentId, startsOn });
+      }
+      await reloadRoster();
+    } catch (assignError) {
+      setRosterError(assignError instanceof Error ? assignError.message : "Öğrenci şubeye atanamadı.");
+    }
   }
 
-  function addManagedTeacher(payload: TeacherFormPayload) {
-    const className = payload.classId ? classes.find((c) => c.id === payload.classId)?.name ?? null : null;
-    const row: PrincipalManagedTeacher = {
-      id: createClientId("teacher"),
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-      branch: payload.branch,
-      weeklyLessonHours: payload.weeklyLessonHours,
-      classId: payload.classId,
-      className,
-      username: payload.username,
-      mustChangePassword: true,
-      createdAt: new Date().toISOString()
-    };
-    setManagedTeachers((current) => [row, ...current]);
+  async function addManagedTeacher(payload: TeacherFormPayload) {
+    setRosterError(null);
+    try {
+      const email = payload.username.includes("@") ? payload.username : `${payload.username}@ots.local`;
+      const result = await api.provisionTeacher({
+        email,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        title: payload.branch
+      });
+      await reloadTeachers();
+      return result.temporaryPassword;
+    } catch (createError) {
+      setRosterError(createError instanceof Error ? createError.message : "Öğretmen oluşturulamadı.");
+      throw createError;
+    }
   }
 
-  function updateManagedTeacher(
+  async function updateManagedTeacher(
     id: string,
     payload: {
       firstName: string;
@@ -311,31 +302,37 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
       className: string | null;
     }
   ) {
-    const now = new Date().toISOString();
-    setManagedTeachers((current) =>
-      current.map((item) => (item.id === id ? { ...item, ...payload, updatedAt: now } : item))
-    );
+    setRosterError(null);
+    try {
+      await api.updateTeacher(id, { title: payload.branch });
+      await reloadTeachers();
+    } catch (updateError) {
+      setRosterError(updateError instanceof Error ? updateError.message : "Öğretmen güncellenemedi.");
+    }
   }
 
-  function deleteManagedTeacher(id: string) {
-    setManagedTeachers((current) => current.filter((item) => item.id !== id));
+  function deleteManagedTeacher(_id: string) {
+    setRosterError("Öğretmen silme henüz API üzerinden desteklenmiyor. Süper admin panelinden pasifleştirebilirsiniz.");
   }
 
-  function resetManagedTeacherPassword(id: string): string {
-    const pwd = generateOneTimePassword();
-    const now = new Date().toISOString();
-    setManagedTeachers((current) =>
-      current.map((item) => (item.id === id ? { ...item, mustChangePassword: true, updatedAt: now } : item))
-    );
-    return pwd;
+  async function resetManagedTeacherPassword(id: string): Promise<string> {
+    setRosterError(null);
+    try {
+      const result = await api.resetTeacherPassword(id);
+      await reloadTeachers();
+      return result.temporaryPassword;
+    } catch (resetError) {
+      const message = resetError instanceof Error ? resetError.message : "Şifre sıfırlanamadı.";
+      setRosterError(message);
+      throw resetError;
+    }
   }
 
-  function markTeacherFirstLoginComplete(id: string) {
-    const now = new Date().toISOString();
-    setManagedTeachers((current) =>
-      current.map((item) => (item.id === id ? { ...item, mustChangePassword: false, updatedAt: now } : item))
-    );
+  async function markTeacherFirstLoginComplete(_id: string) {
+    await reloadTeachers();
   }
+
+  const workspaceError = error ?? rosterError;
 
   return (
     <div className="admin-shell principal-console">
@@ -351,6 +348,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
         </div>
 
         <div className="navbar-actions">
+          <NotificationBell />
           <div className="navbar-profile" aria-label="Profil">
             <div className="profile-avatar">{session.principal.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
             <div className="navbar-profile-text">
@@ -386,7 +384,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
 
       <main className={`admin-workspace ${activeTab}-workspace`}>
         <div className="sa-main">
-          {error && <div className="form-error workspace-error sa-alert">{error}</div>}
+          {workspaceError && <div className="form-error workspace-error sa-alert">{workspaceError}</div>}
           {loading && (
             <div className="loading-line">
               <Loader2 className="spin" size={18} />
@@ -421,6 +419,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
                   onAddStudent={addStudent}
                   onUpdateStudent={updateStudent}
                   onDeleteStudent={deleteStudent}
+                  onImportComplete={() => void reloadRoster()}
                 />
               }
             />
@@ -435,6 +434,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
                   students={students}
                   teachers={sectionTeacherOptions}
                   storageKey={`principal.schedule-builder.${session.principal.tenantId}`}
+                  onScheduleChange={() => void refreshSchedule()}
                 />
               }
             />
@@ -449,6 +449,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
                   students={students}
                   teachers={sectionTeacherOptions}
                   storageKey={`principal.schedule-builder.${session.principal.tenantId}`}
+                  onScheduleChange={() => void refreshSchedule()}
                 />
               }
             />
@@ -482,7 +483,10 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
               }
             />
             <Route path="operations" element={<PrincipalOperationsPage data={data} />} />
-            <Route path="announcements" element={<PrincipalAnnouncementsPage data={data} />} />
+            <Route
+              path="announcements"
+              element={<PrincipalAnnouncementsPage data={data} classes={classes} onAnnouncementCreated={() => void refreshAnnouncements()} />}
+            />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Routes>
         </div>

@@ -1,10 +1,6 @@
 import { HeartHandshake } from "lucide-react";
-import { guidancePlans } from "../data";
-import { GuidancePlanList } from "../components/GuidancePlanList";
 
 export function GuidancePlansPage() {
-  const activeCount = guidancePlans.filter((plan) => plan.status !== "closed").length;
-
   return (
     <section className="guidance-page-stack">
       <div className="guidance-page-title">
@@ -15,15 +11,15 @@ export function GuidancePlansPage() {
       <section className="principal-surface-card">
         <div className="guidance-card-head">
           <div>
-            <h2>Plan listesi</h2>
-            <p>Görüşme, veli bilgilendirme ve izlem aksiyonları.</p>
+            <h2>Faz 2</h2>
+            <p>Rehberlik takip planları, görüşme kayıtları ve veli bilgilendirme aksiyonları bu fazda API ile entegre edilecek.</p>
           </div>
-          <span className="status-badge active">
+          <span className="status-badge normal">
             <HeartHandshake size={14} />
-            {activeCount} aktif
+            Yakında
           </span>
         </div>
-        <GuidancePlanList plans={guidancePlans} />
+        <p className="empty-text">Şu an için örnek plan verisi gösterilmiyor. Gözlem ve risk ekranları aktif MVP kapsamındadır.</p>
       </section>
     </section>
   );

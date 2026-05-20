@@ -1,12 +1,17 @@
 import { AlertTriangle, ClipboardCheck, GraduationCap, UsersRound } from "lucide-react";
+import { NavLink } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PrincipalConsoleData } from "../types";
 
 export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) {
   const summary = data.summary;
+  const schedulePublished = data.schedule?.status === "published";
   const attendancePct = Math.max(0, Math.min(100, summary?.attendanceCompletionPct ?? 0));
   const absenteePct = summary?.activeStudents ? Math.min(100, Math.round(((summary.absentToday ?? 0) / summary.activeStudents) * 100)) : 0;
   const riskPct = summary?.activeStudents ? Math.min(100, Math.round(((summary.openObservationSignals ?? 0) / summary.activeStudents) * 100)) : 0;
+  const classesNeedingAttention = (summary?.classAttendance ?? []).filter(
+    (item) => item.attentionNeed === "Yoklama bekliyor" || item.attentionNeed === "Devamsızlık"
+  );
   const completionVsMissing = [
     { name: "Tamamlanan", value: attendancePct },
     { name: "Eksik", value: 100 - attendancePct }
@@ -24,6 +29,45 @@ export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) 
 
   return (
     <section className="principal-page-stack">
+      {!schedulePublished ? (
+        <div className="principal-alert-banner principal-alert-banner--warning">
+          <AlertTriangle size={18} aria-hidden />
+          <div>
+            <strong>Yayınlanmış ders programı bulunamadı</strong>
+            <p>Öğretmen yoklaması ve günlük operasyonlar için programı oluşturup yayınlayın.</p>
+          </div>
+          <NavLink className="primary-action small-action" to="/dashboard/schedule/builder">
+            Program oluştur
+          </NavLink>
+        </div>
+      ) : null}
+
+      {attendancePct < 100 && (summary?.todayLessons ?? 0) > 0 ? (
+        <div className="principal-alert-banner principal-alert-banner--amber">
+          <ClipboardCheck size={18} aria-hidden />
+          <div>
+            <strong>Bugünkü yoklama tamamlanma: %{attendancePct}</strong>
+            <p>{summary?.todayLessons ?? 0} dersten finalize edilen kayıtlar henüz tamamlanmadı.</p>
+          </div>
+          <NavLink className="ghost-action" to="/dashboard/attendance">
+            Raporu aç
+          </NavLink>
+        </div>
+      ) : null}
+
+      {classesNeedingAttention.length > 0 ? (
+        <div className="principal-alert-banner principal-alert-banner--risk">
+          <AlertTriangle size={18} aria-hidden />
+          <div>
+            <strong>{classesNeedingAttention.length} sınıf dikkat gerektiriyor</strong>
+            <p>{classesNeedingAttention.map((item) => item.className).join(", ")}</p>
+          </div>
+          <NavLink className="ghost-action" to="/dashboard/operations">
+            Operasyonlar
+          </NavLink>
+        </div>
+      ) : null}
+
       <div className="principal-kpi-grid">
         <article className="principal-kpi-card">
           <span className="principal-kpi-icon">

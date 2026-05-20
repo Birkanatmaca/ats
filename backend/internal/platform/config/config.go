@@ -10,6 +10,7 @@ type Config struct {
 	Environment        string
 	HTTPAddr           string
 	DatabaseURL        string
+	JWTSecret          string
 	CORSAllowedOrigins []string
 	LogLevel           slog.Level
 }
@@ -19,6 +20,7 @@ func Load() Config {
 		Environment:        getEnv("APP_ENV", "development"),
 		HTTPAddr:           getEnv("HTTP_ADDR", ":8080"),
 		DatabaseURL:        getEnv("DATABASE_URL", "postgres://ots:ots@localhost:5432/ots?sslmode=disable"),
+		JWTSecret:          getEnv("JWT_SECRET", "ots-dev-jwt-secret-change-in-production"),
 		CORSAllowedOrigins: splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://188.132.234.29:3110")),
 		LogLevel:           parseLogLevel(getEnv("LOG_LEVEL", "info")),
 	}

@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"ots/backend/internal/domain/identity"
@@ -26,6 +27,14 @@ const systemTenantID = "00000000-0000-0000-0000-000000000001"
 type Store struct {
 	db    *sql.DB
 	clock func() time.Time
+
+	resetMu     sync.Mutex
+	resetTokens map[string]passwordResetEntry
+}
+
+type passwordResetEntry struct {
+	userID  string
+	expires time.Time
 }
 
 func NewStore(ctx context.Context, databaseURL string, clock func() time.Time) (*Store, error) {
@@ -47,7 +56,7 @@ func NewStore(ctx context.Context, databaseURL string, clock func() time.Time) (
 		return nil, err
 	}
 
-	return &Store{db: db, clock: clock}, nil
+	return &Store{db: db, clock: clock, resetTokens: map[string]passwordResetEntry{}}, nil
 }
 
 func (s *Store) Close() error {
@@ -982,6 +991,10 @@ func (s *Store) userAccount(ctx context.Context, tenantID string, userID string)
 	return superadmindomain.UserAccount{}, sql.ErrNoRows
 }
 
+func (s *Store) GetUserPrincipal(ctx context.Context, userID string) (identity.Principal, bool, error) {
+	return s.principalByUserID(ctx, userID)
+}
+
 func (s *Store) principalByUserID(ctx context.Context, userID string) (identity.Principal, bool, error) {
 	const query = `
 SELECT
@@ -1555,6 +1568,60 @@ func defaultModules() []superadmindomain.ModuleStatus {
 		{Name: "Guidance", Status: "limited", Description: "Öğrenci gözlem kayıtları temel seviyede."},
 		{Name: "Billing", Status: "planned", Description: "Lisans ve tahsilat premium faza ayrıldı."},
 	}
+}
+
+func (s *Store) RequestPasswordReset(ctx context.Context, email string) (string, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	if email == "" {
+		return "", errors.New("invalid email")
+	}
+	var userID string
+	err := s.db.QueryRowContext(ctx, `SELECT id::text FROM users WHERE lower(email) = lower($1) AND is_active = true`, email).Scan(&userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	token, err := temporaryPassword()
+	if err != nil {
+		return "", err
+	}
+	s.resetMu.Lock()
+	s.resetTokens[token] = passwordResetEntry{userID: userID, expires: s.clock().Add(30 * time.Minute)}
+	s.resetMu.Unlock()
+	return token, nil
+}
+
+func (s *Store) ResetPasswordWithToken(ctx context.Context, token string, newPassword string) error {
+	token = strings.TrimSpace(token)
+	if token == "" || len(strings.TrimSpace(newPassword)) < 8 {
+		return identity.ErrWeakPassword
+	}
+	s.resetMu.Lock()
+	entry, ok := s.resetTokens[token]
+	if ok {
+		delete(s.resetTokens, token)
+	}
+	s.resetMu.Unlock()
+	if !ok || s.clock().After(entry.expires) {
+		return identity.ErrInvalidResetToken
+	}
+	hash, err := hashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	res, err := s.db.ExecContext(ctx, `
+UPDATE users SET password_hash = $1, must_change_password = false, updated_at = now()
+WHERE id = $2::uuid`, hash, entry.userID)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return identity.ErrUserNotFound
+	}
+	return nil
 }
 
 func rollback(tx *sql.Tx) {

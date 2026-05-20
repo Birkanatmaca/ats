@@ -1,6 +1,7 @@
 import { CheckCircle2, FileSpreadsheet, GraduationCap, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { StudentFormModal, type StudentFormPayload } from "../components/StudentFormModal";
+import { api } from "../../../lib/api";
 import { StudentImportModal } from "../components/StudentImportModal";
 import type { ClassSection, ClassStudent, SchoolClass } from "../types";
 import "./PrincipalStudentsPage.css";
@@ -11,7 +12,8 @@ export function PrincipalStudentsPage({
   students,
   onAddStudent,
   onUpdateStudent,
-  onDeleteStudent
+  onDeleteStudent,
+  onImportComplete
 }: {
   classes: SchoolClass[];
   sections: ClassSection[];
@@ -19,6 +21,7 @@ export function PrincipalStudentsPage({
   onAddStudent: (payload: StudentFormPayload) => void;
   onUpdateStudent: (id: string, payload: StudentFormPayload) => void;
   onDeleteStudent: (id: string) => void;
+  onImportComplete?: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [filterClassId, setFilterClassId] = useState("");
@@ -109,8 +112,17 @@ export function PrincipalStudentsPage({
     onDeleteStudent(row.id);
   }
 
-  function handleImportStudents(payloads: StudentFormPayload[]) {
-    payloads.forEach((payload) => onAddStudent(payload));
+  async function handleImportStudents(classId: string, payloads: StudentFormPayload[]) {
+    const result = await api.importStudents({
+      classId,
+      students: payloads.map((payload) => ({
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        schoolNumber: payload.schoolNumber
+      }))
+    });
+    onImportComplete?.();
+    return result;
   }
 
   return (
@@ -264,6 +276,7 @@ export function PrincipalStudentsPage({
       />
       <StudentImportModal
         open={importOpen}
+        classes={classes}
         existingSchoolNumbers={existingSchoolNumbers}
         onClose={() => setImportOpen(false)}
         onImport={handleImportStudents}
