@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	CurrentTenant(ctx context.Context, tenantID string) (domain.Tenant, bool)
 	ListAnnouncements(ctx context.Context, tenantID string) []domain.Announcement
+	PrincipalRoster(ctx context.Context, tenantID string) (domain.PrincipalRoster, error)
 }
 
 type Service struct {
@@ -25,4 +26,8 @@ func (s *Service) CurrentTenant(ctx context.Context, tenantID string) (domain.Te
 
 func (s *Service) ListAnnouncements(ctx context.Context, tenantID string) []domain.Announcement {
 	return s.repo.ListAnnouncements(ctx, tenantID)
+}
+
+func (s *Service) PrincipalRoster(ctx context.Context, tenantID string) (domain.PrincipalRoster, error) {
+	return s.repo.PrincipalRoster(ctx, tenantID)
 }

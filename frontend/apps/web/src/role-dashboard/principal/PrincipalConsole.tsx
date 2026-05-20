@@ -94,40 +94,20 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
   const activeTab = activePath.split("/")[0] || "overview";
   const sectionTeacherOptions = useMemo(() => mergeTeacherOptions(directoryTeachers, managedTeachers), [directoryTeachers, managedTeachers]);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
-    const [tenant, summary, schedule, announcements, teacherAccounts] = await Promise.allSettled([
-      api.tenant(),
-      api.dashboard(),
-      api.schedule(),
-      api.announcements(),
-      api.principalTeachers()
-    ]);
-
-    setData({
-      tenant: tenant.status === "fulfilled" ? tenant.value : undefined,
-      summary: summary.status === "fulfilled" ? summary.value : undefined,
-      schedule: schedule.status === "fulfilled" ? schedule.value : undefined,
-      announcements: announcements.status === "fulfilled" ? announcements.value : []
-    });
-
-    if (teacherAccounts.status === "fulfilled") {
-      setDirectoryTeachers(teacherAccounts.value.map(teacherAccountToManagedTeacher));
+  function applyRosterFromApi(roster: {
+    classes: SchoolClass[];
+    sections: ClassSection[];
+    students: ClassStudent[];
+  }) {
+    if (roster.students.length === 0 && roster.classes.length === 0) {
+      return;
     }
-
-    const failed = [tenant, summary, schedule, announcements, teacherAccounts].some((result) => result.status === "rejected");
-    if (failed) {
-      setError("Bazı müdür paneli verileri alınamadı; erişebildiğin alanlar listeleniyor.");
-    }
-    setLoading(false);
+    setClasses(roster.classes);
+    setSections(roster.sections);
+    setStudents(roster.students);
   }
 
-  useEffect(() => {
-    void load();
-  }, [session.principal.userId]);
-
-  useEffect(() => {
+  function loadClassManagementFromStorage() {
     const raw = window.localStorage.getItem(storageKey);
     if (!raw) {
       return;
@@ -146,7 +126,81 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
       setSections([]);
       setStudents([]);
     }
-  }, [storageKey]);
+  }
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    const [tenant, summary, schedule, announcements, teacherAccounts, roster] = await Promise.allSettled([
+      api.tenant(),
+      api.dashboard(),
+      api.schedule(),
+      api.announcements(),
+      api.principalTeachers(),
+      api.principalRoster()
+    ]);
+
+    setData({
+      tenant: tenant.status === "fulfilled" ? tenant.value : undefined,
+      summary: summary.status === "fulfilled" ? summary.value : undefined,
+      schedule: schedule.status === "fulfilled" ? schedule.value : undefined,
+      announcements: announcements.status === "fulfilled" ? (announcements.value ?? []) : []
+    });
+
+    if (teacherAccounts.status === "fulfilled") {
+      setDirectoryTeachers(teacherAccounts.value.map(teacherAccountToManagedTeacher));
+    }
+
+    if (roster.status === "fulfilled") {
+      const mapped = {
+        classes: roster.value.classes.map((item) => ({
+          id: item.id,
+          name: item.name,
+          createdAt: item.createdAt
+        })),
+        sections: roster.value.sections.map((item) => ({
+          id: item.id,
+          classId: item.classId,
+          name: item.name,
+          gradeLevel: item.gradeLevel,
+          advisor: item.advisor,
+          capacity: item.capacity,
+          createdAt: item.createdAt
+        })),
+        students: roster.value.students.map((item) => ({
+          id: item.id,
+          classId: item.classId,
+          sectionId: item.sectionId,
+          schoolNumber: item.schoolNumber,
+          firstName: item.firstName,
+          lastName: item.lastName,
+          gender: item.gender,
+          birthDate: item.birthDate,
+          guardianName: item.guardianName,
+          guardianPhone: item.guardianPhone,
+          status: (item.status === "passive" ? "passive" : "active") as ClassStudent["status"],
+          createdAt: item.createdAt
+        }))
+      };
+      if (mapped.students.length > 0 || mapped.classes.length > 0) {
+        applyRosterFromApi(mapped);
+      } else {
+        loadClassManagementFromStorage();
+      }
+    } else {
+      loadClassManagementFromStorage();
+    }
+
+    const failed = [tenant, summary, schedule, announcements, teacherAccounts, roster].some((result) => result.status === "rejected");
+    if (failed) {
+      setError("Bazı müdür paneli verileri alınamadı; erişebildiğin alanlar listeleniyor.");
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void load();
+  }, [session.principal.userId]);
 
   useEffect(() => {
     setManagedTeachers(parsePrincipalTeachers(window.localStorage.getItem(teachersStorageKey)));
@@ -174,6 +228,15 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
       createdAt: new Date().toISOString()
     };
     setClasses((current) => [classItem, ...current]);
+  }
+
+  function deleteClass(classId: string) {
+    setClasses((current) => current.filter((item) => item.id !== classId));
+    setSections((current) => current.filter((item) => item.classId !== classId));
+    setStudents((current) => current.filter((item) => item.classId !== classId));
+    setManagedTeachers((current) =>
+      current.map((item) => (item.classId === classId ? { ...item, classId: null, className: null } : item))
+    );
   }
 
   function addSection(payload: { classId: string; name: string; gradeLevel: string; advisor: string; capacity: number }) {
@@ -338,7 +401,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
               path="teachers"
               element={
                 <PrincipalTeachersPage
-                  teachers={managedTeachers}
+                  teachers={sectionTeacherOptions}
                   classes={classes}
                   onAddTeacher={addManagedTeacher}
                   onUpdateTeacher={updateManagedTeacher}
@@ -390,7 +453,10 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
               }
             />
             <Route path="attendance" element={<PrincipalAttendancePage data={data} classes={classes} sections={sections} students={students} />} />
-            <Route path="classes" element={<PrincipalClassesPage classes={classes} sections={sections} students={students} onAddClass={addClass} />} />
+            <Route
+              path="classes"
+              element={<PrincipalClassesPage classes={classes} sections={sections} students={students} onAddClass={addClass} onDeleteClass={deleteClass} />}
+            />
             <Route
               path="classes/:classId/:sectionId"
               element={

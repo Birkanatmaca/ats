@@ -72,7 +72,7 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
   const activePath = location.pathname.replace(/^\/dashboard\/?/, "");
   const activeTab = activePath.split("/")[0] || "overview";
   const activeLesson = data.currentLesson?.found ? data.currentLesson.lesson : undefined;
-  const suggestedLesson = activeLesson ?? data.teacherLessons[0];
+  const suggestedLesson = activeLesson ?? data.teacherLessons[0] ?? null;
   const todayLessons = useMemo(() => sortLessons(data.teacherLessons), [data.teacherLessons]);
   const teacherObservations = useMemo(
     () => data.observations.filter((item) => item.authorId === session.principal.userId || item.authorName === session.principal.name),
@@ -96,10 +96,10 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
       tenant: tenant.status === "fulfilled" ? tenant.value : undefined,
       summary: summary.status === "fulfilled" ? summary.value : undefined,
       schedule: schedule.status === "fulfilled" ? schedule.value : undefined,
-      teacherLessons: teacherLessonsResult.status === "fulfilled" ? teacherLessonsResult.value : [],
+      teacherLessons: teacherLessonsResult.status === "fulfilled" ? (teacherLessonsResult.value ?? []) : [],
       currentLesson: currentLesson.status === "fulfilled" ? currentLesson.value : undefined,
-      announcements: announcements.status === "fulfilled" ? announcements.value : [],
-      observations: observations.status === "fulfilled" ? observations.value : []
+      announcements: announcements.status === "fulfilled" ? (announcements.value ?? []) : [],
+      observations: observations.status === "fulfilled" ? (observations.value ?? []) : []
     });
 
     const failed = [tenant, summary, schedule, teacherLessonsResult, currentLesson, announcements, observations].some(
@@ -332,7 +332,7 @@ function TeacherOverviewPage({
   onOpenAttendance: () => void;
   summary: { lessonCount: number; activeClass: string; pendingAttendance: number; observationCount: number };
 }) {
-  const nextLesson = activeLesson ?? lessons[0];
+  const nextLesson = activeLesson ?? lessons[0] ?? null;
   return (
     <section className="teacher-page-stack">
       <div className="teacher-kpi-grid" aria-label="Öğretmen günlük özet">
@@ -457,7 +457,7 @@ function TeacherAttendancePage({
   onSaveAttendance: () => void;
   onUpdateStatus: (studentId: string, status: AttendanceStatus) => void;
 }) {
-  const suggestedLesson = activeLesson ?? lessons[0];
+  const suggestedLesson = activeLesson ?? lessons[0] ?? null;
   const completedCount = session?.records.filter((record) => record.status !== "unknown").length ?? 0;
   const absentCount = session?.records.filter((record) => record.status === "absent").length ?? 0;
 

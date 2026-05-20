@@ -739,11 +739,72 @@ func (s *Store) ListAnnouncements(_ context.Context, tenantID string) []school.A
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if tenantID != s.tenant.ID {
-		return nil
+		return []school.Announcement{}
 	}
 	out := append([]school.Announcement(nil), s.announcements...)
 	sort.Slice(out, func(i, j int) bool { return out[i].PublishedAt.After(out[j].PublishedAt) })
 	return out
+}
+
+func (s *Store) PrincipalRoster(_ context.Context, tenantID string) (school.PrincipalRoster, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return school.PrincipalRoster{}, nil
+	}
+	now := s.clock()
+	classes := make([]school.PrincipalRosterClass, 0, len(s.classes))
+	sections := make([]school.PrincipalRosterSection, 0, len(s.classes))
+	for _, class := range s.classes {
+		classes = append(classes, school.PrincipalRosterClass{
+			ID:        class.ID,
+			Name:      class.Name,
+			CreatedAt: now,
+		})
+		sections = append(sections, school.PrincipalRosterSection{
+			ID:         class.ID + "-default",
+			ClassID:    class.ID,
+			Name:       "A",
+			GradeLevel: class.Level,
+			Advisor:    "",
+			Capacity:   40,
+			CreatedAt:  now,
+		})
+	}
+	students := make([]school.PrincipalRosterStudent, 0, len(s.students))
+	for _, student := range s.students {
+		first, last := splitMemoryFullName(student.FullName)
+		sectionID := ""
+		if student.ClassID != "" {
+			sectionID = student.ClassID + "-default"
+		}
+		students = append(students, school.PrincipalRosterStudent{
+			ID:           student.ID,
+			ClassID:      student.ClassID,
+			SectionID:    sectionID,
+			SchoolNumber: student.Number,
+			FirstName:    first,
+			LastName:     last,
+			Status:       "active",
+			CreatedAt:    now,
+		})
+	}
+	return school.PrincipalRoster{
+		Classes:  classes,
+		Sections: sections,
+		Students: students,
+	}, nil
+}
+
+func splitMemoryFullName(fullName string) (string, string) {
+	parts := strings.Fields(strings.TrimSpace(fullName))
+	if len(parts) == 0 {
+		return "", ""
+	}
+	if len(parts) == 1 {
+		return parts[0], ""
+	}
+	return strings.Join(parts[:len(parts)-1], " "), parts[len(parts)-1]
 }
 
 func (s *Store) PrincipalSummary(_ context.Context, tenantID string) dashboard.PrincipalSummary {
@@ -921,7 +982,7 @@ func (s *Store) ListObservations(_ context.Context, tenantID string) []observati
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if tenantID != s.tenant.ID {
-		return nil
+		return []observation.Observation{}
 	}
 	out := append([]observation.Observation(nil), s.observations...)
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })

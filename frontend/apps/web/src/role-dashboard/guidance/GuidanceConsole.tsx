@@ -53,8 +53,8 @@ export function GuidanceConsole({ session, onLogout }: { session: AuthSession; o
     setData({
       tenant: tenant.status === "fulfilled" ? tenant.value : undefined,
       summary: summary.status === "fulfilled" ? summary.value : undefined,
-      observations: observations.status === "fulfilled" ? observations.value : [],
-      announcements: announcements.status === "fulfilled" ? announcements.value : []
+      observations: observations.status === "fulfilled" ? (observations.value ?? []) : [],
+      announcements: announcements.status === "fulfilled" ? (announcements.value ?? []) : []
     });
 
     const failed = [tenant, summary, observations, announcements].some((result) => result.status === "rejected");

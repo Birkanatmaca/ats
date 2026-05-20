@@ -58,7 +58,7 @@ export function GuardianConsole({ session, onLogout }: { session: AuthSession; o
       tenant: tenant.status === "fulfilled" ? tenant.value : undefined,
       summary: summary.status === "fulfilled" ? summary.value : undefined,
       scheduleLessons: schedule.status === "fulfilled" ? schedule.value.lessons : [],
-      announcements: announcements.status === "fulfilled" ? announcements.value : []
+      announcements: announcements.status === "fulfilled" ? (announcements.value ?? []) : []
     });
 
     const failed = [tenant, summary, schedule, announcements].some((result) => result.status === "rejected");

@@ -19,7 +19,7 @@ export function TeacherDashboard({ data, onRefresh }: { data: DashboardData; onR
   const [observationForm, setObservationForm] = useState({ studentId: "student-2", category: "attention", note: "" });
 
   const activeLesson = data.currentLesson?.found ? data.currentLesson.lesson : undefined;
-  const fallbackLesson = data.teacherLessons[0];
+  const fallbackLesson = data.teacherLessons[0] ?? null;
 
   async function openAttendance() {
     const lesson = activeLesson ?? fallbackLesson;

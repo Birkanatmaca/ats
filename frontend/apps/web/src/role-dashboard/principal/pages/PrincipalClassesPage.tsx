@@ -1,4 +1,4 @@
-import { ArrowDownWideNarrow, Building2, Filter, GraduationCap, Plus, Search, UsersRound } from "lucide-react";
+import { ArrowDownWideNarrow, Building2, Filter, GraduationCap, Plus, Search, Trash2, UsersRound } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ClassSection, ClassStudent, SchoolClass } from "../types";
@@ -8,12 +8,14 @@ export function PrincipalClassesPage({
   classes,
   sections,
   students,
-  onAddClass
+  onAddClass,
+  onDeleteClass
 }: {
   classes: SchoolClass[];
   sections: ClassSection[];
   students: ClassStudent[];
   onAddClass: (payload: { name: string }) => void;
+  onDeleteClass: (classId: string) => void;
 }) {
   const navigate = useNavigate();
   const [className, setClassName] = useState("");
@@ -74,6 +76,19 @@ export function PrincipalClassesPage({
     setClassName("");
   }
 
+  function handleDeleteClass(item: SchoolClass) {
+    const sectionCount = sectionCountByClass.get(item.id) ?? 0;
+    const studentCount = studentCountByClass.get(item.id) ?? 0;
+    let message = `"${item.name}" sınıfını silmek istediğinize emin misiniz?`;
+    if (sectionCount > 0 || studentCount > 0) {
+      message += ` Bu işlem ${sectionCount} şube ve ${studentCount} öğrenci kaydını da kaldırır.`;
+    }
+    if (!window.confirm(message)) {
+      return;
+    }
+    onDeleteClass(item.id);
+  }
+
   return (
     <section className="principal-page-stack principal-classes-only">
       <div className="principal-classes-controls" aria-label="Sınıf filtreleri">
@@ -120,12 +135,31 @@ export function PrincipalClassesPage({
         </article>
 
         {orderedClasses.map((item) => (
-          <button
+          <article
             key={item.id}
-            type="button"
             className="sa-inst-card principal-class-card principal-class-card-slot principal-class-card-btn"
+            role="button"
+            tabIndex={0}
             onClick={() => navigate(`/dashboard/classes/${item.id}`)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                navigate(`/dashboard/classes/${item.id}`);
+              }
+            }}
           >
+            <button
+              type="button"
+              className="ghost-action danger principal-class-card-delete"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleDeleteClass(item);
+              }}
+              title="Sınıfı sil"
+              aria-label={`${item.name} sınıfını sil`}
+            >
+              <Trash2 size={14} />
+            </button>
             <div className="sa-inst-card-band" />
             <div className="principal-class-card-title-block">
               <div className="principal-class-card-title-icon" aria-hidden>
@@ -150,7 +184,7 @@ export function PrincipalClassesPage({
                 </div>
               </div>
             </div>
-          </button>
+          </article>
         ))}
       </div>
 

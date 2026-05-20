@@ -116,6 +116,33 @@ export type Observation = {
   createdAt: string;
 };
 
+export type PrincipalSchoolRoster = {
+  classes: Array<{ id: string; name: string; createdAt: string }>;
+  sections: Array<{
+    id: string;
+    classId: string;
+    name: string;
+    gradeLevel: string;
+    advisor: string;
+    capacity: number;
+    createdAt: string;
+  }>;
+  students: Array<{
+    id: string;
+    classId: string;
+    sectionId: string;
+    schoolNumber: string;
+    firstName: string;
+    lastName: string;
+    gender: string;
+    birthDate: string;
+    guardianName: string;
+    guardianPhone: string;
+    status: "active" | "passive";
+    createdAt: string;
+  }>;
+};
+
 export type Announcement = {
   id: string;
   title: string;
@@ -335,7 +362,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const envelope = (await response.json()) as Envelope<T>;
-  return envelope.data;
+  return (envelope.data ?? null) as T;
+}
+
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return value ?? [];
 }
 
 export const api = {
@@ -406,7 +437,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  principalTeachers: () => request<UserAccount[]>("/api/v1/principal/teachers"),
+  principalTeachers: () => request<UserAccount[] | null>("/api/v1/principal/teachers").then(asArray),
+  principalRoster: () =>
+    request<PrincipalSchoolRoster>("/api/v1/principal/school/roster").then((roster) => ({
+      classes: roster?.classes ?? [],
+      sections: roster?.sections ?? [],
+      students: roster?.students ?? []
+    })),
   updateSuperAdminSettings: (payload: {
     maintenance: { enabled: boolean; message: string };
     credentials: Array<{ key: string; value: string; clear?: boolean }>;
@@ -417,10 +454,10 @@ export const api = {
     }),
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
-  teacherCalendar: () => request<Lesson[]>("/api/v1/teachers/me/calendar"),
+  teacherCalendar: () => request<Lesson[] | null>("/api/v1/teachers/me/calendar").then(asArray),
   currentLesson: () => request<CurrentLesson>("/api/v1/attendance/current-lesson"),
-  announcements: () => request<Announcement[]>("/api/v1/announcements"),
-  observations: () => request<Observation[]>("/api/v1/observations"),
+  announcements: () => request<Announcement[] | null>("/api/v1/announcements").then(asArray),
+  observations: () => request<Observation[] | null>("/api/v1/observations").then(asArray),
   createAttendanceSession: (lessonId: string) =>
     request<AttendanceSession>("/api/v1/attendance/sessions", {
       method: "POST",

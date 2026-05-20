@@ -29,6 +29,11 @@ func main() {
 	identityRepo := identityapp.Repository(memoryStore)
 	superAdminRepo := superadminapp.Repository(memoryStore)
 
+	var schoolRepo schoolapp.Repository = memoryStore
+	var schedulingRepo schedulingapp.Repository = memoryStore
+	var dashboardRepo dashboardapp.Repository = memoryStore
+	var observationRepo observationapp.Repository = memoryStore
+
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {
 		if cfg.Environment == "production" {
@@ -44,16 +49,20 @@ func main() {
 		}()
 		identityRepo = postgresStore
 		superAdminRepo = postgresStore
+		schoolRepo = postgresStore
+		schedulingRepo = postgresStore
+		dashboardRepo = postgresStore
+		observationRepo = postgresStore
 		logger.Info("postgres repository connected")
 	}
 
 	handlers := httphandlers.New(httphandlers.Dependencies{
 		Identity:    identityapp.NewService(identityRepo, time.Now),
-		School:      schoolapp.NewService(memoryStore),
-		Scheduling:  schedulingapp.NewService(memoryStore),
+		School:      schoolapp.NewService(schoolRepo),
+		Scheduling:  schedulingapp.NewService(schedulingRepo),
 		Attendance:  attendanceapp.NewService(memoryStore),
-		Observation: observationapp.NewService(memoryStore),
-		Dashboard:   dashboardapp.NewService(memoryStore),
+		Observation: observationapp.NewService(observationRepo),
+		Dashboard:   dashboardapp.NewService(dashboardRepo),
 		SuperAdmin:  superadminapp.NewService(superAdminRepo),
 		Clock:       time.Now,
 	})

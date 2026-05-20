@@ -34,10 +34,10 @@ export function RoleDashboardShell({ session, onLogout }: { session: AuthSession
       tenant: tenant.status === "fulfilled" ? tenant.value : undefined,
       summary: summary.status === "fulfilled" ? summary.value : undefined,
       schedule: schedule.status === "fulfilled" ? schedule.value : undefined,
-      teacherLessons: teacherLessons.status === "fulfilled" ? teacherLessons.value : [],
+      teacherLessons: teacherLessons.status === "fulfilled" ? (teacherLessons.value ?? []) : [],
       currentLesson: currentLesson.status === "fulfilled" ? currentLesson.value : undefined,
-      announcements: announcements.status === "fulfilled" ? announcements.value : [],
-      observations: observations.status === "fulfilled" ? observations.value : []
+      announcements: announcements.status === "fulfilled" ? (announcements.value ?? []) : [],
+      observations: observations.status === "fulfilled" ? (observations.value ?? []) : []
     });
 
     const failed = [tenant, summary, schedule, teacherLessons, currentLesson, announcements, observations].some((result) => result.status === "rejected");

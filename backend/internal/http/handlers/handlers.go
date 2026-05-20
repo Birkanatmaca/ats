@@ -65,6 +65,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/support/tickets", h.createSupportTicket)
 	mux.HandleFunc("GET /api/v1/dashboard/principal/summary", h.principalSummary)
 	mux.HandleFunc("GET /api/v1/principal/teachers", h.principalTeachers)
+	mux.HandleFunc("GET /api/v1/principal/school/roster", h.principalSchoolRoster)
 	mux.HandleFunc("GET /api/v1/super-admin/overview", h.superAdminOverview)
 	mux.HandleFunc("GET /api/v1/super-admin/system/metrics", h.superAdminSystemMetrics)
 	mux.HandleFunc("GET /api/v1/super-admin/institutions", h.superAdminInstitutions)
@@ -290,6 +291,23 @@ func (h *Handler) principalTeachers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, teachers, nil)
+}
+
+func (h *Handler) principalSchoolRoster(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipal(w, r)
+	if !ok {
+		return
+	}
+	if principal.Role != identity.RolePrincipal && principal.Role != identity.RoleSystemAdmin && principal.Role != identity.RoleSuperAdmin {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu işlem için yetkiniz yok.", nil)
+		return
+	}
+	roster, err := h.school.PrincipalRoster(r.Context(), principal.TenantID)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "ROSTER_FAILED", "Okul listesi alınamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, roster, nil)
 }
 
 func (h *Handler) superAdminInstitutionUsers(w http.ResponseWriter, r *http.Request) {
