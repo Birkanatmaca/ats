@@ -328,6 +328,21 @@ export function PrincipalSchedulePage({
     setBuilderMessage(null);
     try {
       const result = await api.generateSchedule();
+      if (!result.schedule?.id) {
+        const local = generateScheduleDraft({
+          settings,
+          subjectPlans: activeSubjectPlans,
+          sections: sectionOptions,
+          teachers
+        });
+        setDraft(local);
+        setBuilderMessage(
+          result.recommendation ||
+            result.softWarnings[0] ||
+            "Sunucu taslak üretemedi; yerel önizleme kullanıldı."
+        );
+        return;
+      }
       const mapped = mapApiScheduleToDraft(result.schedule, settings, activeSubjectPlans, sectionOptions, teachers);
       setDraft({
         ...mapped,
@@ -378,7 +393,10 @@ export function PrincipalSchedulePage({
       await api.publishSchedule(draft.id);
       onScheduleChange?.();
       setDraft(null);
-      setBuilderMessage("Program yayınlandı.");
+      setSavedSchedules([]);
+      setActiveScheduleId(null);
+      window.localStorage.removeItem(storageKey);
+      setBuilderMessage("Program yayınlandı ve sunucu ile eşitlendi.");
       navigate("/dashboard/schedule");
     } catch (publishError) {
       const saved: SavedSchedule = {

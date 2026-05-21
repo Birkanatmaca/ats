@@ -4,6 +4,7 @@ import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom"
 import { roleLabel } from "../../admin/utils/labels";
 import type { AuthSession } from "../../lib/api";
 import { api } from "../../lib/api";
+import { NotificationBell } from "../components/NotificationBell";
 import { SupportContactForm } from "../../pages/SupportContactForm";
 import { GuidanceAnnouncementsPage } from "./pages/GuidanceAnnouncementsPage";
 import { GuidanceObservationsPage } from "./pages/GuidanceObservationsPage";
@@ -82,6 +83,7 @@ export function GuidanceConsole({ session, onLogout }: { session: AuthSession; o
         </div>
 
         <div className="navbar-actions">
+          <NotificationBell />
           <div className="navbar-profile" aria-label="Profil">
             <div className="profile-avatar">{session.principal.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
             <div className="navbar-profile-text">

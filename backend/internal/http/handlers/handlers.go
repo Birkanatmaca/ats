@@ -88,6 +88,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/dashboard/classes/{classId}/summary", h.classSummary)
 	mux.HandleFunc("GET /api/v1/principal/teachers", h.principalTeachers)
 	mux.HandleFunc("POST /api/v1/principal/teachers", h.provisionPrincipalTeacher)
+	mux.HandleFunc("POST /api/v1/principal/guardians", h.provisionPrincipalGuardian)
 	mux.HandleFunc("GET /api/v1/principal/school/roster", h.principalSchoolRoster)
 	mux.HandleFunc("GET /api/v1/super-admin/overview", h.superAdminOverview)
 	mux.HandleFunc("GET /api/v1/super-admin/system/metrics", h.superAdminSystemMetrics)
@@ -917,7 +918,7 @@ func (h *Handler) publishSchedule(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	schedule, found, err := h.scheduling.PublishSchedule(r.Context(), principal.TenantID, r.PathValue("id"))
+	schedule, found, err := h.scheduling.PublishSchedule(r.Context(), principal.TenantID, r.PathValue("id"), principal.UserID)
 	if err != nil {
 		httpx.WriteError(w, http.StatusConflict, "SCHEDULE_PUBLISH_FAILED", "Program yayınlanamadı; doğrulama hatalarını giderin.", nil)
 		return
@@ -1094,6 +1095,9 @@ func (h *Handler) listObservations(w http.ResponseWriter, r *http.Request) {
 		}
 		items = filtered
 	}
+	if principal.Role == identity.RoleGuidance {
+		h.observation.RecordGuidanceViewAudit(r.Context(), principal.TenantID, principal.UserID, len(items))
+	}
 	httpx.WriteJSON(w, http.StatusOK, items, nil)
 }
 
@@ -1105,6 +1109,10 @@ func (h *Handler) createObservation(w http.ResponseWriter, r *http.Request) {
 	var input observationDomain.CreateInput
 	if err := httpx.DecodeJSON(r, &input); err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Gözlem kaydı okunamadı.", nil)
+		return
+	}
+	if principal.Role == identity.RoleTeacher && !h.observation.TeacherCanObserveStudent(r.Context(), principal.TenantID, principal.UserID, input.StudentID) {
+		httpx.WriteError(w, http.StatusForbidden, "STUDENT_OUT_OF_SCOPE", "Bu öğrenci için gözlem kaydı oluşturamazsınız.", nil)
 		return
 	}
 	created, err := h.observation.Create(r.Context(), principal.TenantID, principal.UserID, input)
@@ -1277,6 +1285,36 @@ func (h *Handler) provisionPrincipalTeacher(w http.ResponseWriter, r *http.Reque
 	}
 	if err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "TEACHER_PROVISION_FAILED", "Öğretmen oluşturulamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, result, nil)
+}
+
+func (h *Handler) provisionPrincipalGuardian(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireSchoolOperator(w, r)
+	if !ok {
+		return
+	}
+	var input schoolDomain.ProvisionGuardianInput
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Veli bilgileri okunamadı.", nil)
+		return
+	}
+	result, err := h.school.ProvisionGuardian(r.Context(), principal.TenantID, input)
+	if errors.Is(err, schoolapp.ErrInvalidInput) {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli ad, e-posta ve en az bir öğrenci gönderilmelidir.", nil)
+		return
+	}
+	if errors.Is(err, schoolapp.ErrDuplicateEmail) {
+		httpx.WriteError(w, http.StatusConflict, "EMAIL_ALREADY_EXISTS", "Bu e-posta adresi zaten kayıtlı.", nil)
+		return
+	}
+	if errors.Is(err, schoolapp.ErrStudentNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "STUDENT_NOT_FOUND", "Bağlanacak öğrenci bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "GUARDIAN_PROVISION_FAILED", "Veli oluşturulamadı.", nil)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, result, nil)

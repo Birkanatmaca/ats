@@ -111,6 +111,20 @@ type ProvisionTeacherResult struct {
 	TemporaryPassword string `json:"temporaryPassword"`
 }
 
+type ProvisionGuardianInput struct {
+	Email      string   `json:"email"`
+	FirstName  string   `json:"firstName"`
+	LastName   string   `json:"lastName"`
+	StudentIDs []string `json:"studentIds"`
+	Relation   string   `json:"relation"`
+}
+
+type ProvisionGuardianResult struct {
+	Email             string `json:"email"`
+	TemporaryPassword string `json:"temporaryPassword"`
+	LinkedStudents    int    `json:"linkedStudents"`
+}
+
 type ImportStudentRow struct {
 	FirstName    string `json:"firstName"`
 	LastName     string `json:"lastName"`

@@ -413,3 +413,56 @@
     justify-content: center;
   }
 }
+
+.principal-students-summary-modal {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.principal-students-summary-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.principal-students-summary-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+}
+
+.principal-students-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.principal-students-summary-stats article {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.principal-students-summary-stats small {
+  display: block;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.principal-students-summary-stats strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.25rem;
+}
+
+.principal-students-summary-table td:last-child {
+  text-transform: capitalize;
+}
+
+@media (max-width: 640px) {
+  .principal-students-summary-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

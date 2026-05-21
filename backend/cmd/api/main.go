@@ -9,6 +9,7 @@ import (
 
 	attendanceapp "ots/backend/internal/app/attendance"
 	dashboardapp "ots/backend/internal/app/dashboard"
+	guardianapp "ots/backend/internal/app/guardian"
 	identityapp "ots/backend/internal/app/identity"
 	observationapp "ots/backend/internal/app/observation"
 	schedulingapp "ots/backend/internal/app/scheduling"
@@ -36,6 +37,7 @@ func main() {
 	var dashboardRepo dashboardapp.Repository = memoryStore
 	var observationRepo observationapp.Repository = memoryStore
 	var attendanceRepo attendanceapp.Repository = memoryStore
+	var guardianRepo guardianapp.Repository = memoryStore
 
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {
@@ -57,6 +59,7 @@ func main() {
 		dashboardRepo = postgresStore
 		observationRepo = postgresStore
 		attendanceRepo = postgresStore
+		guardianRepo = postgresStore
 		logger.Info("postgres repository connected")
 	}
 
@@ -66,6 +69,7 @@ func main() {
 		Scheduling:  schedulingapp.NewService(schedulingRepo),
 		Attendance:  attendanceapp.NewService(attendanceRepo),
 		Observation: observationapp.NewService(observationRepo),
+		Guardian:    guardianapp.NewService(guardianRepo),
 		Dashboard:   dashboardapp.NewService(dashboardRepo),
 		SuperAdmin:  superadminapp.NewService(superAdminRepo),
 		Clock:       time.Now,

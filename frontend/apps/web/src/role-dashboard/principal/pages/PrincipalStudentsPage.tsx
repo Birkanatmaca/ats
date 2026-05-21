@@ -1,7 +1,9 @@
-import { CheckCircle2, FileSpreadsheet, GraduationCap, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, FileSpreadsheet, GraduationCap, Loader2, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { StudentFormModal, type StudentFormPayload } from "../components/StudentFormModal";
-import { api } from "../../../lib/api";
+import { TablePagination } from "../../components/TablePagination";
+import { usePaginatedRows } from "../../hooks/usePaginatedRows";
+import { api, type StudentAttendanceSummary } from "../../../lib/api";
 import { StudentImportModal } from "../components/StudentImportModal";
 import type { ClassSection, ClassStudent, SchoolClass } from "../types";
 import "./PrincipalStudentsPage.css";
@@ -30,6 +32,10 @@ export function PrincipalStudentsPage({
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editing, setEditing] = useState<ClassStudent | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [summaryStudent, setSummaryStudent] = useState<ClassStudent | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [attendanceSummary, setAttendanceSummary] = useState<StudentAttendanceSummary | null>(null);
 
   const classNameById = useMemo(() => new Map(classes.map((c) => [c.id, c.name])), [classes]);
   const sectionLabelById = useMemo(() => {
@@ -82,6 +88,9 @@ export function PrincipalStudentsPage({
       });
   }, [students, classNameById, sectionLabelById, search, filterClassId, filterStatus]);
 
+  const filterKey = `${search}|${filterClassId}|${filterStatus}`;
+  const { paginatedRows, page, setPage, totalPages, pageSize, totalItems } = usePaginatedRows(filteredRows, filterKey);
+
   const existingSchoolNumbers = useMemo(() => students.map((student) => student.schoolNumber), [students]);
 
   function openCreate() {
@@ -110,6 +119,27 @@ export function PrincipalStudentsPage({
       return;
     }
     onDeleteStudent(row.id);
+  }
+
+  async function openAttendanceSummary(row: ClassStudent) {
+    setSummaryStudent(row);
+    setSummaryLoading(true);
+    setSummaryError(null);
+    setAttendanceSummary(null);
+    try {
+      const summary = await api.studentAttendanceSummary(row.id);
+      setAttendanceSummary(summary);
+    } catch {
+      setSummaryError("Devamsızlık özeti alınamadı.");
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  function closeAttendanceSummary() {
+    setSummaryStudent(null);
+    setAttendanceSummary(null);
+    setSummaryError(null);
   }
 
   async function handleImportStudents(classId: string, payloads: StudentFormPayload[]) {
@@ -206,61 +236,67 @@ export function PrincipalStudentsPage({
         {filteredRows.length === 0 ? (
           <p className="empty-text">{students.length === 0 ? "Henüz öğrenci kaydı yok." : "Filtrelere uyan öğrenci yok."}</p>
         ) : (
-          <div className="principal-table-wrap">
-            <table className="principal-table principal-students-table">
-              <thead>
-                <tr>
-                  <th>Okul no</th>
-                  <th>Ad soyad</th>
-                  <th>Sınıf / şube</th>
-                  <th>Veli</th>
-                  <th>Telefon</th>
-                  <th>Durum</th>
-                  <th>İşlemler</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <code className="principal-students-number">{item.schoolNumber}</code>
-                    </td>
-                    <td>
-                      <span className="principal-table-name">
-                        <UsersRound size={16} aria-hidden />
-                        {item.firstName} {item.lastName}
-                      </span>
-                    </td>
-                    <td>{sectionLabelById.get(item.sectionId) ?? classNameById.get(item.classId) ?? "—"}</td>
-                    <td>{item.guardianName || "—"}</td>
-                    <td>{item.guardianPhone || "—"}</td>
-                    <td>
-                      <span className={`principal-students-badge${item.status === "active" ? " principal-students-badge--active" : " principal-students-badge--passive"}`}>
-                        {item.status === "active" ? (
-                          <>
-                            <CheckCircle2 size={12} />
-                            Aktif
-                          </>
-                        ) : (
-                          "Pasif"
-                        )}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="principal-table-actions principal-students-actions">
-                        <button className="ghost-action" type="button" onClick={() => openEdit(item)} title="Düzenle">
-                          <Pencil size={16} />
-                        </button>
-                        <button className="ghost-action danger" type="button" onClick={() => handleDelete(item)} title="Sil">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="principal-table-wrap">
+              <table className="principal-table principal-students-table">
+                <thead>
+                  <tr>
+                    <th>Okul no</th>
+                    <th>Ad soyad</th>
+                    <th>Sınıf / şube</th>
+                    <th>Veli</th>
+                    <th>Telefon</th>
+                    <th>Durum</th>
+                    <th>İşlemler</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {paginatedRows.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <code className="principal-students-number">{item.schoolNumber}</code>
+                      </td>
+                      <td>
+                        <span className="principal-table-name">
+                          <UsersRound size={16} aria-hidden />
+                          {item.firstName} {item.lastName}
+                        </span>
+                      </td>
+                      <td>{sectionLabelById.get(item.sectionId) ?? classNameById.get(item.classId) ?? "—"}</td>
+                      <td>{item.guardianName || "—"}</td>
+                      <td>{item.guardianPhone || "—"}</td>
+                      <td>
+                        <span className={`principal-students-badge${item.status === "active" ? " principal-students-badge--active" : " principal-students-badge--passive"}`}>
+                          {item.status === "active" ? (
+                            <>
+                              <CheckCircle2 size={12} />
+                              Aktif
+                            </>
+                          ) : (
+                            "Pasif"
+                          )}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="principal-table-actions principal-students-actions">
+                          <button className="ghost-action" type="button" onClick={() => void openAttendanceSummary(item)} title="Devamsızlık özeti">
+                            <ClipboardCheck size={16} />
+                          </button>
+                          <button className="ghost-action" type="button" onClick={() => openEdit(item)} title="Düzenle">
+                            <Pencil size={16} />
+                          </button>
+                          <button className="ghost-action danger" type="button" onClick={() => handleDelete(item)} title="Sil">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination page={page} totalPages={totalPages} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} />
+          </>
         )}
       </article>
 
@@ -281,6 +317,81 @@ export function PrincipalStudentsPage({
         onClose={() => setImportOpen(false)}
         onImport={handleImportStudents}
       />
+
+      {summaryStudent ? (
+        <div className="principal-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeAttendanceSummary()}>
+          <div className="principal-modal principal-students-summary-modal" role="dialog" aria-modal="true" aria-labelledby="student-summary-title">
+            <header className="principal-modal-head">
+              <div>
+                <h2 id="student-summary-title">
+                  {summaryStudent.firstName} {summaryStudent.lastName}
+                </h2>
+                <p className="principal-students-summary-subtitle">Devamsızlık özeti · {summaryStudent.schoolNumber}</p>
+              </div>
+              <button className="principal-modal-close" type="button" onClick={closeAttendanceSummary} aria-label="Kapat">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="principal-modal-body principal-students-summary-body">
+              {summaryLoading ? (
+                <p className="principal-students-summary-loading">
+                  <Loader2 size={18} className="spin" aria-hidden />
+                  Özet yükleniyor…
+                </p>
+              ) : summaryError ? (
+                <p className="principal-modal-error">{summaryError}</p>
+              ) : attendanceSummary ? (
+                <>
+                  <div className="principal-students-summary-stats" aria-label="Devamsızlık istatistikleri">
+                    <article>
+                      <small>Geldi</small>
+                      <strong>{attendanceSummary.present}</strong>
+                    </article>
+                    <article>
+                      <small>Devamsız</small>
+                      <strong>{attendanceSummary.absent}</strong>
+                    </article>
+                    <article>
+                      <small>Geç</small>
+                      <strong>{attendanceSummary.late}</strong>
+                    </article>
+                    <article>
+                      <small>Mazeretli</small>
+                      <strong>{attendanceSummary.excused}</strong>
+                    </article>
+                  </div>
+                  {attendanceSummary.records.length === 0 ? (
+                    <p className="empty-text">Henüz kesinleşmiş yoklama kaydı yok.</p>
+                  ) : (
+                    <div className="principal-table-wrap">
+                      <table className="principal-table principal-students-summary-table">
+                        <thead>
+                          <tr>
+                            <th>Tarih</th>
+                            <th>Ders</th>
+                            <th>Sınıf</th>
+                            <th>Durum</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {attendanceSummary.records.map((record, index) => (
+                            <tr key={`${record.date}-${record.subjectName}-${index}`}>
+                              <td>{record.date}</td>
+                              <td>{record.subjectName}</td>
+                              <td>{record.className}</td>
+                              <td>{record.status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

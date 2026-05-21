@@ -11,11 +11,11 @@
 | Katman | Tamamlanma (tahmini) | Durum |
 |--------|----------------------|-------|
 | Ürün / mimari dokümantasyon | **~95%** | Planlama olgun; bu dosya kod ile senkron tutuluyor |
-| Backend API (MVP endpoint'leri) | **~78%** | Auth, okul CRUD, scheduling, yoklama, veli, gözlem, duyuru — büyük ölçüde uygulandı |
+| Backend API (MVP endpoint'leri) | **~82%** | Auth, okul CRUD, scheduling, yoklama, veli provision, gözlem scope/audit — büyük ölçüde uygulandı |
 | PostgreSQL şema / migrasyon | **~85%** | MVP tabloları var; `user_scopes` henüz kullanılmıyor |
-| Web UI ekranları (görsel) | **~80%** | Tüm rol konsolları ve sayfalar mevcut |
-| Auth / güvenlik (production-ready) | **~78%** | JWT + refresh; şifre sıfırlama eklendi; user_scopes hâlâ yok |
-| Web uçtan uca (API ↔ UI gerçek veri) | **~82%** | Ana akışlar API'ye bağlı; FE mimari refactor (I) bekliyor |
+| Web UI ekranları (görsel) | **~82%** | Tüm rol konsolları ve sayfalar mevcut |
+| Auth / güvenlik (production-ready) | **~82%** | JWT + refresh + şifre sıfırlama; gözlem kapsamı; user_scopes hâlâ yok |
+| Web uçtan uca (API ↔ UI gerçek veri) | **~87%** | Ana akışlar API'ye bağlı; FE mimari refactor (I) bekliyor |
 
 ### Genel mesafe
 
@@ -23,14 +23,14 @@
 Dokümantasyon ████████████████████░  95%
 DB Şema       █████████████████░░░░  85%
 Web UI Shell  ████████████████░░░░  80%
-Backend API   ███████████████░░░░░  78%
-Web E2E       ██████████████░░░░░░  72%
-Auth/Güvenlik █████████████░░░░░░░  65%
+Backend API   ████████████████░░░░  82%
+Web E2E       █████████████████░░░  87%
+Auth/Güvenlik ████████████████░░░░  82%
 ─────────────────────────────────────────
-Tam çalışır web MVP hedefi          ~82%
+Tam çalışır web MVP hedefi          ~87%
 ```
 
-**Yorum:** Büyük entegrasyon dalgası tamamlandı (Mayıs 2026). **JWT oturumu**, **müdür okul CRUD**, **ders programı üret/yayınla**, **yoklama PG + finalize + bildirim**, **veli API**, **gözlem CRUD** ve **duyuru oluşturma** artık kodda. Kalan mesafe: **şifre sıfırlama**, **Excel import**, **kapsam middleware**, **global bildirim merkezi**, **FE mimari refactor** (TanStack Query / monorepo paketleri) ve **E2E testler**.
+**Yorum:** Büyük entegrasyon dalgaları tamamlandı (Mayıs 2026). **JWT oturumu**, **müdür okul CRUD**, **ders programı üret/yayınla + audit**, **yoklama PG + finalize + bildirim**, **veli API + provision**, **gözlem CRUD + öğretmen kapsamı + rehberlik audit**, **ortak NotificationBell (4 rol)** ve **öğrenci devamsızlık özeti UI** kodda. Kalan mesafe: **user_scopes middleware**, **global audit middleware**, **E2E testler (J5)** ve **FE mimari refactor** (TanStack Query / monorepo paketleri).
 
 ---
 
@@ -60,7 +60,7 @@ Tam çalışır web MVP hedefi          ~82%
 - [x] Kod–doküman fark listesi (bu dosya)
 - [ ] Gerçek API endpoint envanteri (OpenAPI / otomatik üretim)
 - [x] Web-only MVP kabul checklist'i (aşağıdaki task'lar + demo senaryo)
-- [ ] Test stratejisi uygulama durumu (memory unit test + CI; integration/E2E eksik)
+- [ ] Test stratejisi uygulama durumu (memory unit + integration testler ✓; E2E eksik)
 
 ---
 
@@ -91,17 +91,19 @@ Tam çalışır web MVP hedefi          ~82%
 
 ### Backend — eksik / kısmi
 
-- [ ] Şifremi unuttum / sıfırla: `password/forgot`, `password/reset`
+- [x] **Veli provision:** `POST /api/v1/principal/guardians` (kullanıcı + öğrenci-veli bağlantısı)
+- [x] Şifremi unuttum / sıfırla: `password/forgot`, `password/reset`
+- [x] Toplu öğrenci import API (`POST /api/v1/students/import`)
+- [x] Ders programı yayınlama audit log (`schedule.publish`)
+- [x] Öğretmen gözlem kapsam kontrolü — yalnızca programdaki sınıf öğrencileri (G1.3)
+- [x] Rehberlik görüntüleme audit log (`guidance.view`, G1.4)
+- [x] Gözlem listesi filtre query params (G3.1)
+- [x] Genel bildirim API: `GET/PATCH /api/v1/notifications`
 - [ ] Kapsam bazlı erişim (`user_scopes` tablosu + middleware)
-- [ ] Tüm hassas işlemlerde otomatik audit middleware (yalnızca yoklama finalize/update yazıyor)
+- [ ] Tüm hassas işlemlerde otomatik audit middleware (yalnızca seçili write'lar yazıyor)
 - [ ] Öğretmen-ders eşleştirme ayrı endpoint (B1.6)
-- [ ] Veli kaydı + öğrenci-veli ilişkisi CRUD endpoint'i (B1.8 — seed'de var, API yok)
+- [ ] Veli CRUD tam seti (list/update/delete — şu an provision var)
 - [ ] Liste endpoint'lerinde arama + pagination (B1.9)
-- [ ] Toplu öğrenci import API — Excel backend parse (B1.10)
-- [ ] Ders programı yayınlama audit log (C1.8)
-- [ ] Öğretmen gözlem kapsam kontrolü — yalnızca kendi öğrencileri (G1.3)
-- [ ] Rehberlik görüntüleme audit log (G1.4)
-- [ ] Gözlem listesi filtre query params (G3.1)
 - [ ] `announcement_audiences` hedef kitle tablosu (H1.2 — şu an basit `audience` string)
 
 ### Web frontend — çalışan (uçtan uca)
@@ -123,16 +125,15 @@ Tam çalışır web MVP hedefi          ~82%
 
 ### Web frontend — eksik / kısmi
 
-- [ ] `PrincipalSchedulePage` — localStorage yedek/cache hâlâ var (offline taslak)
-- [ ] `PrincipalTeachersPage` — öğretmen ekleme tam API entegrasyonu eksik olabilir
-- [ ] `StudentImportModal` → backend import endpoint yok
-- [ ] `PrincipalOperationsPage` — liste var, tıklanabilir aksiyon yok (F2.2)
-- [ ] Program eksik / veri tutarsızlığı uyarı banner'ları (F2.3)
-- [ ] Duyuru hedef kitle seçici — gelişmiş UI (sınıf/rol bazlı) (H2.2)
-- [ ] Tüm rollerde ortak bildirim merkezi bileşeni (H2.3)
+- [x] `PrincipalSchedulePage` — yayın sonrası localStorage temizlenir; offline taslak yalnızca publish hatasında
+- [x] `PrincipalTeachersPage` → `provisionTeacher` + `resetTeacherPassword` API
+- [x] `StudentImportModal` → backend import endpoint
+- [x] `PrincipalOperationsPage` — tıklanabilir operasyon satırları
+- [x] Program eksik / veri tutarsızlığı uyarı banner'ları (overview)
+- [x] Tüm rollerde ortak bildirim merkezi (`NotificationBell` — müdür, öğretmen, veli, rehberlik)
+- [x] Öğrenci devamsızlık özeti UI — `PrincipalStudentsPage` modal + API
 - [ ] `TeacherDashboard.tsx` (legacy) — hâlâ `demoStudents` kullanıyor; ana akış `TeacherConsole`
 - [ ] TanStack Query, shared packages, RHF/Zod — dokümanda var, kodda yok
-- [ ] Öğrenci devamsızlık özeti UI — API hazır, ekran bağlantısı yok
 
 ---
 
@@ -190,7 +191,7 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 - [x] **B1.5** `GET/POST /api/v1/subjects`
 - [ ] **B1.6** Öğretmen-ders eşleştirme endpoint'i
 - [x] **B1.7** Sınıf-öğrenci yerleştirme endpoint'i (`POST /api/v1/classes/{id}/students`)
-- [ ] **B1.8** Veli kaydı + öğrenci-veli ilişkisi endpoint'i
+- [x] **B1.8** Veli kaydı + öğrenci-veli ilişkisi endpoint'i (`POST /api/v1/principal/guardians`)
 - [ ] **B1.9** Liste endpoint'lerinde arama + pagination
 - [x] **B1.10** Toplu öğrenci import API (`POST /api/v1/students/import`)
 
@@ -203,7 +204,7 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 - [ ] **B2.5** `[P]` Form validasyonu (Zod) — öğrenci/öğretmen formları
 - [x] **B2.6** Loading/error state tutarlılığı (temel seviye)
 
-**Faz B tamamlanma kriteri:** Müdür tarayıcıyı kapatıp açsa bile öğrenci/sınıf verisi DB'den gelir ✓ · veli yalnızca ilişkili öğrenciyi görür ✓ (seed ilişkileri) · öğretmen/veli CRUD API ✗
+**Faz B tamamlanma kriteri:** Müdür tarayıcıyı kapatıp açsa bile öğrenci/sınıf verisi DB'den gelir ✓ · veli yalnızca ilişkili öğrenciyi görür ✓ · veli provision API ✓
 
 ---
 
@@ -222,8 +223,8 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 - [x] **C1.5** `GET /api/v1/schedules/{id}`, `PATCH .../lessons/{lessonId}`
 - [x] **C1.6** `POST .../validate`, `POST .../publish`
 - [x] **C1.7** Teacher ID eşleştirme düzeltmesi (`users.id` vs `teachers.id`)
-- [ ] **C1.8** Yayınlama audit log
-- [ ] **C1.9** `[P]` Scheduling unit testleri (çakışma senaryoları)
+- [x] **C1.8** Yayınlama audit log
+- [x] **C1.9** `[P]` Scheduling integration testleri (publish + archive; `integration_mvp_test.go`)
 
 #### C2. Web — program oluşturucu
 
@@ -254,7 +255,7 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 - [x] **D1.6** `GET /api/v1/students/{id}/attendance-summary`
 - [x] **D1.7** Yoklama değişikliği audit log (`writeOperationalAudit`)
 - [x] **D1.8** Devamsızlık bildirim olayı (`notifications`, idempotent)
-- [ ] **D1.9** `[P]` Attendance integration testleri
+- [x] **D1.9** `[P]` Attendance integration testleri (`integration_mvp_test.go`)
 
 #### D2. Web öğretmen
 
@@ -268,6 +269,7 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 - [x] **D3.1** `PrincipalAttendancePage` → gerçek API verisi
 - [x] **D3.2** `GET /api/v1/dashboard/attendance/today` entegrasyonu
 - [x] **D3.3** Sınıf bazlı özet: `GET /api/v1/dashboard/classes/{classId}/summary` (backend; FE bağlantısı opsiyonel)
+- [x] **D3.4** Öğrenci devamsızlık özeti UI (`PrincipalStudentsPage` modal)
 
 **Faz D tamamlanma kriteri:** Öğretmen yoklama alır → DB'ye yazılır ✓ · müdür raporunda görünür ✓ · veli devamsızlık endpoint'inden okuyabilir ✓
 
@@ -320,21 +322,21 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 - [x] **F2.2** `PrincipalOperationsPage` → tıklanabilir operasyon satırları (`targetPath`)
 - [x] **F2.3** Program eksik / veri tutarsızlığı uyarı banner'ları (overview)
 
-**Faz F tamamlanma kriteri:** Müdür tek ekranda bugünkü ders, yoklama tamamlanma ve devamsızlık özetini gerçek veriden görür ✓ (operasyon aksiyonları ✗)
+**Faz F tamamlanma kriteri:** Müdür tek ekranda bugünkü ders, yoklama tamamlanma ve devamsızlık özetini gerçek veriden görür ✓ (operasyon aksiyonları ✓)
 
 ---
 
 ### Faz G — Öğrenci Gözlemleri ve Rehberlik (Web)
 
 > **Epic referansı:** Epic 7  
-> **Durum:** ~65% tamamlandı
+> **Durum:** ~80% tamamlandı
 
 #### G1. Backend
 
 - [x] **G1.1** `CreateObservation` PostgreSQL implementasyonu
 - [x] **G1.2** `GET/PATCH/DELETE /api/v1/observations/{id}`
-- [ ] **G1.3** Öğretmen kapsam kontrolü (yalnızca kendi öğrencileri)
-- [ ] **G1.4** Rehberlik görüntüleme audit log
+- [x] **G1.3** Öğretmen kapsam kontrolü (yalnızca kendi öğrencileri)
+- [x] **G1.4** Rehberlik görüntüleme audit log
 
 #### G2. Web öğretmen
 
@@ -348,14 +350,14 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 - [x] **G3.3** `GuidancePlansPage` → "Faz 2" placeholder
 - [ ] **G3.4** Risk sinyalleri → kural tabanlı backend (faz 2 backlog)
 
-**Faz G tamamlanma kriteri:** Öğretmen gözlem girer ✓ · rehberlik listeler ✓ · audit kaydı ✗
+**Faz G tamamlanma kriteri:** Öğretmen gözlem girer ✓ · rehberlik listeler ✓ · audit kaydı ✓
 
 ---
 
 ### Faz H — Duyuru ve Bildirim
 
 > **Epic referansı:** Epic 8  
-> **Durum:** ~60% tamamlandı
+> **Durum:** ~75% tamamlandı
 
 #### H1. Backend
 
@@ -368,8 +370,8 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 
 - [x] **H2.1** Müdür duyuru oluşturma formu
 - [x] **H2.2** Hedef kitle seçici (rol + opsiyonel sınıf)
-- [x] **H2.3** Bildirim merkezi bileşeni (`NotificationBell`) — müdür + öğretmen navbar
-- [ ] **H2.4** Okundu / okunmadı durumu (veli ✓, diğer roller ✗)
+- [x] **H2.3** Bildirim merkezi bileşeni (`NotificationBell`) — müdür, öğretmen, veli, rehberlik navbar
+- [x] **H2.4** Okundu / okunmadı durumu (tüm roller — `NotificationBell` + guardian legacy route)
 
 **Faz H tamamlanma kriteri:** Müdür duyuru yayınlar ✓ · veli görür ✓ · devamsızlık bildirimi yoklama sonrası oluşur ✓
 
@@ -391,12 +393,12 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 
 ### Faz J — Test ve Kabul
 
-> **Durum:** ~25% tamamlandı
+> **Durum:** ~55% tamamlandı
 
-- [ ] **J1** Backend: auth tenant izolasyon integration test
-- [ ] **J2** Backend: scheduling çakışma testleri
-- [ ] **J3** Backend: attendance aktif ders + persist test
-- [ ] **J4** Backend: guardian scope test (başka öğrenciye erişim reddi)
+- [x] **J1** Backend: auth tenant izolasyon integration test
+- [x] **J2** Backend: scheduling publish + archive integration test
+- [x] **J3** Backend: attendance persist + summary integration test
+- [x] **J4** Backend: guardian scope test (başka öğrenciye erişim reddi)
 - [ ] **J5** Web: kritik akış smoke test (Playwright veya Cypress)
 - [ ] **J6** `13-mvp-epik-kabul-kriterleri.md` maddelerinin tek tek checkbox doğrulaması
 - [x] **J7** Priente demo senaryo dokümantasyonu (aşağıda)
@@ -408,13 +410,12 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 
 | Sıra | Faz | Görev | Neden |
 |------|-----|-------|-------|
-| 1 | **A** | A1.4 şifre sıfırlama | Production öncesi zorunlu |
-| 2 | **B** | B1.10 Excel import, B2.3 öğretmen CRUD UI | Okul açılış senaryosu |
-| 3 | **H** | H2.2–H2.4 bildirim merkezi | Veli dışı roller |
-| 4 | **F** | F2.2–F2.3 operasyon UX | Müdür günlük kullanım |
-| 5 | **G** | G1.3–G1.4, G3.1 audit + filtre | Rehberlik güvenliği |
-| 6 | **J** | Integration + E2E testler | Regresyon koruması |
-| 7 | **I** | FE mimarisi refactor | MVP sonrası teknik borç |
+| 1 | **A** | A2.3 user_scopes middleware | Tenant içi ince taneli yetki |
+| 2 | **A** | A2.4 genel audit middleware | Güvenlik / uyumluluk |
+| 3 | **J** | J5 E2E smoke test (Playwright) | Regresyon koruması |
+| 4 | **B** | B1.9 pagination/search | Büyük okul listeleri |
+| 5 | **C** | C2.4–C2.5 schedule builder UX | Müdür program kalitesi |
+| 6 | **I** | FE mimarisi refactor | MVP sonrası teknik borç |
 
 ---
 
@@ -422,14 +423,14 @@ Her task bağımsız issue / PR olarak alınabilir. Sıra önerilir; paralel ça
 
 | Epic | Backend | Web UI | E2E | Not |
 |------|---------|--------|-----|-----|
-| E1 Auth/Tenant | İyi | İyi | Kısmi | JWT ✓; şifre sıfırlama, user_scopes ✗ |
-| E2 Okul tanımları | İyi | İyi | Kısmi | CRUD ✓; import, veli API ✗ |
-| E3 Ders programı | İyi | İyi | Kısmi | Generate/publish ✓; audit, test ✗ |
-| E4 Yoklama | Tam | İyi | İyi | PG + finalize + bildirim + özet ✓ |
-| E5 Veli | Tam | Tam | İyi | 6 endpoint + UI ✓ |
-| E6 Müdür dashboard | İyi | Kısmi | Kısmi | Metrikler gerçek ✓; operasyon UX ✗ |
-| E7 Gözlemler | İyi | İyi | Kısmi | PG create ✓; audit, filtre ✗ |
-| E8 Duyuru/bildirim | Kısmi | Kısmi | Kısmi | Create ✓; audience, global merkez ✗ |
+| E1 Auth/Tenant | İyi | İyi | Kısmi | JWT + şifre sıfırlama ✓; user_scopes ✗ |
+| E2 Okul tanımları | İyi | İyi | Kısmi | CRUD + import + veli provision ✓ |
+| E3 Ders programı | İyi | İyi | Kısmi | Generate/publish + audit ✓; E2E ✗ |
+| E4 Yoklama | Tam | İyi | İyi | PG + finalize + bildirim + özet UI ✓ |
+| E5 Veli | Tam | Tam | İyi | 6 endpoint + UI + NotificationBell ✓ |
+| E6 Müdür dashboard | İyi | İyi | Kısmi | Metrikler + operasyon UX ✓ |
+| E7 Gözlemler | İyi | İyi | Kısmi | PG create + scope + audit + filtre ✓ |
+| E8 Duyuru/bildirim | İyi | İyi | Kısmi | Create + NotificationBell (4 rol) ✓; audience tablosu ✗ |
 
 ---
 
@@ -440,16 +441,16 @@ Aşağıdaki senaryo hatasız çalıştığında web MVP hedefine ulaşılmış 
 | # | Adım | Durum |
 |---|------|-------|
 | 1 | Süper admin yeni kurum ve müdür hesabı oluşturur | ✓ |
-| 2 | Müdür sınıf, öğretmen, öğrenci, veli tanımlar (**API**) | ✓ (veli CRUD API ✗) |
+| 2 | Müdür sınıf, öğretmen, öğrenci, veli tanımlar (**API**) | ✓ |
 | 3 | Müdür ders programı üretir, düzenler ve **yayınlar** | ✓ |
 | 4 | Öğretmen web'de bugünkü dersini görür, **akıllı yoklama** alır | ✓ |
 | 5 | Müdür dashboard'da alınan/alınmayan yoklamayı görür | ✓ |
 | 6 | Veli web'de çocuğunun programını, devamsızlığını, duyurularını görür | ✓ |
 | 7 | Öğretmen gözlem girer; rehberlik listeler | ✓ |
 | 8 | Müdür duyuru yayınlar; hedef kitle alır | ✓ (basit audience) |
-| 9 | Tüm adımlarda tenant izolasyonu ve rol kontrolü | ✓ (user_scopes ✗) |
+| 9 | Tüm adımlarda tenant izolasyonu ve rol kontrolü | ✓ (user_scopes ince taneli kapsam ✗) |
 
-**Genel:** 8/9 adım çalışır durumda; production için A1.4 + J testleri önerilir.
+**Genel:** 9/9 adım çalışır durumda; production için user_scopes + J5 E2E testleri önerilir.
 
 ---
 

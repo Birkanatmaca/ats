@@ -474,6 +474,34 @@ LIMIT 50`, tenantID)
 	return out
 }
 
+func (s *Store) TeacherCanObserveStudent(ctx context.Context, tenantID string, teacherUserID string, studentID string) bool {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `
+SELECT EXISTS (
+  SELECT 1
+  FROM schedule_lessons sl
+  JOIN schedules sch ON sch.id = sl.schedule_id AND sch.tenant_id = sl.tenant_id
+  JOIN teachers t ON t.id = sl.teacher_id AND t.tenant_id = sl.tenant_id
+  JOIN class_students cs ON cs.tenant_id = sl.tenant_id AND cs.class_id = sl.class_id AND cs.student_id = $3
+  WHERE sl.tenant_id = $1
+    AND t.user_id = $2
+    AND sch.status = 'published'
+    AND (cs.ends_on IS NULL OR cs.ends_on >= CURRENT_DATE)
+)`, tenantID, teacherUserID, studentID).Scan(&exists)
+	return err == nil && exists
+}
+
+func (s *Store) RecordOperationalAudit(ctx context.Context, tenantID string, actorUserID string, action string, resourceType string, resourceID string, metadata string) {
+	sensitivity := "operational"
+	if action == "guidance.view" {
+		sensitivity = "sensitive_student"
+	}
+	_, _ = s.db.ExecContext(ctx, `
+INSERT INTO audit_logs (tenant_id, actor_user_id, action, resource_type, resource_id, sensitivity, metadata)
+VALUES ($1, NULLIF($2, '')::uuid, $3, $4, NULLIF($5, '')::uuid, $6, $7::jsonb)`,
+		tenantID, actorUserID, action, resourceType, resourceID, sensitivity, metadata)
+}
+
 func max(a, b int) int {
 	if a > b {
 		return a

@@ -17,7 +17,7 @@ type Repository interface {
 	GenerateDraftSchedule(ctx context.Context, tenantID string) domain.GenerationResult
 	UpdateScheduleLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, input domain.UpdateLessonInput) (domain.Lesson, bool, error)
 	ValidateSchedule(ctx context.Context, tenantID string, scheduleID string) domain.ValidationResult
-	PublishSchedule(ctx context.Context, tenantID string, scheduleID string) (domain.Schedule, bool, error)
+	PublishSchedule(ctx context.Context, tenantID string, scheduleID string, actorUserID string) (domain.Schedule, bool, error)
 	TeacherCalendar(ctx context.Context, tenantID string, teacherID string) []domain.Lesson
 	ActiveLessonForTeacher(ctx context.Context, tenantID string, teacherID string, now time.Time) (domain.Lesson, bool)
 }
@@ -66,8 +66,8 @@ func (s *Service) ValidateSchedule(ctx context.Context, tenantID string, schedul
 	return s.repo.ValidateSchedule(ctx, tenantID, scheduleID)
 }
 
-func (s *Service) PublishSchedule(ctx context.Context, tenantID string, scheduleID string) (domain.Schedule, bool, error) {
-	return s.repo.PublishSchedule(ctx, tenantID, scheduleID)
+func (s *Service) PublishSchedule(ctx context.Context, tenantID string, scheduleID string, actorUserID string) (domain.Schedule, bool, error) {
+	return s.repo.PublishSchedule(ctx, tenantID, scheduleID, actorUserID)
 }
 
 func (s *Service) TeacherCalendar(ctx context.Context, tenantID string, teacherID string) []domain.Lesson {

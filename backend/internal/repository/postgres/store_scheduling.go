@@ -187,11 +187,18 @@ WHERE tenant_id = $1 AND id = $2`, tenantID, scheduleID).Scan(
 }
 
 func (s *Store) GenerateDraftSchedule(ctx context.Context, tenantID string) schedulingdomain.GenerationResult {
+	if err := s.ensureSchedulingDefaults(ctx, tenantID); err != nil {
+		return schedulingdomain.GenerationResult{
+			SoftWarnings:   []string{"Program verileri hazırlanamadı."},
+			Recommendation: "Sınıf, ders ve öğretmen kayıtlarını kontrol edin.",
+		}
+	}
+
 	requirements := s.ListRequirements(ctx, tenantID)
 	if len(requirements) == 0 {
 		return schedulingdomain.GenerationResult{
 			SoftWarnings:   []string{"Ders saat ihtiyacı tanımlanmamış."},
-			Recommendation: "Önce sınıf-ders saat ihtiyaçlarını kaydedin.",
+			Recommendation: "Önce sınıf ve ders tanımlarını oluşturun.",
 		}
 	}
 
@@ -383,7 +390,7 @@ func (s *Store) ValidateSchedule(ctx context.Context, tenantID string, scheduleI
 	return validateScheduleLessons(schedule.Lessons, s.ListRequirements(ctx, tenantID))
 }
 
-func (s *Store) PublishSchedule(ctx context.Context, tenantID string, scheduleID string) (schedulingdomain.Schedule, bool, error) {
+func (s *Store) PublishSchedule(ctx context.Context, tenantID string, scheduleID string, actorUserID string) (schedulingdomain.Schedule, bool, error) {
 	validation := s.ValidateSchedule(ctx, tenantID, scheduleID)
 	if !validation.Valid {
 		return schedulingdomain.Schedule{}, false, errors.New("schedule has hard conflicts")
@@ -422,6 +429,8 @@ WHERE tenant_id = $1 AND status = 'published' AND id <> $2`, tenantID, scheduleI
 	if err := tx.Commit(); err != nil {
 		return schedulingdomain.Schedule{}, false, err
 	}
+
+	s.writeOperationalAudit(ctx, tenantID, actorUserID, "schedule.publish", "schedule", scheduleID, `{}`)
 
 	schedule, ok := s.GetSchedule(ctx, tenantID, scheduleID)
 	return schedule, ok, nil
@@ -502,6 +511,76 @@ type draftLessonInsert struct {
 	dayOfWeek int
 	startTime string
 	endTime   string
+}
+
+func (s *Store) ensureSchedulingDefaults(ctx context.Context, tenantID string) error {
+	var requirementCount int
+	if err := s.db.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM class_subject_requirements WHERE tenant_id = $1`, tenantID).Scan(&requirementCount); err != nil {
+		return err
+	}
+	if requirementCount == 0 {
+		_, err := s.db.ExecContext(ctx, `
+INSERT INTO class_subject_requirements (tenant_id, class_id, subject_id, weekly_hours)
+SELECT c.tenant_id, c.id, sub.id, 2
+FROM classes c
+JOIN subjects sub ON sub.tenant_id = c.tenant_id
+WHERE c.tenant_id = $1
+ON CONFLICT (tenant_id, class_id, subject_id) DO NOTHING`, tenantID)
+		if err != nil {
+			return err
+		}
+	}
+
+	var teacherSubjectCount int
+	if err := s.db.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM teacher_subjects WHERE tenant_id = $1`, tenantID).Scan(&teacherSubjectCount); err != nil {
+		return err
+	}
+	if teacherSubjectCount == 0 {
+		_, err := s.db.ExecContext(ctx, `
+INSERT INTO teacher_subjects (tenant_id, teacher_id, subject_id)
+SELECT t.tenant_id, t.id, s.id
+FROM teachers t
+JOIN subjects s ON s.tenant_id = t.tenant_id
+WHERE t.tenant_id = $1
+AND (
+  (s.code = 'MAT' AND lower(t.title) LIKE '%matemat%')
+  OR (s.code = 'TRK' AND lower(t.title) LIKE '%türk%')
+  OR (s.code = 'FEN' AND lower(t.title) LIKE '%fen%')
+  OR (s.code = 'SOS' AND lower(t.title) LIKE '%sosyal%')
+  OR (s.code = 'ING' AND lower(t.title) LIKE '%ingiliz%')
+  OR (s.code = 'BED' AND lower(t.title) LIKE '%beden%')
+  OR (s.code = 'MUZ' AND lower(t.title) LIKE '%müzik%')
+  OR (s.code = 'GOR' AND (lower(t.title) LIKE '%görsel%' OR lower(t.title) LIKE '%sanat%'))
+)
+ON CONFLICT DO NOTHING`, tenantID)
+		if err != nil {
+			return err
+		}
+
+		_, err = s.db.ExecContext(ctx, `
+INSERT INTO teacher_subjects (tenant_id, teacher_id, subject_id)
+SELECT $1, fallback.teacher_id, s.id
+FROM subjects s
+JOIN LATERAL (
+  SELECT id AS teacher_id
+  FROM teachers
+  WHERE tenant_id = $1
+  ORDER BY id
+  LIMIT 1
+) fallback ON true
+WHERE s.tenant_id = $1
+AND NOT EXISTS (
+  SELECT 1 FROM teacher_subjects ts
+  WHERE ts.tenant_id = $1 AND ts.subject_id = s.id
+)
+ON CONFLICT DO NOTHING`, tenantID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) listTeacherSubjects(ctx context.Context, tenantID string) map[string][]string {

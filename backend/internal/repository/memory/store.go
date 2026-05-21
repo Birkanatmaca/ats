@@ -1665,6 +1665,64 @@ func (s *Store) CreateObservation(_ context.Context, tenantID string, authorID s
 	return created, true
 }
 
+func (s *Store) TeacherCanObserveStudent(_ context.Context, tenantID string, teacherUserID string, studentID string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return false
+	}
+	student, ok := s.studentByID(studentID)
+	if !ok {
+		return false
+	}
+	allowedClasses := map[string]struct{}{}
+	for _, schedule := range s.schedules {
+		if schedule.Status != scheduling.SchedulePublished {
+			continue
+		}
+		for _, lesson := range schedule.Lessons {
+			if lesson.TeacherID == teacherUserID {
+				allowedClasses[lesson.ClassID] = struct{}{}
+			}
+		}
+	}
+	_, ok = allowedClasses[student.ClassID]
+	return ok
+}
+
+func (s *Store) RecordOperationalAudit(_ context.Context, tenantID string, actorUserID string, action string, resourceType string, resourceID string, metadata string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return
+	}
+	s.appendOperationalAuditLocked(actorUserID, action, resourceType, resourceID, metadata)
+}
+
+func (s *Store) appendOperationalAuditLocked(actorUserID string, action string, resourceType string, resourceID string, metadata string) {
+	actorName := actorUserID
+	for _, user := range s.users {
+		if user.ID == actorUserID {
+			actorName = user.FullName
+			break
+		}
+	}
+	sensitivity := "operational"
+	if action == "guidance.view" {
+		sensitivity = "sensitive_student"
+	}
+	_ = metadata
+	s.auditLogs = append(s.auditLogs, superadmindomain.AuditEntry{
+		ID:           fmt.Sprintf("audit-%d", len(s.auditLogs)+1),
+		Tenant:       s.tenant.Name,
+		Actor:        actorName,
+		Action:       action,
+		ResourceType: resourceType,
+		Sensitivity:  sensitivity,
+		CreatedAt:    s.clock(),
+	})
+}
+
 func (s *Store) lessonByID(id string) (scheduling.Lesson, bool) {
 	for _, lesson := range s.schedule.Lessons {
 		if lesson.ID == id {

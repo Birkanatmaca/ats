@@ -3,14 +3,16 @@ package observation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	domain "ots/backend/internal/domain/observation"
 )
 
 var (
-	ErrInvalidObservation = errors.New("invalid observation")
+	ErrInvalidObservation  = errors.New("invalid observation")
 	ErrObservationNotFound = errors.New("observation not found")
+	ErrStudentOutOfScope   = errors.New("student out of teacher scope")
 )
 
 type Repository interface {
@@ -19,6 +21,8 @@ type Repository interface {
 	CreateObservation(ctx context.Context, tenantID string, authorID string, input domain.CreateInput) (domain.Observation, bool)
 	UpdateObservation(ctx context.Context, tenantID string, observationID string, input domain.UpdateInput) (domain.Observation, bool)
 	DeleteObservation(ctx context.Context, tenantID string, observationID string) bool
+	TeacherCanObserveStudent(ctx context.Context, tenantID string, teacherUserID string, studentID string) bool
+	RecordOperationalAudit(ctx context.Context, tenantID string, actorUserID string, action string, resourceType string, resourceID string, metadata string)
 }
 
 type Service struct {
@@ -75,6 +79,14 @@ func (s *Service) Update(ctx context.Context, tenantID string, observationID str
 		return domain.Observation{}, ErrObservationNotFound
 	}
 	return updated, nil
+}
+
+func (s *Service) TeacherCanObserveStudent(ctx context.Context, tenantID string, teacherUserID string, studentID string) bool {
+	return s.repo.TeacherCanObserveStudent(ctx, tenantID, teacherUserID, studentID)
+}
+
+func (s *Service) RecordGuidanceViewAudit(ctx context.Context, tenantID string, actorUserID string, observationCount int) {
+	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "guidance.view", "student_observation", "", fmt.Sprintf(`{"count":%d}`, observationCount))
 }
 
 func (s *Service) Delete(ctx context.Context, tenantID string, observationID string) error {

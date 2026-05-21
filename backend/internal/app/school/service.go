@@ -29,6 +29,7 @@ type Repository interface {
 	ListTeachers(ctx context.Context, tenantID string) ([]domain.Teacher, error)
 	CreateTeacher(ctx context.Context, tenantID string, input domain.CreateTeacherInput) (domain.Teacher, error)
 	ProvisionTeacher(ctx context.Context, tenantID string, input domain.ProvisionTeacherInput) (domain.ProvisionTeacherResult, error)
+	ProvisionGuardian(ctx context.Context, tenantID string, input domain.ProvisionGuardianInput) (domain.ProvisionGuardianResult, error)
 	ResetTeacherPassword(ctx context.Context, tenantID string, teacherID string) (string, error)
 	UpdateTeacher(ctx context.Context, tenantID string, teacherID string, input domain.UpdateTeacherInput) (domain.Teacher, error)
 
@@ -223,6 +224,27 @@ func (s *Service) ProvisionTeacher(ctx context.Context, tenantID string, input d
 	result, err := s.repo.ProvisionTeacher(ctx, tenantID, input)
 	if errors.Is(err, domain.ErrDuplicateEmail) {
 		return domain.ProvisionTeacherResult{}, ErrDuplicateEmail
+	}
+	return result, err
+}
+
+func (s *Service) ProvisionGuardian(ctx context.Context, tenantID string, input domain.ProvisionGuardianInput) (domain.ProvisionGuardianResult, error) {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	if email == "" || !strings.Contains(email, "@") {
+		return domain.ProvisionGuardianResult{}, ErrInvalidInput
+	}
+	if domain.JoinFullName(input.FirstName, input.LastName) == "" {
+		return domain.ProvisionGuardianResult{}, ErrInvalidInput
+	}
+	if len(input.StudentIDs) == 0 {
+		return domain.ProvisionGuardianResult{}, ErrInvalidInput
+	}
+	result, err := s.repo.ProvisionGuardian(ctx, tenantID, input)
+	if errors.Is(err, domain.ErrDuplicateEmail) {
+		return domain.ProvisionGuardianResult{}, ErrDuplicateEmail
+	}
+	if errors.Is(err, domain.ErrStudentNotFound) {
+		return domain.ProvisionGuardianResult{}, ErrStudentNotFound
 	}
 	return result, err
 }

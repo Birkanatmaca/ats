@@ -234,7 +234,7 @@ func (s *Store) ValidateSchedule(_ context.Context, tenantID string, scheduleID 
 	return scheduling.ValidationResult{Valid: len(hard) == 0, HardConflicts: hard}
 }
 
-func (s *Store) PublishSchedule(_ context.Context, tenantID string, scheduleID string) (scheduling.Schedule, bool, error) {
+func (s *Store) PublishSchedule(ctx context.Context, tenantID string, scheduleID string, actorUserID string) (scheduling.Schedule, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	schedule, ok := s.schedules[scheduleID]
@@ -255,6 +255,7 @@ func (s *Store) PublishSchedule(_ context.Context, tenantID string, scheduleID s
 	schedule.UpdatedAt = s.clock()
 	s.schedules[scheduleID] = schedule
 	s.schedule = schedule
+	s.appendOperationalAuditLocked(actorUserID, "schedule.publish", "schedule", scheduleID, `{}`)
 	return schedule, true, nil
 }
 

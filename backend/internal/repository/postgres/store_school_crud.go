@@ -734,6 +734,82 @@ func (s *Store) ProvisionTeacher(ctx context.Context, tenantID string, input sch
 	}, nil
 }
 
+func (s *Store) ProvisionGuardian(ctx context.Context, tenantID string, input schooldomain.ProvisionGuardianInput) (schooldomain.ProvisionGuardianResult, error) {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	fullName := schooldomain.JoinFullName(input.FirstName, input.LastName)
+	relation := strings.TrimSpace(input.Relation)
+	if relation == "" {
+		relation = "Veli"
+	}
+	if len(input.StudentIDs) == 0 {
+		return schooldomain.ProvisionGuardianResult{}, schooldomain.ErrInvalidInput
+	}
+
+	cred, err := s.CreateInstitutionUser(ctx, identity.Principal{TenantID: tenantID}, tenantID, superadmindomain.CreateInstitutionUserInput{
+		Email:    email,
+		FullName: fullName,
+		Role:     string(identity.RoleGuardian),
+	})
+	if errors.Is(err, superadmindomain.ErrUserAlreadyExists) {
+		return schooldomain.ProvisionGuardianResult{}, schooldomain.ErrDuplicateEmail
+	}
+	if err != nil {
+		return schooldomain.ProvisionGuardianResult{}, err
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return schooldomain.ProvisionGuardianResult{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var guardianID string
+	err = tx.QueryRowContext(ctx, `
+SELECT id::text FROM guardians WHERE tenant_id = $1 AND user_id = $2::uuid`, tenantID, cred.User.ID).Scan(&guardianID)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = tx.QueryRowContext(ctx, `
+INSERT INTO guardians (tenant_id, user_id, full_name, email)
+VALUES ($1, $2::uuid, $3, $4)
+RETURNING id::text`, tenantID, cred.User.ID, fullName, email).Scan(&guardianID)
+	}
+	if err != nil {
+		return schooldomain.ProvisionGuardianResult{}, err
+	}
+
+	linked := 0
+	for _, studentID := range input.StudentIDs {
+		studentID = strings.TrimSpace(studentID)
+		if studentID == "" {
+			continue
+		}
+		var exists bool
+		err = tx.QueryRowContext(ctx, `
+SELECT EXISTS (SELECT 1 FROM students WHERE tenant_id = $1 AND id = $2::uuid)`, tenantID, studentID).Scan(&exists)
+		if err != nil || !exists {
+			return schooldomain.ProvisionGuardianResult{}, schooldomain.ErrStudentNotFound
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO student_guardians (tenant_id, student_id, guardian_id, relation, is_primary)
+VALUES ($1, $2::uuid, $3::uuid, $4, false)
+ON CONFLICT (tenant_id, student_id, guardian_id) DO NOTHING`, tenantID, studentID, guardianID, relation)
+		if err != nil {
+			return schooldomain.ProvisionGuardianResult{}, err
+		}
+		linked++
+	}
+	if linked == 0 {
+		return schooldomain.ProvisionGuardianResult{}, schooldomain.ErrInvalidInput
+	}
+	if err := tx.Commit(); err != nil {
+		return schooldomain.ProvisionGuardianResult{}, err
+	}
+	return schooldomain.ProvisionGuardianResult{
+		Email:             email,
+		TemporaryPassword: cred.TemporaryPassword,
+		LinkedStudents:    linked,
+	}, nil
+}
+
 func (s *Store) ResetTeacherPassword(ctx context.Context, tenantID string, teacherID string) (string, error) {
 	teacher, err := s.loadTeacher(ctx, tenantID, teacherID)
 	if errors.Is(err, schooldomain.ErrTeacherNotFound) {

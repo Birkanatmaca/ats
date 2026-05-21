@@ -459,6 +459,59 @@ func (s *Store) ProvisionTeacher(ctx context.Context, tenantID string, input sch
 	return school.ProvisionTeacherResult{Teacher: teacher, Email: email, TemporaryPassword: cred.TemporaryPassword}, nil
 }
 
+func (s *Store) ProvisionGuardian(ctx context.Context, tenantID string, input school.ProvisionGuardianInput) (school.ProvisionGuardianResult, error) {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	relation := strings.TrimSpace(input.Relation)
+	if relation == "" {
+		relation = "Veli"
+	}
+
+	s.mu.Lock()
+	for _, user := range s.users {
+		if strings.ToLower(user.Email) == email {
+			s.mu.Unlock()
+			return school.ProvisionGuardianResult{}, school.ErrDuplicateEmail
+		}
+	}
+	for _, studentID := range input.StudentIDs {
+		if _, ok := s.studentByID(strings.TrimSpace(studentID)); !ok {
+			s.mu.Unlock()
+			return school.ProvisionGuardianResult{}, school.ErrStudentNotFound
+		}
+	}
+	s.mu.Unlock()
+
+	cred, err := s.CreateInstitutionUser(ctx, identity.Principal{TenantID: tenantID}, tenantID, superadmindomain.CreateInstitutionUserInput{
+		Email:    email,
+		FullName: school.JoinFullName(input.FirstName, input.LastName),
+		Role:     string(identity.RoleGuardian),
+	})
+	if err != nil {
+		return school.ProvisionGuardianResult{}, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	linked := 0
+	for _, studentID := range input.StudentIDs {
+		studentID = strings.TrimSpace(studentID)
+		if studentID == "" {
+			continue
+		}
+		s.studentGuardians = append(s.studentGuardians, memoryStudentGuardian{
+			GuardianUserID: cred.User.ID,
+			StudentID:      studentID,
+			Relation:       relation,
+		})
+		linked++
+	}
+	return school.ProvisionGuardianResult{
+		Email:             email,
+		TemporaryPassword: cred.TemporaryPassword,
+		LinkedStudents:    linked,
+	}, nil
+}
+
 func (s *Store) ResetTeacherPassword(_ context.Context, tenantID string, teacherID string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

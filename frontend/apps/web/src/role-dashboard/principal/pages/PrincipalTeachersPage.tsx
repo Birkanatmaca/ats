@@ -1,6 +1,8 @@
 import { BookOpen, CheckCircle2, Clock3, KeyRound, Pencil, Plus, RotateCcw, Search, Tags, Trash2, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { PrincipalManagedTeacher, SchoolClass } from "../types";
+import { TablePagination } from "../../components/TablePagination";
+import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { CredentialRevealDialog } from "../components/CredentialRevealDialog";
 import { TeacherFormModal, type TeacherFormPayload } from "../components/TeacherFormModal";
 import "./PrincipalTeachersPage.css";
@@ -69,6 +71,9 @@ export function PrincipalTeachersPage({
       return blob.includes(q);
     });
   }, [teachers, search, filterBranch, filterClassId]);
+
+  const filterKey = `${search}|${filterBranch}|${filterClassId}`;
+  const { paginatedRows, page, setPage, totalPages, pageSize, totalItems } = usePaginatedRows(filtered, filterKey);
 
   const existingUsernames = useMemo(() => teachers.map((t) => t.username), [teachers]);
 
@@ -221,67 +226,70 @@ export function PrincipalTeachersPage({
         {filtered.length === 0 ? (
           <p className="empty-text">{teachers.length === 0 ? "Henüz öğretmen eklenmedi." : "Filtrelere uyan öğretmen yok."}</p>
         ) : (
-          <div className="principal-table-wrap">
-            <table className="principal-table principal-teachers-table">
-              <thead>
-                <tr>
-                  <th>Ad soyad</th>
-                  <th>Branş</th>
-                  <th>Haftalık ders saati</th>
-                  <th>Sınıf</th>
-                  <th>Kullanıcı adı</th>
-                  <th>İlk giriş</th>
-                  <th>İşlemler</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <span className="principal-table-name">
-                        <UserRound size={16} aria-hidden />
-                        {row.firstName} {row.lastName}
-                      </span>
-                    </td>
-                    <td>{row.branch}</td>
-                    <td>{row.weeklyLessonHours}</td>
-                    <td>{row.className ?? "—"}</td>
-                    <td>
-                      <code className="principal-teachers-username">{row.username}</code>
-                    </td>
-                    <td>
-                      <span className={`principal-teachers-badge${row.mustChangePassword ? " principal-teachers-badge--pending" : " principal-teachers-badge--ok"}`}>
-                        {row.mustChangePassword ? "Şifre bekleniyor" : "Tamamlandı"}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="principal-table-actions principal-teachers-actions">
-                        <button className="ghost-action" type="button" onClick={() => openEdit(row)} title="Düzenle">
-                          <Pencil size={16} />
-                        </button>
-                        <button className="ghost-action" type="button" onClick={() => handleResetPassword(row)} title="Şifre sıfırla">
-                          <RotateCcw size={16} />
-                        </button>
-                        <button className="ghost-action danger" type="button" onClick={() => handleDelete(row)} title="Sil">
-                          <Trash2 size={16} />
-                        </button>
-                        {row.mustChangePassword ? (
-                          <button
-                            className="ghost-action"
-                            type="button"
-                            onClick={() => onMarkFirstLoginComplete(row.id)}
-                            title="İlk giriş ve şifre değişikliği tamamlandı (kayıt güncelle)"
-                          >
-                            <CheckCircle2 size={16} />
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
+          <>
+            <div className="principal-table-wrap">
+              <table className="principal-table principal-teachers-table">
+                <thead>
+                  <tr>
+                    <th>Ad soyad</th>
+                    <th>Branş</th>
+                    <th>Haftalık ders saati</th>
+                    <th>Sınıf</th>
+                    <th>Kullanıcı adı</th>
+                    <th>İlk giriş</th>
+                    <th>İşlemler</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {paginatedRows.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        <span className="principal-table-name">
+                          <UserRound size={16} aria-hidden />
+                          {row.firstName} {row.lastName}
+                        </span>
+                      </td>
+                      <td>{row.branch}</td>
+                      <td>{row.weeklyLessonHours}</td>
+                      <td>{row.className ?? "—"}</td>
+                      <td>
+                        <code className="principal-teachers-username">{row.username}</code>
+                      </td>
+                      <td>
+                        <span className={`principal-teachers-badge${row.mustChangePassword ? " principal-teachers-badge--pending" : " principal-teachers-badge--ok"}`}>
+                          {row.mustChangePassword ? "Şifre bekleniyor" : "Tamamlandı"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="principal-table-actions principal-teachers-actions">
+                          <button className="ghost-action" type="button" onClick={() => openEdit(row)} title="Düzenle">
+                            <Pencil size={16} />
+                          </button>
+                          <button className="ghost-action" type="button" onClick={() => handleResetPassword(row)} title="Şifre sıfırla">
+                            <RotateCcw size={16} />
+                          </button>
+                          <button className="ghost-action danger" type="button" onClick={() => handleDelete(row)} title="Sil">
+                            <Trash2 size={16} />
+                          </button>
+                          {row.mustChangePassword ? (
+                            <button
+                              className="ghost-action"
+                              type="button"
+                              onClick={() => onMarkFirstLoginComplete(row.id)}
+                              title="İlk giriş ve şifre değişikliği tamamlandı (kayıt güncelle)"
+                            >
+                              <CheckCircle2 size={16} />
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination page={page} totalPages={totalPages} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} />
+          </>
         )}
       </article>
 
