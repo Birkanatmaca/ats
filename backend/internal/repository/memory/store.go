@@ -43,6 +43,8 @@ type Store struct {
 	availabilities []scheduling.TeacherAvailability
 	sessions       map[string]attendance.Session
 	observations   []observation.Observation
+	guidanceNotes  map[string]*guidanceNoteRecord
+	supportPlans   map[string]*supportPlanRecord
 	announcements     []school.Announcement
 	notifications     []memoryNotification
 	studentGuardians  []memoryStudentGuardian
@@ -88,8 +90,11 @@ type systemUser struct {
 	Tenant             string
 	FullName           string
 	Email              string
+	Phone              string
 	Role               identity.Role
 	Status             string
+	AvatarURL          string
+	ProfileAccent      string
 	MustChangePassword bool
 	PasswordHash       string
 	PasswordSalt       string
@@ -566,6 +571,25 @@ func (s *Store) ListSupportTickets(_ context.Context) ([]superadmindomain.Suppor
 	return out, nil
 }
 
+func (s *Store) ListSupportTicketsByReporter(_ context.Context, principal identity.Principal) ([]superadmindomain.SupportTicket, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]superadmindomain.SupportTicket, 0)
+	for _, ticket := range s.supportTickets {
+		if ticket.ReporterID != principal.UserID {
+			continue
+		}
+		if principal.TenantID != "" && ticket.TenantID != principal.TenantID {
+			continue
+		}
+		out = append(out, ticket)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	return out, nil
+}
+
 func (s *Store) UpdateSupportTicket(_ context.Context, actor identity.Principal, ticketID string, input superadmindomain.UpdateSupportTicketInput) (superadmindomain.SupportTicket, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -726,23 +750,20 @@ func (s *Store) UpdateUser(_ context.Context, _ identity.Principal, userID strin
 		}
 		s.users[index].FullName = strings.TrimSpace(input.FullName)
 		s.users[index].Email = strings.ToLower(strings.TrimSpace(input.Email))
+		s.users[index].Phone = strings.TrimSpace(input.Phone)
+		s.users[index].AvatarURL = strings.TrimSpace(input.AvatarURL)
+		accent := strings.TrimSpace(input.ProfileAccent)
+		if accent == "" {
+			accent = "#0891b2"
+		}
+		s.users[index].ProfileAccent = accent
 		s.users[index].Role = identity.Role(strings.TrimSpace(input.Role))
 		if strings.TrimSpace(input.Status) == "passive" {
 			s.users[index].Status = "passive"
 		} else {
 			s.users[index].Status = "active"
 		}
-		return superadmindomain.UserAccount{
-			ID:                 s.users[index].ID,
-			TenantID:           s.users[index].TenantID,
-			Tenant:             s.users[index].Tenant,
-			FullName:           s.users[index].FullName,
-			Email:              s.users[index].Email,
-			Role:               string(s.users[index].Role),
-			Status:             userStatus(s.users[index]),
-			MustChangePassword: s.users[index].MustChangePassword,
-			CreatedAt:          s.users[index].CreatedAt,
-		}, true, nil
+		return userAccountFromSystem(s.users[index]), true, nil
 	}
 	return superadmindomain.UserAccount{}, false, nil
 }
@@ -988,17 +1009,24 @@ func (s *Store) StudentAttendanceForGuardian(_ context.Context, tenantID string,
 		if session.FinalizedAt == nil {
 			continue
 		}
+		lesson, hasLesson := s.lessonByID(session.LessonID)
 		for _, record := range session.Records {
 			if record.StudentID != studentID {
 				continue
 			}
-			records = append(records, guardiandomain.AttendanceRecord{
+			item := guardiandomain.AttendanceRecord{
 				ID:     fmt.Sprintf("%s-%s", session.ID, record.StudentID),
 				Date:   session.StartedAt.Format("2006-01-02"),
 				Lesson: session.SubjectName,
 				Status: record.Status,
 				Note:   record.Note,
-			})
+			}
+			if hasLesson {
+				item.StartTime = lesson.StartTime
+				item.EndTime = lesson.EndTime
+				item.DayOfWeek = lesson.DayOfWeek
+			}
+			records = append(records, item)
 		}
 	}
 	sort.Slice(records, func(i, j int) bool { return records[i].Date > records[j].Date })
@@ -1291,6 +1319,16 @@ func (s *Store) GetAttendanceSession(_ context.Context, tenantID string, session
 	return attendance.Session{}, false
 }
 
+func (s *Store) GetAttendanceSessionByLesson(_ context.Context, tenantID string, lessonID string) (attendance.Session, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return attendance.Session{}, false
+	}
+	session, ok := s.sessions[lessonID]
+	return session, ok
+}
+
 func (s *Store) GetOrCreateAttendanceSession(_ context.Context, tenantID string, lessonID string, _ string) (attendance.Session, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1386,6 +1424,23 @@ func (s *Store) FinalizeAttendanceSession(_ context.Context, tenantID string, se
 			s.emitAttendanceAbsenceNotifications(tenantID, sessionID, s.sessions[key])
 		}
 		return s.sessions[key], true
+	}
+	return attendance.Session{}, false
+}
+
+func (s *Store) ReopenAttendanceSession(_ context.Context, tenantID string, sessionID string, _ string) (attendance.Session, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return attendance.Session{}, false
+	}
+	for key, session := range s.sessions {
+		if session.ID != sessionID {
+			continue
+		}
+		session.FinalizedAt = nil
+		s.sessions[key] = session
+		return session, true
 	}
 	return attendance.Session{}, false
 }

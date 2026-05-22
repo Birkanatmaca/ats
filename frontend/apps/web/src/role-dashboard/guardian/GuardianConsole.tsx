@@ -1,27 +1,33 @@
-import { Bell, CalendarDays, ClipboardCheck, GraduationCap, Home, LifeBuoy, Loader2, LogOut, School, UserRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { Bell, CalendarDays, ClipboardCheck, Home, LifeBuoy, Loader2, Megaphone, UserCircle, UserRound } from "lucide-react";
+import { AppBrand } from "../../components/AppBrand";
+import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
 import type { AuthSession, GuardianStudent } from "../../lib/api";
 import { api } from "../../lib/api";
-import { NotificationBell } from "../components/NotificationBell";
-import { SupportContactForm } from "../../pages/SupportContactForm";
-import { GuardianAnnouncementsPage } from "./pages/GuardianAnnouncementsPage";
+import { ProfilePage } from "../pages/ProfilePage";
+import { RoleAnnouncementsPage } from "../pages/RoleAnnouncementsPage";
+import { RoleNotificationsPage } from "../pages/RoleNotificationsPage";
+import { RoleSupportPage } from "../pages/RoleSupportPage";
 import { GuardianAttendancePage } from "./pages/GuardianAttendancePage";
 import { GuardianChildPage } from "./pages/GuardianChildPage";
 import { GuardianOverviewPage } from "./pages/GuardianOverviewPage";
 import { GuardianSchedulePage } from "./pages/GuardianSchedulePage";
+import { NavbarStudentSelector } from "./components/NavbarStudentSelector";
 import type { GuardianChild, GuardianData } from "./types";
 import "../../styles/super-admin-app.css";
 import "./GuardianConsole.css";
 
 const guardianTabs = [
   { id: "overview", label: "Genel", icon: <Home size={18} /> },
-  { id: "child", label: "Çocuğum", icon: <UserRound size={18} /> },
+  { id: "child", label: "Öğrencim", icon: <UserRound size={18} /> },
   { id: "schedule", label: "Program", icon: <CalendarDays size={18} /> },
   { id: "attendance", label: "Devamsızlık", icon: <ClipboardCheck size={18} /> },
-  { id: "announcements", label: "Duyurular", icon: <Bell size={18} /> },
-  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> }
+  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
+  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} /> },
+  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> },
+  { id: "profile", label: "Profil", icon: <UserCircle size={18} /> }
 ] as const;
 
 const avatarTones: GuardianChild["avatarTone"][] = ["amber", "sky", "emerald"];
@@ -41,12 +47,21 @@ function initialGuardianData(): GuardianData {
   return { scheduleLessons: [], announcements: [], attendanceRecords: [], notifications: [] };
 }
 
-export function GuardianConsole({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
+export function GuardianConsole({
+  session,
+  onLogout,
+  onSessionUpdate
+}: {
+  session: AuthSession;
+  onLogout: () => void;
+  onSessionUpdate: (session: AuthSession) => void;
+}) {
   const [data, setData] = useState<GuardianData>(() => initialGuardianData());
   const [children, setChildren] = useState<GuardianChild[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const location = useLocation();
 
   const activePath = location.pathname.replace(/^\/dashboard\/?/, "");
@@ -106,9 +121,17 @@ export function GuardianConsole({ session, onLogout }: { session: AuthSession; o
     setLoading(false);
   }
 
+  const syncUnreadNotifications = useCallback((notifications: GuardianData["notifications"]) => {
+    setUnreadNotifications(notifications.filter((item) => !item.readAt).length);
+  }, []);
+
   useEffect(() => {
     void load();
   }, [session.principal.userId]);
+
+  useEffect(() => {
+    syncUnreadNotifications(data.notifications);
+  }, [data.notifications, syncUnreadNotifications]);
 
   useEffect(() => {
     if (!selectedChildId || children.length === 0) {
@@ -150,42 +173,22 @@ export function GuardianConsole({ session, onLogout }: { session: AuthSession; o
     <div className="admin-shell principal-console guardian-console">
       <header className="admin-navbar">
         <div className="navbar-brand">
-          <div className="admin-mark">
-            <GraduationCap size={22} />
-          </div>
-          <div>
-            <strong>ÖTS</strong>
-            <span>{children[0]?.tenantName ?? "Veli paneli"}</span>
-          </div>
+          <AppBrand />
         </div>
 
-        {children.length > 1 ? (
-          <label className="guardian-child-select field">
-            <span>Öğrenci</span>
-            <select value={selectedChildId} onChange={(event) => void handleSelectChild(event.target.value)}>
-              {children.map((child) => (
-                <option key={child.id} value={child.id}>
-                  {child.fullName} · {child.className}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-
-        <div className="navbar-actions">
-          <NotificationBell />
-          <div className="navbar-profile" aria-label="Profil">
-            <div className="profile-avatar">{session.principal.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
-            <div className="navbar-profile-text">
-              <strong>{session.principal.name}</strong>
-              <span>{roleLabel(session.principal.role)}</span>
-            </div>
-          </div>
-          <button className="ghost-action navbar-logout" type="button" onClick={onLogout}>
-            <LogOut size={17} />
-            Çıkış
-          </button>
-        </div>
+        <NavbarUserMenu
+          name={session.principal.name}
+          meta={roleLabel(session.principal.role)}
+          notificationMode="guardian"
+          onUnreadNotificationsChange={setUnreadNotifications}
+          middleAction={
+            <NavbarStudentSelector
+              students={children}
+              selectedChildId={selectedChildId}
+              onSelect={(childId) => void handleSelectChild(childId)}
+            />
+          }
+        />
       </header>
 
       <aside className="admin-sidebar">
@@ -194,17 +197,14 @@ export function GuardianConsole({ session, onLogout }: { session: AuthSession; o
             <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/dashboard/${tab.id}`}>
               {tab.icon}
               <span>{tab.label}</span>
+              {tab.id === "notifications" && unreadNotifications > 0 ? (
+                <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
+              ) : null}
             </NavLink>
           ))}
         </nav>
 
-        <div className="developer-note">
-          <School size={18} />
-          <div>
-            <strong>Veli görünümü</strong>
-            <span>Çocuk, program ve devamsızlık takibi.</span>
-          </div>
-        </div>
+        <SidebarFooter tenantName={children[0]?.tenantName ?? "Kurum"} onLogout={onLogout} />
       </aside>
 
       <main className={`admin-workspace guardian-workspace ${activeTab}-workspace`}>
@@ -231,11 +231,28 @@ export function GuardianConsole({ session, onLogout }: { session: AuthSession; o
                   />
                 }
               />
-              <Route path="child" element={<GuardianChildPage child={selectedChild} />} />
+              <Route
+                path="child"
+                element={
+                  <GuardianChildPage
+                    child={selectedChild}
+                    students={children}
+                    selectedChildId={selectedChildId}
+                    onSelectChild={(childId) => void handleSelectChild(childId)}
+                    data={data}
+                    lessons={childLessons}
+                  />
+                }
+              />
               <Route path="schedule" element={<GuardianSchedulePage child={selectedChild} lessons={childLessons} />} />
               <Route path="attendance" element={<GuardianAttendancePage child={selectedChild} records={data.attendanceRecords} />} />
-              <Route path="announcements" element={<GuardianAnnouncementsPage data={data} />} />
-              <Route path="support" element={<SupportContactForm session={session} />} />
+              <Route path="announcements" element={<RoleAnnouncementsPage announcements={data.announcements} />} />
+              <Route
+                path="notifications"
+                element={<RoleNotificationsPage mode="guardian" onUnreadChange={setUnreadNotifications} />}
+              />
+              <Route path="support" element={<RoleSupportPage session={session} />} />
+              <Route path="profile" element={<ProfilePage session={session} onSessionUpdate={onSessionUpdate} />} />
               <Route path="*" element={<Navigate to="overview" replace />} />
             </Routes>
           ) : null}

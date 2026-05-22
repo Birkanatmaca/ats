@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	guardiandomain "ots/backend/internal/domain/guardian"
 	schooldomain "ots/backend/internal/domain/school"
@@ -123,7 +122,9 @@ SELECT
 	sub.name,
 	ar.status,
 	COALESCE(ar.note, ''),
-	sess.started_at
+	sl.starts_at::text,
+	sl.ends_at::text,
+	sl.day_of_week
 FROM attendance_records ar
 JOIN attendance_sessions sess ON sess.id = ar.attendance_session_id
 JOIN schedule_lessons sl ON sl.id = sess.schedule_lesson_id
@@ -141,10 +142,11 @@ LIMIT 100`, tenantID, studentID)
 	records := make([]guardiandomain.AttendanceRecord, 0)
 	for rows.Next() {
 		var item guardiandomain.AttendanceRecord
-		var startedAt time.Time
-		if err := rows.Scan(&item.ID, &item.Date, &item.Lesson, &item.Status, &item.Note, &startedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.Date, &item.Lesson, &item.Status, &item.Note, &item.StartTime, &item.EndTime, &item.DayOfWeek); err != nil {
 			continue
 		}
+		item.StartTime = normalizeTimeText(item.StartTime)
+		item.EndTime = normalizeTimeText(item.EndTime)
 		records = append(records, item)
 	}
 	return guardiandomain.StudentAttendance{StudentID: studentID, Records: records}, true

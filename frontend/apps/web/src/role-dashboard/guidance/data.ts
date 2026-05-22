@@ -2,35 +2,13 @@ import type { GuidancePlan } from "./types";
 
 export const riskCategories = ["attention", "absence_risk", "academic_drop", "behavior"];
 
-export const guidancePlans: GuidancePlan[] = [
-  {
-    id: "plan-1",
-    studentName: "Efe Demir",
-    className: "5/A",
-    owner: "Selin Ergin",
-    title: "Dikkat gözlemi takip görüşmesi",
-    status: "monitoring",
-    dueDate: "2026-05-20"
-  },
-  {
-    id: "plan-2",
-    studentName: "Elif Aydın",
-    className: "6/B",
-    owner: "Selin Ergin",
-    title: "Devamsızlık eğilimi veli bilgilendirme",
-    status: "open",
-    dueDate: "2026-05-22"
-  },
-  {
-    id: "plan-3",
-    studentName: "Mina Kaya",
-    className: "5/A",
-    owner: "Rehberlik birimi",
-    title: "Sosyal uyum kısa izlem",
-    status: "closed",
-    dueDate: "2026-05-12"
-  }
-];
+export const guidanceNoteTypes = [
+  { value: "meeting", label: "Görüşme notu" },
+  { value: "parent_contact", label: "Veli görüşmesi" },
+  { value: "follow_up", label: "Takip kaydı" },
+  { value: "observation", label: "Rehberlik gözlemi" },
+  { value: "report", label: "İzleme raporu" }
+] as const;
 
 export const guidanceCategoryPriority: Record<string, "low" | "medium" | "high"> = {
   attention: "medium",
@@ -41,3 +19,10 @@ export const guidanceCategoryPriority: Record<string, "low" | "medium" | "high">
   participation: "low",
   teacher_note: "low"
 };
+
+/** @deprecated Use API supportPlans */
+export const guidancePlans: GuidancePlan[] = [];
+
+export function noteTypeLabel(value: string) {
+  return guidanceNoteTypes.find((item) => item.value === value)?.label ?? value;
+}

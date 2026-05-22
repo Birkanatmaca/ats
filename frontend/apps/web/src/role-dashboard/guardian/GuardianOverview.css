@@ -1,0 +1,359 @@
+/* Veli — Genel (rehberlik / öğretmen ile aynı dil) */
+
+.guardian-overview-page {
+  gap: 20px;
+}
+
+.guardian-overview-page.guidance-surface-page .guidance-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.guardian-overview-page .guardian-bento {
+  display: grid;
+  gap: 16px;
+}
+
+.guardian-overview-page .guardian-bento--primary {
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+}
+
+.guardian-overview-page .guardian-bento--secondary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Devamsızlık + duyuru/bildirim satırı */
+.guardian-overview-page .guardian-bento--communications {
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.guardian-overview-page .guardian-comms-attendance {
+  grid-row: 1 / -1;
+  grid-column: 1;
+  min-width: 0;
+}
+
+.guardian-overview-page .guardian-comms-announcements {
+  grid-row: 1;
+  grid-column: 2;
+  min-width: 0;
+}
+
+.guardian-overview-page .guardian-comms-notifications {
+  grid-row: 2;
+  grid-column: 2;
+  min-width: 0;
+}
+
+.guardian-overview-page .guardian-comms-attendance .guidance-panel,
+.guardian-overview-page .guardian-comms-announcements .guidance-panel,
+.guardian-overview-page .guardian-comms-notifications .guidance-panel {
+  height: 100%;
+}
+
+.guardian-overview-page .guardian-comms-attendance .guidance-panel-body,
+.guardian-overview-page .guardian-comms-announcements .guidance-panel-body,
+.guardian-overview-page .guardian-comms-notifications .guidance-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.guardian-overview-page .guardian-attendance-donut--compact {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 14px;
+  padding: 14px 12px 16px;
+  height: 100%;
+  align-content: center;
+}
+
+.guardian-overview-page .guardian-attendance-donut--compact .guardian-attendance-donut-chart svg {
+  width: 118px;
+  height: 118px;
+}
+
+.guardian-overview-page .guardian-attendance-donut--compact .guardian-attendance-donut-legend {
+  grid-template-columns: 1fr;
+  width: 100%;
+  gap: 6px;
+}
+
+.guardian-overview-page .guardian-attendance-donut--compact .guardian-attendance-donut-legend-item {
+  padding: 8px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
+.guardian-overview-page .guardian-attendance-donut--compact .guardian-attendance-donut-legend-item strong {
+  font-size: 14px;
+}
+
+.guardian-overview-page .guardian-week-calendar-wrap {
+  padding: 0 0 12px;
+}
+
+/* Öğrenci profil kartı */
+.guardian-student-profile-card {
+  display: grid;
+  gap: 14px;
+  padding: 20px 16px 16px;
+  text-align: center;
+}
+
+.guardian-student-profile-photo {
+  display: grid;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto;
+  place-items: center;
+  border-radius: 22px;
+  color: #fff;
+  font-size: 36px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+}
+
+.guardian-student-profile-photo--amber {
+  background: linear-gradient(145deg, #f59e0b, #d97706);
+}
+
+.guardian-student-profile-photo--sky {
+  background: linear-gradient(145deg, #38bdf8, #0284c7);
+}
+
+.guardian-student-profile-photo--emerald {
+  background: linear-gradient(145deg, #34d399, #059669);
+}
+
+.guardian-student-profile-copy h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.guardian-student-profile-copy p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.guardian-student-profile-meta {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+
+.guardian-student-profile-meta > div {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
+.guardian-student-profile-meta svg {
+  color: #64748b;
+}
+
+.guardian-student-profile-meta span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
+.guardian-student-profile-meta strong {
+  justify-self: end;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  text-align: right;
+}
+
+.guardian-student-profile-link {
+  justify-self: center;
+}
+
+.guardian-attendance-donut--empty {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.guardian-attendance-donut--empty .guidance-empty-pad {
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+
+.guardian-attendance-donut {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  padding: 20px 16px;
+}
+
+.guardian-attendance-donut-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.guardian-attendance-donut-chart svg {
+  width: 140px;
+  height: 140px;
+}
+
+.guardian-attendance-donut-bg {
+  fill: none;
+  stroke: #f1f5f9;
+}
+
+.guardian-attendance-donut-center {
+  font-size: 24px;
+  font-weight: 700;
+  fill: #0f172a;
+  text-anchor: middle;
+}
+
+.guardian-attendance-donut-sub {
+  font-size: 11px;
+  font-weight: 500;
+  fill: #64748b;
+  text-anchor: middle;
+}
+
+.guardian-attendance-donut-summary {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+
+.guardian-attendance-donut-summary strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: #059669;
+}
+
+.guardian-attendance-donut-summary span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.guardian-attendance-donut-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.guardian-attendance-donut-legend-item {
+  display: grid;
+  grid-template-columns: 10px auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid #f1f5f9;
+  border-radius: 999px;
+  background: #fafbfc;
+  font-size: 13px;
+  color: #475569;
+}
+
+.guardian-attendance-donut-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.guardian-attendance-donut-legend-item strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Liste satırları */
+.guardian-overview-page .guardian-notice-list,
+.guardian-overview-page .guardian-announcement-list {
+  gap: 0;
+}
+
+.guardian-overview-page .guardian-notice-row,
+.guardian-overview-page .guardian-announcement-row {
+  padding: 12px 16px;
+  margin: 0;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+  transition: background 0.12s ease;
+}
+
+.guardian-overview-page .guardian-notice-row:last-child,
+.guardian-overview-page .guardian-announcement-row:last-child {
+  border-bottom: none;
+}
+
+.guardian-overview-page .guardian-notice-row:hover,
+.guardian-overview-page .guardian-announcement-row:hover,
+.guardian-overview-page .guardian-notice-row.is-clickable:hover {
+  background: #f8fafc;
+}
+
+.guardian-overview-page .guidance-empty-pad {
+  margin: 12px 16px 16px;
+}
+
+@media (max-width: 1100px) {
+  .guardian-overview-page.guidance-surface-page .guidance-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .guardian-overview-page .guardian-bento--primary,
+  .guardian-overview-page .guardian-bento--secondary,
+  .guardian-overview-page .guardian-bento--communications {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .guardian-overview-page .guardian-comms-attendance,
+  .guardian-overview-page .guardian-comms-announcements,
+  .guardian-overview-page .guardian-comms-notifications {
+    grid-row: auto;
+    grid-column: 1;
+  }
+
+  .guardian-overview-page .guardian-attendance-donut--compact {
+    height: auto;
+  }
+
+  .guardian-attendance-donut {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .guardian-attendance-donut-legend {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .guardian-overview-page.guidance-surface-page .guidance-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .guardian-attendance-donut-legend {
+    grid-template-columns: 1fr;
+  }
+}

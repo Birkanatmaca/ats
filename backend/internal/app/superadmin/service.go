@@ -2,11 +2,14 @@ package superadmin
 
 import (
 	"context"
+	"regexp"
 	"strings"
 
 	identitydomain "ots/backend/internal/domain/identity"
 	domain "ots/backend/internal/domain/superadmin"
 )
+
+var accentPattern = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 var ErrInvalidInstitution = domain.ErrInvalidInstitution
 var ErrInstitutionNotFound = domain.ErrInstitutionNotFound
@@ -24,6 +27,7 @@ type Repository interface {
 	UpdatePlatformSettings(ctx context.Context, actor identitydomain.Principal, input domain.UpdatePlatformSettingsInput) (domain.PlatformSettings, error)
 	CreateSupportTicket(ctx context.Context, principal identitydomain.Principal, input domain.CreateSupportTicketInput) (domain.SupportTicket, error)
 	ListSupportTickets(ctx context.Context) ([]domain.SupportTicket, error)
+	ListSupportTicketsByReporter(ctx context.Context, principal identitydomain.Principal) ([]domain.SupportTicket, error)
 	UpdateSupportTicket(ctx context.Context, actor identitydomain.Principal, ticketID string, input domain.UpdateSupportTicketInput) (domain.SupportTicket, bool, error)
 	SuperAdminOverview(ctx context.Context) (domain.Overview, error)
 	ListInstitutions(ctx context.Context) ([]domain.Institution, error)
@@ -34,6 +38,8 @@ type Repository interface {
 	UpdateUser(ctx context.Context, actor identitydomain.Principal, userID string, input domain.UpdateUserInput) (domain.UserAccount, bool, error)
 	DeleteUser(ctx context.Context, actor identitydomain.Principal, userID string, tenantID string) (domain.UserAccount, bool, error)
 	ListInstitutionUsers(ctx context.Context, tenantID string) ([]domain.UserAccount, error)
+	GetUserProfile(ctx context.Context, tenantID string, userID string) (identitydomain.UserProfile, bool, error)
+	UpdateSelfProfile(ctx context.Context, principal identitydomain.Principal, input domain.UpdateSelfProfileInput) (identitydomain.UserProfile, error)
 	CreateInstitutionUser(ctx context.Context, actor identitydomain.Principal, tenantID string, input domain.CreateInstitutionUserInput) (domain.CreatedUserCredential, error)
 	ListAuditEntries(ctx context.Context) ([]domain.AuditEntry, error)
 }
@@ -77,6 +83,13 @@ func (s *Service) CreateSupportTicket(ctx context.Context, principal identitydom
 
 func (s *Service) SupportTickets(ctx context.Context) ([]domain.SupportTicket, error) {
 	return s.repo.ListSupportTickets(ctx)
+}
+
+func (s *Service) MySupportTickets(ctx context.Context, principal identitydomain.Principal) ([]domain.SupportTicket, error) {
+	if strings.TrimSpace(principal.UserID) == "" {
+		return nil, ErrInvalidSupportTicket
+	}
+	return s.repo.ListSupportTicketsByReporter(ctx, principal)
 }
 
 func (s *Service) UpdateSupportTicket(ctx context.Context, actor identitydomain.Principal, ticketID string, input domain.UpdateSupportTicketInput) (domain.SupportTicket, bool, error) {
@@ -126,6 +139,12 @@ func (s *Service) UpdateUser(ctx context.Context, actor identitydomain.Principal
 	if strings.TrimSpace(userID) == "" || strings.TrimSpace(input.TenantID) == "" || strings.TrimSpace(input.Email) == "" {
 		return domain.UserAccount{}, false, ErrInvalidUser
 	}
+	if input.ProfileAccent != "" && !accentPattern.MatchString(strings.TrimSpace(input.ProfileAccent)) {
+		return domain.UserAccount{}, false, ErrInvalidUser
+	}
+	if len(input.AvatarURL) > 300000 {
+		return domain.UserAccount{}, false, ErrInvalidUser
+	}
 	return s.repo.UpdateUser(ctx, actor, userID, input)
 }
 
@@ -141,6 +160,33 @@ func (s *Service) InstitutionUsers(ctx context.Context, tenantID string) ([]doma
 		return nil, ErrInstitutionNotFound
 	}
 	return s.repo.ListInstitutionUsers(ctx, tenantID)
+}
+
+func (s *Service) GetUserProfile(ctx context.Context, tenantID string, userID string) (identitydomain.UserProfile, bool, error) {
+	if strings.TrimSpace(userID) == "" {
+		return identitydomain.UserProfile{}, false, nil
+	}
+	return s.repo.GetUserProfile(ctx, tenantID, userID)
+}
+
+func (s *Service) UpdateSelfProfile(ctx context.Context, principal identitydomain.Principal, input domain.UpdateSelfProfileInput) (identitydomain.UserProfile, error) {
+	if strings.TrimSpace(principal.UserID) == "" {
+		return identitydomain.UserProfile{}, ErrInvalidUser
+	}
+	if input.AvatarURL != nil && len(*input.AvatarURL) > 300000 {
+		return identitydomain.UserProfile{}, ErrInvalidUser
+	}
+	if input.ProfileAccent != nil {
+		accent := strings.TrimSpace(*input.ProfileAccent)
+		if accent != "" && !accentPattern.MatchString(accent) {
+			return identitydomain.UserProfile{}, ErrInvalidUser
+		}
+	}
+	profile, err := s.repo.UpdateSelfProfile(ctx, principal, input)
+	if err != nil {
+		return identitydomain.UserProfile{}, err
+	}
+	return profile, nil
 }
 
 func (s *Service) CreateInstitutionUser(ctx context.Context, actor identitydomain.Principal, tenantID string, input domain.CreateInstitutionUserInput) (domain.CreatedUserCredential, error) {

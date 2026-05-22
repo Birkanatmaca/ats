@@ -77,3 +77,12 @@ func (s *Service) TeacherCalendar(ctx context.Context, tenantID string, teacherI
 func (s *Service) ActiveLessonForTeacher(ctx context.Context, tenantID string, teacherID string, now time.Time) (domain.Lesson, bool) {
 	return s.repo.ActiveLessonForTeacher(ctx, tenantID, teacherID, now)
 }
+
+func (s *Service) TeacherLessonByID(ctx context.Context, tenantID string, teacherUserID string, lessonID string) (domain.Lesson, bool) {
+	for _, lesson := range s.repo.TeacherCalendar(ctx, tenantID, teacherUserID) {
+		if lesson.ID == lessonID {
+			return lesson, true
+		}
+	}
+	return domain.Lesson{}, false
+}

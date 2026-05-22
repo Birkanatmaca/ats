@@ -9,6 +9,7 @@ import (
 	attendanceapp "ots/backend/internal/app/attendance"
 	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
+	guidanceapp "ots/backend/internal/app/guidance"
 	identityapp "ots/backend/internal/app/identity"
 	observationapp "ots/backend/internal/app/observation"
 	schedulingapp "ots/backend/internal/app/scheduling"
@@ -30,6 +31,7 @@ type Dependencies struct {
 	Attendance  *attendanceapp.Service
 	Observation *observationapp.Service
 	Guardian    *guardianapp.Service
+	Guidance    *guidanceapp.Service
 	Dashboard   *dashboardapp.Service
 	SuperAdmin  *superadminapp.Service
 	Clock       func() time.Time
@@ -42,6 +44,7 @@ type Handler struct {
 	attendance  *attendanceapp.Service
 	observation *observationapp.Service
 	guardian    *guardianapp.Service
+	guidance    *guidanceapp.Service
 	dashboard   *dashboardapp.Service
 	superAdmin  *superadminapp.Service
 	clock       func() time.Time
@@ -55,6 +58,7 @@ func New(deps Dependencies) *Handler {
 		attendance:  deps.Attendance,
 		observation: deps.Observation,
 		guardian:    deps.Guardian,
+		guidance:    deps.Guidance,
 		dashboard:   deps.Dashboard,
 		superAdmin:  deps.SuperAdmin,
 		clock:       deps.Clock,
@@ -71,6 +75,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/auth/password/forgot", h.forgotPassword)
 	mux.HandleFunc("POST /api/v1/auth/password/reset", h.resetPassword)
 	mux.HandleFunc("GET /api/v1/me", h.me)
+	h.registerProfileRoutes(mux)
 	mux.HandleFunc("GET /api/v1/tenants/current", h.currentTenant)
 	mux.HandleFunc("GET /api/v1/announcements", h.announcements)
 	mux.HandleFunc("POST /api/v1/announcements", h.createAnnouncement)
@@ -83,6 +88,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/guardian/notifications/{id}/read", h.guardianNotificationRead)
 	mux.HandleFunc("GET /api/v1/notifications", h.userNotifications)
 	mux.HandleFunc("PATCH /api/v1/notifications/{id}/read", h.userNotificationRead)
+	mux.HandleFunc("GET /api/v1/support/tickets", h.mySupportTickets)
 	mux.HandleFunc("POST /api/v1/support/tickets", h.createSupportTicket)
 	mux.HandleFunc("GET /api/v1/dashboard/principal/summary", h.principalSummary)
 	mux.HandleFunc("GET /api/v1/dashboard/classes/{classId}/summary", h.classSummary)
@@ -117,11 +123,14 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/schedules/{id}/validate", h.validateSchedule)
 	mux.HandleFunc("POST /api/v1/schedules/{id}/publish", h.publishSchedule)
 	mux.HandleFunc("GET /api/v1/teachers/me/calendar", h.teacherCalendar)
+	mux.HandleFunc("GET /api/v1/teachers/me/students", h.teacherStudents)
 	mux.HandleFunc("GET /api/v1/attendance/current-lesson", h.currentLesson)
 	mux.HandleFunc("POST /api/v1/attendance/sessions", h.createAttendanceSession)
+	mux.HandleFunc("GET /api/v1/attendance/sessions/by-lesson/{lessonId}", h.getAttendanceSessionByLesson)
 	mux.HandleFunc("GET /api/v1/attendance/sessions/{id}", h.getAttendanceSession)
 	mux.HandleFunc("PATCH /api/v1/attendance/sessions/{id}/records", h.updateAttendanceRecords)
 	mux.HandleFunc("POST /api/v1/attendance/sessions/{id}/finalize", h.finalizeAttendanceSession)
+	mux.HandleFunc("POST /api/v1/attendance/sessions/{id}/reopen", h.reopenAttendanceSession)
 	mux.HandleFunc("GET /api/v1/dashboard/attendance/today", h.attendanceToday)
 	mux.HandleFunc("GET /api/v1/students/{id}/attendance-summary", h.studentAttendanceSummary)
 	mux.HandleFunc("GET /api/v1/observations", h.listObservations)
@@ -147,6 +156,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/classes/{id}/students", h.assignClassStudent)
 	mux.HandleFunc("POST /api/v1/students/import", h.importStudents)
 	mux.HandleFunc("POST /api/v1/teachers/{id}/reset-password", h.resetTeacherPassword)
+	h.RegisterGuidanceRoutes(mux)
 }
 
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
@@ -736,6 +746,19 @@ func (h *Handler) updateSuperAdminSettings(w http.ResponseWriter, r *http.Reques
 	httpx.WriteJSON(w, http.StatusOK, settings, nil)
 }
 
+func (h *Handler) mySupportTickets(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipal(w, r)
+	if !ok {
+		return
+	}
+	tickets, err := h.superAdmin.MySupportTickets(r.Context(), principal)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "SUPPORT_TICKETS_FAILED", "Destek talepleri alınamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, tickets, nil)
+}
+
 func (h *Handler) createSupportTicket(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requirePrincipal(w, r)
 	if !ok {
@@ -938,6 +961,19 @@ func (h *Handler) teacherCalendar(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, h.scheduling.TeacherCalendar(r.Context(), principal.TenantID, principal.UserID), nil)
 }
 
+func (h *Handler) teacherStudents(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipalRole(w, r, identity.RoleTeacher)
+	if !ok {
+		return
+	}
+	items, err := h.school.ListStudentsForTeacher(r.Context(), principal.TenantID, principal.UserID)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Öğretmen öğrenci listesi alınamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, items, nil)
+}
+
 func (h *Handler) currentLesson(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requirePrincipal(w, r)
 	if !ok {
@@ -966,12 +1002,36 @@ func (h *Handler) createAttendanceSession(w http.ResponseWriter, r *http.Request
 		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli bir lessonId gönderilmelidir.", nil)
 		return
 	}
+	if _, ok := h.teacherLessonInAttendanceWindow(w, r, principal, request.LessonID); !ok {
+		return
+	}
 	session, found := h.attendance.GetOrCreateSession(r.Context(), principal.TenantID, request.LessonID, principal.UserID)
 	if !found {
 		httpx.WriteError(w, http.StatusNotFound, "LESSON_NOT_FOUND", "Ders bloğu bulunamadı.", nil)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, session, nil)
+}
+
+func (h *Handler) getAttendanceSessionByLesson(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipal(w, r)
+	if !ok {
+		return
+	}
+	lessonID := r.PathValue("lessonId")
+	if _, ok := h.teacherLessonInAttendanceWindow(w, r, principal, lessonID); !ok {
+		return
+	}
+	session, err := h.attendance.GetSessionByLesson(r.Context(), principal.TenantID, lessonID)
+	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Bu ders için yoklama oturumu bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_SESSION_LOOKUP_FAILED", "Yoklama oturumu okunamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, session, nil)
 }
 
 func (h *Handler) getAttendanceSession(w http.ResponseWriter, r *http.Request) {
@@ -986,6 +1046,9 @@ func (h *Handler) getAttendanceSession(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_SESSION_LOOKUP_FAILED", "Yoklama oturumu okunamadı.", nil)
+		return
+	}
+	if !h.attendanceSessionInWindow(w, r, principal, session) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, session, nil)
@@ -1020,6 +1083,18 @@ func (h *Handler) updateAttendanceRecords(w http.ResponseWriter, r *http.Request
 		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Yoklama kayıtları okunamadı.", nil)
 		return
 	}
+	current, err := h.attendance.GetSession(r.Context(), principal.TenantID, r.PathValue("id"))
+	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Yoklama oturumu bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_SESSION_LOOKUP_FAILED", "Yoklama oturumu okunamadı.", nil)
+		return
+	}
+	if !h.attendanceSessionInWindow(w, r, principal, current) {
+		return
+	}
 	session, err := h.attendance.UpdateRecords(r.Context(), principal.TenantID, r.PathValue("id"), principal.UserID, request.Records)
 	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
 		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Yoklama oturumu bulunamadı.", nil)
@@ -1041,6 +1116,18 @@ func (h *Handler) finalizeAttendanceSession(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	current, err := h.attendance.GetSession(r.Context(), principal.TenantID, r.PathValue("id"))
+	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Yoklama oturumu bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_SESSION_LOOKUP_FAILED", "Yoklama oturumu okunamadı.", nil)
+		return
+	}
+	if !h.attendanceSessionInWindow(w, r, principal, current) {
+		return
+	}
 	session, err := h.attendance.FinalizeSession(r.Context(), principal.TenantID, r.PathValue("id"), h.clock(), principal.UserID)
 	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
 		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Yoklama oturumu bulunamadı.", nil)
@@ -1048,6 +1135,35 @@ func (h *Handler) finalizeAttendanceSession(w http.ResponseWriter, r *http.Reque
 	}
 	if err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_FINALIZE_FAILED", "Yoklama oturumu kesinleştirilemedi.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, session, nil)
+}
+
+func (h *Handler) reopenAttendanceSession(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipal(w, r)
+	if !ok {
+		return
+	}
+	current, err := h.attendance.GetSession(r.Context(), principal.TenantID, r.PathValue("id"))
+	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Yoklama oturumu bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_SESSION_LOOKUP_FAILED", "Yoklama oturumu okunamadı.", nil)
+		return
+	}
+	if !h.attendanceSessionInWindow(w, r, principal, current) {
+		return
+	}
+	session, err := h.attendance.ReopenSession(r.Context(), principal.TenantID, r.PathValue("id"), principal.UserID)
+	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Yoklama oturumu bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_REOPEN_FAILED", "Yoklama oturumu düzenleme için açılamadı.", nil)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, session, nil)
@@ -1111,9 +1227,17 @@ func (h *Handler) createObservation(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Gözlem kaydı okunamadı.", nil)
 		return
 	}
-	if principal.Role == identity.RoleTeacher && !h.observation.TeacherCanObserveStudent(r.Context(), principal.TenantID, principal.UserID, input.StudentID) {
-		httpx.WriteError(w, http.StatusForbidden, "STUDENT_OUT_OF_SCOPE", "Bu öğrenci için gözlem kaydı oluşturamazsınız.", nil)
-		return
+	switch principal.Role {
+	case identity.RoleTeacher:
+		if !h.observation.TeacherCanObserveStudent(r.Context(), principal.TenantID, principal.UserID, input.StudentID) {
+			httpx.WriteError(w, http.StatusForbidden, "STUDENT_OUT_OF_SCOPE", "Bu öğrenci için gözlem kaydı oluşturamazsınız.", nil)
+			return
+		}
+	case identity.RoleGuidance:
+		if h.guidance != nil && !h.guidance.CanAccessStudent(r.Context(), principal.TenantID, principal.UserID, input.StudentID) {
+			httpx.WriteError(w, http.StatusForbidden, "STUDENT_OUT_OF_SCOPE", "Bu öğrenci için gözlem kaydı oluşturamazsınız.", nil)
+			return
+		}
 	}
 	created, err := h.observation.Create(r.Context(), principal.TenantID, principal.UserID, input)
 	if errors.Is(err, observationapp.ErrInvalidObservation) {
@@ -1361,6 +1485,24 @@ func (h *Handler) importStudents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, result, nil)
+}
+
+func (h *Handler) teacherLessonInAttendanceWindow(w http.ResponseWriter, r *http.Request, principal identity.Principal, lessonID string) (schedulingDomain.Lesson, bool) {
+	lesson, ok := h.scheduling.TeacherLessonByID(r.Context(), principal.TenantID, principal.UserID, lessonID)
+	if !ok {
+		httpx.WriteError(w, http.StatusNotFound, "LESSON_NOT_FOUND", "Ders bloğu bulunamadı.", nil)
+		return schedulingDomain.Lesson{}, false
+	}
+	if !schedulingDomain.LessonAttendanceWindowOpen(lesson, h.clock()) {
+		httpx.WriteError(w, http.StatusForbidden, "ATTENDANCE_WINDOW_CLOSED", "Yoklama penceresi kapalı. Ders başlangıcından 10 dk önce ile bitişinden 10 dk sonrasına kadar erişilebilir.", nil)
+		return schedulingDomain.Lesson{}, false
+	}
+	return lesson, true
+}
+
+func (h *Handler) attendanceSessionInWindow(w http.ResponseWriter, r *http.Request, principal identity.Principal, session attendanceDomain.Session) bool {
+	_, ok := h.teacherLessonInAttendanceWindow(w, r, principal, session.LessonID)
+	return ok
 }
 
 func requireGuardian(w http.ResponseWriter, r *http.Request) (identity.Principal, bool) {

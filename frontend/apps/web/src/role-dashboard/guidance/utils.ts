@@ -1,4 +1,4 @@
-import type { Observation } from "../../lib/api";
+import type { GuidanceNote, GuidanceStudent, GuidanceSupportPlan, Observation } from "../../lib/api";
 import { categoryLabel } from "../utils";
 import { guidanceCategoryPriority, riskCategories } from "./data";
 import type { GuidanceRiskSignal, GuidanceStudentSupport } from "./types";
@@ -70,10 +70,125 @@ export function supportStatusLabel(status: string) {
     review: "İncelemede",
     monitoring: "Takipte",
     stable: "Stabil",
+    untracked: "Gözlemsiz",
     open: "Açık",
     closed: "Kapalı"
   };
   return labels[status] ?? status;
+}
+
+export type GuidanceStudentRow = {
+  studentId: string;
+  studentName: string;
+  className: string;
+  schoolNumber: string;
+  observationCount: number;
+  riskCount: number;
+  noteCount: number;
+  planCount: number;
+  lastCategory: string | null;
+  lastSeenAt: string | null;
+  status: GuidanceStudentSupport["status"] | "untracked";
+};
+
+export function buildGuidanceStudentRows(
+  guidanceStudents: GuidanceStudent[],
+  supports: GuidanceStudentSupport[],
+  notes: GuidanceNote[],
+  plans: GuidanceSupportPlan[]
+): GuidanceStudentRow[] {
+  const supportById = new Map(supports.map((item) => [item.studentId, item]));
+  const noteCountById = new Map<string, number>();
+  const planCountById = new Map<string, number>();
+
+  for (const note of notes) {
+    noteCountById.set(note.studentId, (noteCountById.get(note.studentId) ?? 0) + 1);
+  }
+  for (const plan of plans) {
+    planCountById.set(plan.studentId, (planCountById.get(plan.studentId) ?? 0) + 1);
+  }
+
+  const rows = new Map<string, GuidanceStudentRow>();
+
+  for (const student of guidanceStudents) {
+    const support = supportById.get(student.id);
+    rows.set(student.id, {
+      studentId: student.id,
+      studentName: student.fullName,
+      className: student.className,
+      schoolNumber: student.schoolNumber,
+      observationCount: support?.observationCount ?? 0,
+      riskCount: support?.riskCount ?? 0,
+      noteCount: noteCountById.get(student.id) ?? 0,
+      planCount: planCountById.get(student.id) ?? 0,
+      lastCategory: support?.lastCategory ?? null,
+      lastSeenAt: support?.lastSeenAt ?? null,
+      status: support?.status ?? "untracked"
+    });
+  }
+
+  for (const support of supports) {
+    if (rows.has(support.studentId)) {
+      continue;
+    }
+    rows.set(support.studentId, {
+      studentId: support.studentId,
+      studentName: support.studentName,
+      className: support.className,
+      schoolNumber: "",
+      observationCount: support.observationCount,
+      riskCount: support.riskCount,
+      noteCount: noteCountById.get(support.studentId) ?? 0,
+      planCount: planCountById.get(support.studentId) ?? 0,
+      lastCategory: support.lastCategory,
+      lastSeenAt: support.lastSeenAt,
+      status: support.status
+    });
+  }
+
+  return [...rows.values()].sort(
+    (a, b) =>
+      statusRank(b.status) - statusRank(a.status) ||
+      b.riskCount - a.riskCount ||
+      b.observationCount - a.observationCount ||
+      a.studentName.localeCompare(b.studentName, "tr")
+  );
+}
+
+export function riskLevelBadgeClass(level: string) {
+  if (level === "high") {
+    return "guidance-data-badge guidance-data-badge--rose";
+  }
+  if (level === "medium") {
+    return "guidance-data-badge guidance-data-badge--amber";
+  }
+  return "guidance-data-badge guidance-data-badge--emerald";
+}
+
+export function studentStatusBadgeClass(status: GuidanceStudentRow["status"]) {
+  if (status === "review") {
+    return "guidance-data-badge guidance-data-badge--amber";
+  }
+  if (status === "monitoring") {
+    return "guidance-data-badge guidance-data-badge--violet";
+  }
+  if (status === "stable") {
+    return "guidance-data-badge guidance-data-badge--emerald";
+  }
+  return "guidance-data-badge guidance-data-badge--slate";
+}
+
+function statusRank(status: GuidanceStudentRow["status"]) {
+  if (status === "review") {
+    return 4;
+  }
+  if (status === "monitoring") {
+    return 3;
+  }
+  if (status === "stable") {
+    return 2;
+  }
+  return 1;
 }
 
 export function formatGuidanceDate(value: string) {

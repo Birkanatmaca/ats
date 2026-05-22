@@ -1,4 +1,6 @@
-import { GraduationCap, Loader2, LogOut, ServerCog } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { AppBrand } from "../components/AppBrand";
+import { NavbarUserMenu, SidebarFooter } from "../components/ShellChrome";
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import type { AuthSession, SystemStatus } from "../lib/api";
@@ -82,28 +84,10 @@ export function SuperAdminConsole({
     <div className="admin-shell super-admin-app">
       <header className="admin-navbar">
         <div className="navbar-brand">
-          <div className="admin-mark">
-            <GraduationCap size={22} />
-          </div>
-          <div>
-            <strong>ÖTS</strong>
-            <span>Platform Admin</span>
-          </div>
+          <AppBrand />
         </div>
 
-        <div className="navbar-actions">
-          <div className="navbar-profile" aria-label="Profil">
-            <div className="profile-avatar">{session.principal.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
-            <div className="navbar-profile-text">
-              <strong>{session.principal.name}</strong>
-              <span>{session.principal.email}</span>
-            </div>
-          </div>
-          <button className="ghost-action navbar-logout" type="button" onClick={onLogout}>
-            <LogOut size={17} />
-            Çıkış
-          </button>
-        </div>
+        <NavbarUserMenu name={session.principal.name} meta={session.principal.email ?? "Sistem yöneticisi"} showNotifications={false} />
       </header>
 
       <aside className="admin-sidebar">
@@ -116,13 +100,7 @@ export function SuperAdminConsole({
           ))}
         </nav>
 
-        <div className="developer-note">
-          <ServerCog size={18} />
-          <div>
-            <strong>Yazılımcı alanı</strong>
-            <span>Tenant, rol, log ve modül denetimi.</span>
-          </div>
-        </div>
+        <SidebarFooter tenantName="OGTA Platform" tenantSubtitle="Sistem yönetimi" onLogout={onLogout} />
       </aside>
 
       <main className={`admin-workspace ${activeTab}-workspace`}>

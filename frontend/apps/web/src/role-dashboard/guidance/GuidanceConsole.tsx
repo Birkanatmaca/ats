@@ -1,12 +1,16 @@
-import { AlertTriangle, Bell, GraduationCap, HeartHandshake, Home, LifeBuoy, Loader2, LogOut, NotebookTabs, School, UsersRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Bell, FileText, HeartHandshake, Home, LifeBuoy, Loader2, Megaphone, NotebookTabs, UserCircle, UsersRound } from "lucide-react";
+import { AppBrand } from "../../components/AppBrand";
+import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
-import type { AuthSession } from "../../lib/api";
+import type { AuthSession, GuidanceNote, GuidanceStudent, GuidanceSupportPlan } from "../../lib/api";
 import { api } from "../../lib/api";
-import { NotificationBell } from "../components/NotificationBell";
-import { SupportContactForm } from "../../pages/SupportContactForm";
+import { ProfilePage } from "../pages/ProfilePage";
+import { RoleNotificationsPage } from "../pages/RoleNotificationsPage";
+import { RoleSupportPage } from "../pages/RoleSupportPage";
 import { GuidanceAnnouncementsPage } from "./pages/GuidanceAnnouncementsPage";
+import { GuidanceNotesPage } from "./pages/GuidanceNotesPage";
 import { GuidanceObservationsPage } from "./pages/GuidanceObservationsPage";
 import { GuidanceOverviewPage } from "./pages/GuidanceOverviewPage";
 import { GuidancePlansPage } from "./pages/GuidancePlansPage";
@@ -19,83 +23,98 @@ import "./GuidanceConsole.css";
 
 const guidanceTabs = [
   { id: "overview", label: "Genel", icon: <Home size={18} /> },
-  { id: "observations", label: "Gözlemler", icon: <NotebookTabs size={18} /> },
+  { id: "observations", label: "Öğretmen gözlemleri", icon: <NotebookTabs size={18} /> },
+  { id: "notes", label: "Rehberlik notları", icon: <FileText size={18} /> },
   { id: "students", label: "Öğrenciler", icon: <UsersRound size={18} /> },
   { id: "risks", label: "Riskler", icon: <AlertTriangle size={18} /> },
   { id: "plans", label: "Takip", icon: <HeartHandshake size={18} /> },
-  { id: "announcements", label: "Duyurular", icon: <Bell size={18} /> },
-  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> }
+  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
+  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} /> },
+  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> },
+  { id: "profile", label: "Profil", icon: <UserCircle size={18} /> }
 ] as const;
 
 function initialGuidanceData(): GuidanceData {
-  return { observations: [], announcements: [] };
+  return { observations: [], announcements: [], guidanceNotes: [], supportPlans: [], guidanceStudents: [] };
 }
 
-export function GuidanceConsole({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
+export function GuidanceConsole({
+  session,
+  onLogout,
+  onSessionUpdate
+}: {
+  session: AuthSession;
+  onLogout: () => void;
+  onSessionUpdate: (session: AuthSession) => void;
+}) {
   const [data, setData] = useState<GuidanceData>(() => initialGuidanceData());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const location = useLocation();
   const activePath = location.pathname.replace(/^\/dashboard\/?/, "");
   const activeTab = activePath.split("/")[0] || "overview";
   const risks = useMemo(() => buildGuidanceRiskSignals(data.observations), [data.observations]);
   const students = useMemo(() => buildGuidanceStudentSupports(data.observations), [data.observations]);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const [tenant, summary, observations, announcements] = await Promise.allSettled([
+    const [tenant, summary, observations, announcements, guidanceStudents, guidanceNotes, supportPlans] = await Promise.allSettled([
       api.tenant(),
       api.dashboard(),
       api.observations(),
-      api.announcements()
+      api.announcements(),
+      api.guidanceStudents(),
+      api.guidanceNotes(),
+      api.supportPlans()
     ]);
 
     setData({
       tenant: tenant.status === "fulfilled" ? tenant.value : undefined,
       summary: summary.status === "fulfilled" ? summary.value : undefined,
       observations: observations.status === "fulfilled" ? (observations.value ?? []) : [],
-      announcements: announcements.status === "fulfilled" ? (announcements.value ?? []) : []
+      announcements: announcements.status === "fulfilled" ? (announcements.value ?? []) : [],
+      guidanceStudents: guidanceStudents.status === "fulfilled" ? (guidanceStudents.value ?? []) : [],
+      guidanceNotes: guidanceNotes.status === "fulfilled" ? (guidanceNotes.value ?? []) : [],
+      supportPlans: supportPlans.status === "fulfilled" ? (supportPlans.value ?? []) : []
     });
 
-    const failed = [tenant, summary, observations, announcements].some((result) => result.status === "rejected");
+    const failed = [tenant, summary, observations, announcements, guidanceStudents, guidanceNotes, supportPlans].some(
+      (result) => result.status === "rejected"
+    );
     if (failed) {
       setError("Bazı rehberlik verileri alınamadı; erişilebilen kayıtlar gösteriliyor.");
     }
     setLoading(false);
-  }
+  }, []);
+
+  const loadUnreadNotifications = useCallback(async () => {
+    try {
+      const items = await api.notifications();
+      setUnreadNotifications((items ?? []).filter((item) => !item.readAt).length);
+    } catch {
+      setUnreadNotifications(0);
+    }
+  }, []);
 
   useEffect(() => {
     void load();
-  }, [session.principal.userId]);
+    void loadUnreadNotifications();
+  }, [load, loadUnreadNotifications, session.principal.userId]);
 
   return (
     <div className="admin-shell principal-console guidance-console">
       <header className="admin-navbar">
         <div className="navbar-brand">
-          <div className="admin-mark">
-            <GraduationCap size={22} />
-          </div>
-          <div>
-            <strong>ÖTS</strong>
-            <span>{data.tenant?.name ?? "Rehberlik paneli"}</span>
-          </div>
+          <AppBrand />
         </div>
 
-        <div className="navbar-actions">
-          <NotificationBell />
-          <div className="navbar-profile" aria-label="Profil">
-            <div className="profile-avatar">{session.principal.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
-            <div className="navbar-profile-text">
-              <strong>{session.principal.name}</strong>
-              <span>{roleLabel(session.principal.role)}</span>
-            </div>
-          </div>
-          <button className="ghost-action navbar-logout" type="button" onClick={onLogout}>
-            <LogOut size={17} />
-            Çıkış
-          </button>
-        </div>
+        <NavbarUserMenu
+          name={session.principal.name}
+          meta={roleLabel(session.principal.role)}
+          onUnreadNotificationsChange={setUnreadNotifications}
+        />
       </header>
 
       <aside className="admin-sidebar">
@@ -104,17 +123,14 @@ export function GuidanceConsole({ session, onLogout }: { session: AuthSession; o
             <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/dashboard/${tab.id}`}>
               {tab.icon}
               <span>{tab.label}</span>
+              {tab.id === "notifications" && unreadNotifications > 0 ? (
+                <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
+              ) : null}
             </NavLink>
           ))}
         </nav>
 
-        <div className="developer-note">
-          <School size={18} />
-          <div>
-            <strong>Rehberlik görünümü</strong>
-            <span>Gözlem, risk ve destek takibi.</span>
-          </div>
-        </div>
+        <SidebarFooter tenantName={data.tenant?.name ?? "Kurum"} onLogout={onLogout} />
       </aside>
 
       <main className={`admin-workspace guidance-workspace ${activeTab}-workspace`}>
@@ -129,13 +145,34 @@ export function GuidanceConsole({ session, onLogout }: { session: AuthSession; o
 
           <Routes>
             <Route index element={<Navigate to="overview" replace />} />
-            <Route path="overview" element={<GuidanceOverviewPage data={data} risks={risks} students={students} />} />
+            <Route
+              path="overview"
+              element={
+                <GuidanceOverviewPage data={data} risks={risks} students={students} notes={data.guidanceNotes} plans={data.supportPlans} />
+              }
+            />
             <Route path="observations" element={<GuidanceObservationsPage observations={data.observations} />} />
-            <Route path="students" element={<GuidanceStudentsPage students={students} />} />
+            <Route path="notes" element={<GuidanceNotesPage students={data.guidanceStudents} notes={data.guidanceNotes} onReload={() => void load()} />} />
+            <Route
+              path="students"
+              element={
+                <GuidanceStudentsPage
+                  students={students}
+                  guidanceStudents={data.guidanceStudents}
+                  notes={data.guidanceNotes}
+                  plans={data.supportPlans}
+                />
+              }
+            />
             <Route path="risks" element={<GuidanceRisksPage risks={risks} />} />
-            <Route path="plans" element={<GuidancePlansPage />} />
+            <Route
+              path="plans"
+              element={<GuidancePlansPage students={data.guidanceStudents} plans={data.supportPlans} onReload={() => void load()} />}
+            />
             <Route path="announcements" element={<GuidanceAnnouncementsPage data={data} />} />
-            <Route path="support" element={<SupportContactForm session={session} />} />
+            <Route path="notifications" element={<RoleNotificationsPage onUnreadChange={setUnreadNotifications} />} />
+            <Route path="support" element={<RoleSupportPage session={session} />} />
+            <Route path="profile" element={<ProfilePage session={session} onSessionUpdate={onSessionUpdate} />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Routes>
         </div>

@@ -1,6 +1,7 @@
 import { AlertTriangle, ClipboardCheck, GraduationCap, UsersRound } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { CSSProperties } from "react";
 import type { PrincipalConsoleData } from "../types";
 
 export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) {
@@ -9,13 +10,12 @@ export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) 
   const attendancePct = Math.max(0, Math.min(100, summary?.attendanceCompletionPct ?? 0));
   const absenteePct = summary?.activeStudents ? Math.min(100, Math.round(((summary.absentToday ?? 0) / summary.activeStudents) * 100)) : 0;
   const riskPct = summary?.activeStudents ? Math.min(100, Math.round(((summary.openObservationSignals ?? 0) / summary.activeStudents) * 100)) : 0;
-  const classesNeedingAttention = (summary?.classAttendance ?? []).filter(
-    (item) => item.attentionNeed === "Yoklama bekliyor" || item.attentionNeed === "Devamsızlık"
-  );
-  const completionVsMissing = [
-    { name: "Tamamlanan", value: attendancePct },
-    { name: "Eksik", value: 100 - attendancePct }
-  ];
+  const activeStudents = summary?.activeStudents ?? 0;
+  const hasAttendanceToday = attendancePct > 0;
+  const participationPct =
+    activeStudents > 0 && hasAttendanceToday
+      ? Math.max(0, Math.min(100, Math.round(((activeStudents - Math.min(summary?.absentToday ?? 0, activeStudents)) / activeStudents) * 100)))
+      : 0;
   const classAbsenceData = (summary?.classAttendance ?? []).map((item) => ({
     name: item.className,
     absent: item.absent,
@@ -25,7 +25,7 @@ export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) 
     name: item.title.length > 18 ? `${item.title.slice(0, 16)}..` : item.title,
     score: item.priority === "urgent" ? 100 : item.priority === "high" ? 80 : item.priority === "normal" ? 55 : 35
   }));
-  const ringStyle = (value: number) => ({ ["--principal-ring" as string]: `${value}%` });
+  const ringStyle = (value: number): CSSProperties & { "--principal-ring": string } => ({ "--principal-ring": `${value}%` });
 
   return (
     <section className="principal-page-stack">
@@ -38,32 +38,6 @@ export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) 
           </div>
           <NavLink className="primary-action small-action" to="/dashboard/schedule/builder">
             Program oluştur
-          </NavLink>
-        </div>
-      ) : null}
-
-      {attendancePct < 100 && (summary?.todayLessons ?? 0) > 0 ? (
-        <div className="principal-alert-banner principal-alert-banner--amber">
-          <ClipboardCheck size={18} aria-hidden />
-          <div>
-            <strong>Bugünkü yoklama tamamlanma: %{attendancePct}</strong>
-            <p>{summary?.todayLessons ?? 0} dersten finalize edilen kayıtlar henüz tamamlanmadı.</p>
-          </div>
-          <NavLink className="ghost-action" to="/dashboard/attendance">
-            Raporu aç
-          </NavLink>
-        </div>
-      ) : null}
-
-      {classesNeedingAttention.length > 0 ? (
-        <div className="principal-alert-banner principal-alert-banner--risk">
-          <AlertTriangle size={18} aria-hidden />
-          <div>
-            <strong>{classesNeedingAttention.length} sınıf dikkat gerektiriyor</strong>
-            <p>{classesNeedingAttention.map((item) => item.className).join(", ")}</p>
-          </div>
-          <NavLink className="ghost-action" to="/dashboard/operations">
-            Operasyonlar
           </NavLink>
         </div>
       ) : null}
@@ -100,12 +74,12 @@ export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) 
       </div>
 
       <div className="principal-visual-grid">
-        <article className="principal-surface-card">
+        <article className="principal-surface-card principal-surface-card--visual">
           <div className="principal-card-head">
             <h2>Dairesel performans göstergeleri</h2>
             <p>Yoklama, devamsızlık ve risk oranını anlık takip et.</p>
           </div>
-          <div className="principal-ring-grid">
+          <div className="principal-ring-grid principal-ring-grid--fit">
             <div className="principal-ring-wrap">
               <div className="principal-ring" style={ringStyle(attendancePct)}>
                 <strong>%{attendancePct}</strong>
@@ -127,21 +101,28 @@ export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) 
           </div>
         </article>
 
-        <article className="principal-surface-card">
+        <article className="principal-surface-card principal-surface-card--visual">
           <div className="principal-card-head">
             <h2>Yoklama dağılımı</h2>
-            <p>Tamamlanan ve eksik kayıt oranı.</p>
+            <p>Okul genelinde bugünkü öğrenci katılım oranı.</p>
           </div>
-          <div className="principal-chart-frame">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={completionVsMissing} dataKey="value" nameKey="name" innerRadius={48} outerRadius={76} paddingAngle={3}>
-                  <Cell fill="#f9a51b" />
-                  <Cell fill="#dbdbd9" />
-                </Pie>
-                <Tooltip formatter={(value: number) => [`%${value}`, "Oran"]} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="principal-participation-panel">
+            <div className="principal-participation-ring-wrap">
+              <div
+                className={`principal-participation-ring${hasAttendanceToday ? "" : " principal-participation-ring--empty"}`}
+                style={ringStyle(participationPct)}
+                role="img"
+                aria-label={`Katılım yüzdesi: %${participationPct}`}
+              >
+                <strong>%{participationPct}</strong>
+                <span>Katılım</span>
+              </div>
+              <p className="principal-participation-caption">
+                {hasAttendanceToday
+                  ? `${activeStudents - Math.min(summary?.absentToday ?? 0, activeStudents)} / ${activeStudents} öğrenci bugün okulda`
+                  : "Yoklama alındıkça katılım oranı burada görünür."}
+              </p>
+            </div>
           </div>
         </article>
       </div>

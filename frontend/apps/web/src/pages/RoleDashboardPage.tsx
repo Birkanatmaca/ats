@@ -8,25 +8,33 @@ import { TeacherConsole } from "../role-dashboard/teacher/TeacherConsole";
 import type { AuthSession } from "../lib/api";
 import { ForbiddenPage } from "./ForbiddenPage";
 
-export function RoleDashboardPage({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
+export function RoleDashboardPage({
+  session,
+  onLogout,
+  onSessionUpdate
+}: {
+  session: AuthSession;
+  onLogout: () => void;
+  onSessionUpdate: (session: AuthSession) => void;
+}) {
   const location = useLocation();
   if (isDashboardPathForbidden(session.principal.role, location.pathname)) {
     return <ForbiddenPage session={session} />;
   }
   if (session.principal.role === "principal" || session.principal.role === "system_admin") {
-    return <PrincipalConsole session={session} onLogout={onLogout} />;
+    return <PrincipalConsole session={session} onLogout={onLogout} onSessionUpdate={onSessionUpdate} />;
   }
 
   if (session.principal.role === "teacher") {
-    return <TeacherConsole session={session} onLogout={onLogout} />;
+    return <TeacherConsole session={session} onLogout={onLogout} onSessionUpdate={onSessionUpdate} />;
   }
 
   if (session.principal.role === "guardian") {
-    return <GuardianConsole session={session} onLogout={onLogout} />;
+    return <GuardianConsole session={session} onLogout={onLogout} onSessionUpdate={onSessionUpdate} />;
   }
 
   if (session.principal.role === "guidance") {
-    return <GuidanceConsole session={session} onLogout={onLogout} />;
+    return <GuidanceConsole session={session} onLogout={onLogout} onSessionUpdate={onSessionUpdate} />;
   }
 
   return <RoleDashboardShell session={session} onLogout={onLogout} />;

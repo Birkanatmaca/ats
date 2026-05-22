@@ -1,0 +1,273 @@
+/* Öğretmen — Genel (rehberlik Genel ile aynı dil) */
+
+.teacher-overview-page {
+  gap: 20px;
+}
+
+.teacher-overview-page.guidance-surface-page .guidance-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.teacher-overview-page .teacher-bento {
+  display: grid;
+  gap: 16px;
+}
+
+.teacher-overview-page .teacher-bento--primary {
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+}
+
+.teacher-overview-page .teacher-bento--secondary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Yoklama paneli — grafik + aksiyon */
+.teacher-attendance-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.teacher-attendance-panel-body {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  align-items: center;
+}
+
+.teacher-attendance-ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.teacher-attendance-ring {
+  width: 76px;
+  height: 76px;
+  transform: rotate(-90deg);
+}
+
+.teacher-attendance-ring-bg {
+  fill: none;
+  stroke: #e2e8f0;
+  stroke-width: 8;
+}
+
+.teacher-attendance-ring-fg {
+  fill: none;
+  stroke: #0e7490;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.35s ease;
+}
+
+.teacher-attendance-ring-label {
+  transform: rotate(90deg);
+  transform-origin: 44px 44px;
+  font-size: 15px;
+  font-weight: 700;
+  fill: #0f172a;
+  text-anchor: middle;
+}
+
+.teacher-attendance-ring-caption {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
+}
+
+.teacher-attendance-copy strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.teacher-attendance-copy span {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.teacher-attendance-copy .status-badge {
+  margin-top: 10px;
+}
+
+.teacher-attendance-panel-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 14px 14px;
+}
+
+.teacher-attendance-panel-actions .primary-action {
+  width: 100%;
+  justify-content: center;
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.teacher-attendance-panel-actions .ghost-action {
+  min-height: 38px;
+  font-size: 12px;
+}
+
+.teacher-attendance-panel .form-success,
+.teacher-attendance-panel .form-error {
+  margin: 0 14px 10px;
+}
+
+/* Ders seçimi — satır tıklama (dropdown yok) */
+.teacher-lesson-pick-list {
+  display: grid;
+  gap: 0;
+}
+
+.teacher-lesson-pick-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.teacher-lesson-pick-row:last-child {
+  border-bottom: none;
+}
+
+.teacher-lesson-pick-row:hover {
+  background: #f8fafc;
+}
+
+.teacher-lesson-pick-row.is-active {
+  background: #ecfeff;
+}
+
+.teacher-lesson-pick-row.is-selected {
+  background: #f0fdfa;
+  box-shadow: inset 3px 0 0 #0e7490;
+}
+
+.teacher-lesson-pick-row.is-active.is-selected {
+  background: #e0f2fe;
+}
+
+.teacher-lesson-pick-time {
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.teacher-lesson-pick-time strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.teacher-lesson-pick-time span {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.teacher-lesson-pick-main strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.teacher-lesson-pick-main span {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.teacher-lesson-pick-hint {
+  margin: 0;
+  padding: 10px 16px 0;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.teacher-alert-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  font-size: 13px;
+}
+
+.teacher-alert-banner strong {
+  display: block;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.teacher-alert-banner p {
+  margin: 4px 0 0;
+  color: #a16207;
+  font-size: 12px;
+}
+
+/* Genel sayfa listeleri — rehberlik satır stili */
+.teacher-overview-page .guidance-observation-list,
+.teacher-overview-page .guidance-announcement-list {
+  gap: 0;
+}
+
+@media (max-width: 1100px) {
+  .teacher-overview-page.guidance-surface-page .guidance-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .teacher-overview-page .teacher-bento--primary,
+  .teacher-overview-page .teacher-bento--secondary {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-attendance-panel-body {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .teacher-attendance-copy .status-badge {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 520px) {
+  .teacher-overview-page.guidance-surface-page .guidance-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-lesson-pick-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}

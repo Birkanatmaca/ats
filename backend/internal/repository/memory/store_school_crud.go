@@ -114,6 +114,20 @@ func (s *Store) ListStudents(_ context.Context, tenantID string) ([]school.Princ
 	return out, nil
 }
 
+func (s *Store) ListStudentsForTeacher(ctx context.Context, tenantID, teacherUserID string) ([]school.PrincipalRosterStudent, error) {
+	all, err := s.ListStudents(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]school.PrincipalRosterStudent, 0, len(all))
+	for _, student := range all {
+		if s.TeacherCanObserveStudent(ctx, tenantID, teacherUserID, student.ID) {
+			out = append(out, student)
+		}
+	}
+	return out, nil
+}
+
 func (s *Store) CreateStudent(_ context.Context, tenantID string, input school.CreateStudentInput) (school.PrincipalRosterStudent, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -9,6 +9,21 @@ export type Principal = {
   mustChangePassword: boolean;
 };
 
+export type UserProfile = {
+  id: string;
+  tenantId: string;
+  tenant?: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  role: Role;
+  status: string;
+  avatarUrl?: string;
+  profileAccent?: string;
+  mustChangePassword: boolean;
+  createdAt: string;
+};
+
 export type AuthSession = {
   accessToken: string;
   refreshToken: string;
@@ -75,6 +90,9 @@ export type GuardianAttendanceRecord = {
   lesson: string;
   status: AttendanceRecord["status"];
   note?: string;
+  startTime?: string;
+  endTime?: string;
+  dayOfWeek?: number;
 };
 
 export type GuardianNotification = {
@@ -275,6 +293,49 @@ export type Observation = {
   createdAt: string;
 };
 
+export type GuidanceStudent = {
+  id: string;
+  schoolNumber: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  classId: string;
+  className: string;
+  status: string;
+};
+
+export type GuidanceNote = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  authorId: string;
+  authorName: string;
+  noteType: string;
+  title: string;
+  body: string;
+  sensitivity: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GuidanceSupportPlan = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  ownerId: string;
+  ownerName: string;
+  title: string;
+  description: string;
+  status: "open" | "monitoring" | "closed";
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PrincipalSchoolRoster = {
   classes: Array<{ id: string; name: string; createdAt: string }>;
   sections: Array<{
@@ -427,8 +488,11 @@ export type UserAccount = {
   tenant: string;
   fullName: string;
   email: string;
+  phone?: string;
   role: string;
   status: string;
+  avatarUrl?: string;
+  profileAccent?: string;
   mustChangePassword: boolean;
   createdAt: string;
 };
@@ -649,10 +713,31 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
+  supportTickets: () => request<SupportTicket[] | null>("/api/v1/support/tickets").then(asArray),
   createSupportTicket: (payload: { type: string; subject: string; message: string }) =>
     request<SupportTicket>("/api/v1/support/tickets", {
       method: "POST",
       body: JSON.stringify(payload)
+    }),
+  profile: () => request<UserProfile>("/api/v1/profile"),
+  updateProfile: (payload: { avatarUrl?: string | null; profileAccent?: string }) =>
+    request<UserProfile>("/api/v1/profile", { method: "PATCH", body: JSON.stringify(payload) }),
+  principalUsers: () => request<UserAccount[] | null>("/api/v1/principal/users").then(asArray),
+  updatePrincipalUser: (
+    userId: string,
+    payload: {
+      email: string;
+      fullName: string;
+      phone?: string;
+      role: string;
+      status: string;
+      avatarUrl?: string;
+      profileAccent?: string;
+    }
+  ) =>
+    request<UserAccount>(`/api/v1/principal/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ ...payload, tenantId: "" })
     }),
   principalTeachers: () => request<UserAccount[] | null>("/api/v1/principal/teachers").then(asArray),
   principalRoster: () =>
@@ -672,6 +757,7 @@ export const api = {
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
   teacherCalendar: () => request<Lesson[] | null>("/api/v1/teachers/me/calendar").then(asArray),
+  teacherStudents: () => request<SchoolStudentRecord[] | null>("/api/v1/teachers/me/students").then(asArray),
   currentLesson: () => request<CurrentLesson>("/api/v1/attendance/current-lesson"),
   announcements: () => request<Announcement[] | null>("/api/v1/announcements").then(asArray),
   observations: () => request<Observation[] | null>("/api/v1/observations").then(asArray),
@@ -680,6 +766,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ lessonId })
     }),
+  getAttendanceSessionByLesson: (lessonId: string) =>
+    request<AttendanceSession>(`/api/v1/attendance/sessions/by-lesson/${lessonId}`),
   getAttendanceSession: (sessionId: string) => request<AttendanceSession>(`/api/v1/attendance/sessions/${sessionId}`),
   attendanceToday: (date?: string) =>
     request<AttendanceDayReport>(`/api/v1/dashboard/attendance/today${date ? `?date=${encodeURIComponent(date)}` : ""}`),
@@ -696,6 +784,11 @@ export const api = {
     }),
   finalizeAttendanceSession: (sessionId: string) =>
     request<AttendanceSession>(`/api/v1/attendance/sessions/${sessionId}/finalize`, {
+      method: "POST",
+      body: "{}"
+    }),
+  reopenAttendanceSession: (sessionId: string) =>
+    request<AttendanceSession>(`/api/v1/attendance/sessions/${sessionId}/reopen`, {
       method: "POST",
       body: "{}"
     }),
@@ -920,5 +1013,47 @@ export const api = {
     }
     const suffix = query.toString() ? `?${query.toString()}` : "";
     return request<Observation[] | null>(`/api/v1/observations${suffix}`).then(asArray);
-  }
+  },
+  guidanceStudents: () => request<GuidanceStudent[] | null>("/api/v1/guidance/students").then(asArray),
+  guidanceNotes: (studentId?: string) => {
+    const suffix = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
+    return request<GuidanceNote[] | null>(`/api/v1/guidance/notes${suffix}`).then(asArray);
+  },
+  createGuidanceNote: (payload: { studentId: string; noteType: string; title: string; body: string }) =>
+    request<GuidanceNote>("/api/v1/guidance/notes", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateGuidanceNote: (noteId: string, payload: { noteType?: string; title?: string; body?: string }) =>
+    request<GuidanceNote>(`/api/v1/guidance/notes/${noteId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  deleteGuidanceNote: (noteId: string) =>
+    request<void>(`/api/v1/guidance/notes/${noteId}`, { method: "DELETE" }),
+  supportPlans: (studentId?: string) => {
+    const suffix = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
+    return request<GuidanceSupportPlan[] | null>(`/api/v1/guidance/support-plans${suffix}`).then(asArray);
+  },
+  createSupportPlan: (payload: {
+    studentId: string;
+    title: string;
+    description?: string;
+    status?: string;
+    dueDate?: string;
+  }) =>
+    request<GuidanceSupportPlan>("/api/v1/guidance/support-plans", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateSupportPlan: (
+    planId: string,
+    payload: { title?: string; description?: string; status?: string; dueDate?: string }
+  ) =>
+    request<GuidanceSupportPlan>(`/api/v1/guidance/support-plans/${planId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  deleteSupportPlan: (planId: string) =>
+    request<void>(`/api/v1/guidance/support-plans/${planId}`, { method: "DELETE" })
 };

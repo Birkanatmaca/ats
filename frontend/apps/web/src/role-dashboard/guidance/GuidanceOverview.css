@@ -1,0 +1,247 @@
+/* Rehberlik — Genel bakış panelleri (KPI: GuidanceSurface.css) */
+
+.guidance-overview-page {
+  gap: 20px;
+}
+
+/* Bento paneller */
+.guidance-overview-page .guidance-bento {
+  display: grid;
+  gap: 16px;
+}
+
+.guidance-overview-page .guidance-bento--primary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.guidance-overview-page .guidance-bento--secondary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.guidance-overview-page .guidance-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 1px solid var(--go-card-border);
+  border-radius: 12px;
+  background: var(--go-card-bg);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.guidance-overview-page .guidance-panel:hover {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.guidance-overview-page .guidance-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #fafbfc;
+}
+
+.guidance-overview-page .guidance-panel-head h2 {
+  margin: 0;
+  flex: 1;
+  padding-left: 0;
+  font-family: var(--go-font);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--go-text);
+}
+
+.guidance-overview-page .guidance-panel-head h2::before {
+  display: none;
+}
+
+.guidance-overview-page .guidance-panel-link {
+  padding: 0;
+  font-family: var(--go-font);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--go-accent);
+  text-decoration: none;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.guidance-overview-page .guidance-panel-link::after {
+  content: " →";
+  font-size: 13px;
+}
+
+.guidance-overview-page .guidance-panel-link:hover {
+  color: #155e75;
+  background: transparent;
+  transform: none;
+}
+
+.guidance-overview-page .guidance-panel-badge {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--go-accent);
+  background: var(--go-accent-soft);
+  border: 1px solid #a5f3fc;
+  border-radius: 6px;
+}
+
+.guidance-overview-page .guidance-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+/* Liste satırları */
+.guidance-overview-page .guidance-observation-list,
+.guidance-overview-page .guidance-risk-list,
+.guidance-overview-page .guidance-student-list,
+.guidance-overview-page .guidance-plan-list,
+.guidance-overview-page .guidance-announcement-list,
+.guidance-overview-page .guidance-note-list {
+  gap: 0;
+}
+
+.guidance-overview-page .guidance-observation-row,
+.guidance-overview-page .guidance-announcement-row,
+.guidance-overview-page .guidance-risk-row,
+.guidance-overview-page .guidance-student-row,
+.guidance-overview-page .guidance-plan-row,
+.guidance-overview-page .guidance-note-row {
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+  transition: background 0.12s ease;
+}
+
+.guidance-overview-page .guidance-observation-row::before,
+.guidance-overview-page .guidance-announcement-row::before {
+  display: none;
+}
+
+.guidance-overview-page .guidance-observation-row:last-child,
+.guidance-overview-page .guidance-announcement-row:last-child,
+.guidance-overview-page .guidance-risk-row:last-child,
+.guidance-overview-page .guidance-student-row:last-child,
+.guidance-overview-page .guidance-plan-row:last-child,
+.guidance-overview-page .guidance-note-row:last-child {
+  border-bottom: none;
+}
+
+.guidance-overview-page .guidance-observation-row:hover,
+.guidance-overview-page .guidance-announcement-row:hover,
+.guidance-overview-page .guidance-risk-row:hover,
+.guidance-overview-page .guidance-student-row:hover,
+.guidance-overview-page .guidance-plan-row:hover,
+.guidance-overview-page .guidance-note-row:hover {
+  background: #f8fafc;
+  transform: none;
+  border-color: #f1f5f9;
+}
+
+.guidance-overview-page .guidance-risk-row {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.guidance-overview-page .guidance-risk-row--high,
+.guidance-overview-page .guidance-risk-row--medium,
+.guidance-overview-page .guidance-risk-row--low {
+  background: #fff;
+}
+
+.guidance-overview-page .guidance-risk-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: var(--go-muted);
+}
+
+.guidance-overview-page .guidance-risk-row--high .guidance-risk-icon {
+  color: #be123c;
+  background: #fff1f2;
+}
+
+.guidance-overview-page .guidance-risk-row--medium .guidance-risk-icon {
+  color: #b45309;
+  background: #fffbeb;
+}
+
+.guidance-overview-page .guidance-risk-row--low .guidance-risk-icon {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.guidance-overview-page .guidance-risk-row small {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  background: #f1f5f9;
+  border: none;
+}
+
+.guidance-overview-page .guidance-risk-row--high small {
+  color: #be123c;
+  background: #fff1f2;
+}
+
+.guidance-overview-page .guidance-observation-row strong,
+.guidance-overview-page .guidance-risk-row strong,
+.guidance-overview-page .guidance-student-row strong,
+.guidance-overview-page .guidance-plan-row strong,
+.guidance-overview-page .guidance-announcement-row strong,
+.guidance-overview-page .guidance-note-row strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--go-text);
+}
+
+.guidance-overview-page .guidance-observation-row span,
+.guidance-overview-page .guidance-risk-row span,
+.guidance-overview-page .guidance-student-row span,
+.guidance-overview-page .guidance-plan-row span,
+.guidance-overview-page .guidance-announcement-row span,
+.guidance-overview-page .guidance-note-row span {
+  font-size: 12px;
+  color: var(--go-muted);
+}
+
+.guidance-overview-page .guidance-observation-row p,
+.guidance-overview-page .guidance-risk-row p,
+.guidance-overview-page .guidance-announcement-row p,
+.guidance-overview-page .guidance-note-row p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.guidance-overview-page .guidance-empty-pad {
+  margin: 12px 16px;
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--go-muted);
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+  .guidance-overview-page .guidance-bento--primary,
+  .guidance-overview-page .guidance-bento--secondary {
+    grid-template-columns: 1fr;
+  }
+}
+

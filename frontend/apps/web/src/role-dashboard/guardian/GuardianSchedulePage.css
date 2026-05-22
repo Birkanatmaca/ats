@@ -1,0 +1,116 @@
+.guardian-schedule-page {
+  gap: 20px;
+}
+
+.guardian-schedule-page.guidance-surface-page .guidance-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.guardian-schedule-card-head {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.guardian-schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.guardian-schedule-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.guardian-schedule-print-header {
+  display: none;
+}
+
+.guardian-schedule-list-wrap .guardian-lesson-list {
+  gap: 0;
+}
+
+.guardian-schedule-list-wrap .guardian-lesson-row {
+  padding: 12px 16px;
+  margin: 0;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
+}
+
+.guardian-schedule-list-wrap .guardian-lesson-row:last-child {
+  border-bottom: none;
+}
+
+@media (max-width: 1100px) {
+  .guardian-schedule-page.guidance-surface-page .guidance-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .guardian-schedule-card-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .guardian-schedule-actions {
+    margin-left: 0;
+    justify-content: space-between;
+  }
+
+  .guardian-schedule-page.guidance-surface-page .guidance-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #guardian-schedule-print-area,
+  #guardian-schedule-print-area * {
+    visibility: visible;
+  }
+
+  #guardian-schedule-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+  }
+
+  .guardian-schedule-print-header {
+    display: block;
+    padding: 0 16px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+  }
+
+  .guardian-schedule-print-header strong {
+    display: block;
+    font-size: 18px;
+    color: #0f172a;
+  }
+
+  .guardian-schedule-print-header span {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: #64748b;
+  }
+
+  .guardian-schedule-card-head,
+  .guardian-schedule-actions {
+    display: none !important;
+  }
+}

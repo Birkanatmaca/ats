@@ -1,35 +1,58 @@
 import {
   AlertCircle,
   Bell,
+  Megaphone,
   CalendarDays,
   CheckCircle2,
-  ChevronRight,
   ClipboardCheck,
   Clock3,
-  GraduationCap,
   Home,
   LifeBuoy,
   Loader2,
-  LogOut,
   MessageSquareText,
   NotebookPen,
-  School,
+  Plus,
+  Search,
   UserCheck,
+  UserCircle,
+  UsersRound,
   XCircle
 } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { AppBrand } from "../../components/AppBrand";
+import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
 import { roleLabel } from "../../admin/utils/labels";
 import type { Announcement, AttendanceRecord, AttendanceSession, AuthSession, Lesson, Observation } from "../../lib/api";
 import { api } from "../../lib/api";
-import { NotificationBell } from "../components/NotificationBell";
-import { SupportContactForm } from "../../pages/SupportContactForm";
+import { ProfilePage } from "../pages/ProfilePage";
+import { RoleAnnouncementsPage } from "../pages/RoleAnnouncementsPage";
+import { RoleNotificationsPage } from "../pages/RoleNotificationsPage";
+import { RoleSupportPage } from "../pages/RoleSupportPage";
+import { TablePagination } from "../components/TablePagination";
+import { usePaginatedRows } from "../hooks/usePaginatedRows";
 import { observationCategories } from "../data";
 import type { DashboardData } from "../types";
-import { attendanceLabel, categoryLabel } from "../utils";
+import { categoryLabel } from "../utils";
+import { GuidanceAnnouncementList } from "../guidance/components/GuidanceAnnouncementList";
+import { GuidanceKpiCard } from "../guidance/components/GuidanceKpiCard";
+import { GuidanceMetricGrid } from "../guidance/components/GuidanceMetricGrid";
+import { GuidanceObservationList } from "../guidance/components/GuidanceObservationList";
+import { GuidanceSectionPanel } from "../guidance/components/GuidanceSectionPanel";
+import "../guidance/GuidanceDataPage.css";
+import "../guidance/GuidanceConsole.css";
+import "../guidance/GuidanceOverview.css";
+import "../guidance/GuidanceSurface.css";
+import { TeacherAttendanceRing } from "./components/TeacherAttendanceRing";
+import { TeacherAttendancePage } from "./pages/TeacherAttendancePage";
+import { TeacherLessonsPage } from "./pages/TeacherLessonsPage";
+import { isLessonInAttendanceWindow } from "./utils/lessonSchedule";
 import "../../styles/super-admin-app.css";
+import "./TeacherOverview.css";
 import "./TeacherConsole.css";
+
+const OBSERVATION_PAGE_SIZE = 12;
 
 type AttendanceStatus = AttendanceRecord["status"];
 
@@ -38,8 +61,10 @@ const teacherTabs = [
   { id: "lessons", label: "Derslerim", icon: <CalendarDays size={18} /> },
   { id: "attendance", label: "Yoklama", icon: <ClipboardCheck size={18} /> },
   { id: "observations", label: "Gözlemler", icon: <NotebookPen size={18} /> },
-  { id: "announcements", label: "Duyurular", icon: <Bell size={18} /> },
-  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> }
+  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
+  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} /> },
+  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> },
+  { id: "profile", label: "Profil", icon: <UserCircle size={18} /> }
 ] as const;
 
 const attendanceStatuses: Array<{ value: AttendanceStatus; label: string; icon: ReactNode }> = [
@@ -55,10 +80,19 @@ function initialDashboardData(): DashboardData {
   return { teacherLessons: [], announcements: [], observations: [] };
 }
 
-export function TeacherConsole({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
+export function TeacherConsole({
+  session,
+  onLogout,
+  onSessionUpdate
+}: {
+  session: AuthSession;
+  onLogout: () => void;
+  onSessionUpdate: (session: AuthSession) => void;
+}) {
   const [data, setData] = useState<DashboardData>(() => initialDashboardData());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [attendanceSession, setAttendanceSession] = useState<AttendanceSession | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceMessage, setAttendanceMessage] = useState<string | null>(null);
@@ -69,7 +103,6 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
   const [observationLoading, setObservationLoading] = useState(false);
   const [observationMessage, setObservationMessage] = useState<string | null>(null);
   const [observationError, setObservationError] = useState<string | null>(null);
-  const [selectedLessonId, setSelectedLessonId] = useState<string>("");
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -77,24 +110,11 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
   const activeTab = activePath.split("/")[0] || "overview";
   const activeLesson = data.currentLesson?.found ? data.currentLesson.lesson : undefined;
   const todayLessons = useMemo(() => sortLessons(data.teacherLessons), [data.teacherLessons]);
-  const selectedLesson =
-    todayLessons.find((lesson) => lesson.id === selectedLessonId) ?? activeLesson ?? todayLessons[0] ?? null;
-  const suggestedLesson = selectedLesson;
+  const suggestedLesson = activeLesson ?? todayLessons[0] ?? null;
   const teacherObservations = useMemo(
     () => data.observations.filter((item) => item.authorId === session.principal.userId || item.authorName === session.principal.name),
     [data.observations, session.principal.name, session.principal.userId]
   );
-
-  useEffect(() => {
-    if (todayLessons.length === 0) {
-      setSelectedLessonId("");
-      return;
-    }
-    if (!selectedLessonId || !todayLessons.some((lesson) => lesson.id === selectedLessonId)) {
-      const initial = activeLesson?.id ?? todayLessons[0]?.id ?? "";
-      setSelectedLessonId(initial);
-    }
-  }, [todayLessons, activeLesson?.id, selectedLessonId]);
 
   async function load() {
     setLoading(true);
@@ -108,7 +128,7 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
         api.currentLesson(),
         api.announcements(),
         api.observations(),
-        api.listStudents()
+        api.teacherStudents()
       ]);
 
     setData({
@@ -123,15 +143,12 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
 
     if (studentsResult.status === "fulfilled") {
       const teacherLessons = teacherLessonsResult.status === "fulfilled" ? (teacherLessonsResult.value ?? []) : [];
-      const lessonClassIds = new Set(teacherLessons.map((lesson) => lesson.classId));
       const classNameById = new Map(teacherLessons.map((lesson) => [lesson.classId, lesson.className]));
-      const mapped = (studentsResult.value ?? [])
-        .filter((student) => lessonClassIds.size === 0 || lessonClassIds.has(student.classId))
-        .map((student) => ({
-          id: student.id,
-          name: `${student.firstName} ${student.lastName}`.trim(),
-          className: classNameById.get(student.classId) ?? student.classId
-        }));
+      const mapped = (studentsResult.value ?? []).map((student) => ({
+        id: student.id,
+        name: `${student.firstName} ${student.lastName}`.trim(),
+        className: classNameById.get(student.classId) ?? (student.classId || "Sınıf")
+      }));
       setTeacherStudents(mapped);
       setObservationForm((current) => ({
         ...current,
@@ -148,9 +165,19 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
     setLoading(false);
   }
 
+  const loadUnreadNotifications = useCallback(async () => {
+    try {
+      const items = await api.notifications();
+      setUnreadNotifications((items ?? []).filter((item) => !item.readAt).length);
+    } catch {
+      setUnreadNotifications(0);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [session.principal.userId]);
+    void loadUnreadNotifications();
+  }, [session.principal.userId, loadUnreadNotifications]);
 
   const attendanceDirty = useMemo(() => {
     if (!attendanceSession || attendanceSession.finalizedAt) {
@@ -182,17 +209,52 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
       setAttendanceError("Yayınlanmış ders programında bu öğretmene atanmış ders bulunamadı.");
       return;
     }
+    if (!isLessonInAttendanceWindow(lessonToOpen)) {
+      setAttendanceError("Yoklama penceresi kapalı. Ders başlangıcından 10 dk önce ile bitişinden 10 dk sonrasına kadar erişilebilir.");
+      return;
+    }
     setAttendanceLoading(true);
     try {
-      const created = await api.createAttendanceSession(lessonToOpen.id);
-      setAttendanceSession(created);
-      setAttendanceBaseline(JSON.stringify(created.records));
-      setAttendanceMessage(`${created.className} ${created.subjectName} yoklama listesi açıldı.`);
+      let loaded: AttendanceSession;
+      try {
+        loaded = await api.getAttendanceSessionByLesson(lessonToOpen.id);
+      } catch {
+        loaded = await api.createAttendanceSession(lessonToOpen.id);
+      }
+      setAttendanceSession(loaded);
+      setAttendanceBaseline(JSON.stringify(loaded.records));
+      setAttendanceMessage(`${loaded.className} · ${loaded.subjectName} yoklama listesi hazır.`);
       if (redirect) {
         navigate("/dashboard/attendance");
       }
     } catch (openError) {
       setAttendanceError(openError instanceof Error ? openError.message : "Yoklama oturumu açılamadı.");
+    } finally {
+      setAttendanceLoading(false);
+    }
+  }
+
+  const closeAttendanceSession = useCallback(() => {
+    setAttendanceSession(null);
+    setAttendanceBaseline(null);
+    setAttendanceMessage(null);
+    setAttendanceError(null);
+  }, []);
+
+  async function reopenAttendance() {
+    if (!attendanceSession) {
+      return;
+    }
+    setAttendanceLoading(true);
+    setAttendanceMessage(null);
+    setAttendanceError(null);
+    try {
+      const reopened = await api.reopenAttendanceSession(attendanceSession.id);
+      setAttendanceSession(reopened);
+      setAttendanceBaseline(JSON.stringify(reopened.records));
+      setAttendanceMessage("Yoklama düzenleme modunda açıldı.");
+    } catch (reopenError) {
+      setAttendanceError(reopenError instanceof Error ? reopenError.message : "Yoklama düzenleme açılamadı.");
     } finally {
       setAttendanceLoading(false);
     }
@@ -231,7 +293,7 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
       const finalized = await api.finalizeAttendanceSession(saved.id);
       setAttendanceSession(finalized);
       setAttendanceBaseline(JSON.stringify(finalized.records));
-      setAttendanceMessage("Yoklama kaydedildi ve oturum kesinleştirildi.");
+      setAttendanceMessage("Yoklama kaydedildi.");
       await load();
     } catch (saveError) {
       setAttendanceError(saveError instanceof Error ? saveError.message : "Yoklama kaydedilemedi.");
@@ -261,29 +323,14 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
     <div className="admin-shell principal-console teacher-console">
       <header className="admin-navbar">
         <div className="navbar-brand">
-          <div className="admin-mark">
-            <GraduationCap size={22} />
-          </div>
-          <div>
-            <strong>ÖTS</strong>
-            <span>{data.tenant?.name ?? "Öğretmen paneli"}</span>
-          </div>
+          <AppBrand />
         </div>
 
-        <div className="navbar-actions">
-          <NotificationBell />
-          <div className="navbar-profile" aria-label="Profil">
-            <div className="profile-avatar">{session.principal.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
-            <div className="navbar-profile-text">
-              <strong>{session.principal.name}</strong>
-              <span>{roleLabel(session.principal.role)}</span>
-            </div>
-          </div>
-          <button className="ghost-action navbar-logout" type="button" onClick={onLogout}>
-            <LogOut size={17} />
-            Çıkış
-          </button>
-        </div>
+        <NavbarUserMenu
+          name={session.principal.name}
+          meta={roleLabel(session.principal.role)}
+          onUnreadNotificationsChange={setUnreadNotifications}
+        />
       </header>
 
       <aside className="admin-sidebar">
@@ -292,17 +339,14 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
             <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/dashboard/${tab.id}`}>
               {tab.icon}
               <span>{tab.label}</span>
+              {tab.id === "notifications" && unreadNotifications > 0 ? (
+                <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
+              ) : null}
             </NavLink>
           ))}
         </nav>
 
-        <div className="developer-note">
-          <School size={18} />
-          <div>
-            <strong>Öğretmen görünümü</strong>
-            <span>Ders, yoklama ve gözlem akışı.</span>
-          </div>
-        </div>
+        <SidebarFooter tenantName={data.tenant?.name ?? "Kurum"} onLogout={onLogout} />
       </aside>
 
       <main className={`admin-workspace teacher-workspace ${activeTab}-workspace`}>
@@ -324,22 +368,16 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
                   activeLesson={activeLesson}
                   announcements={data.announcements}
                   attendanceLoading={attendanceLoading}
+                  attendanceSession={attendanceSession}
                   currentLessonReason={data.currentLesson?.reason}
                   lessons={todayLessons}
                   observations={teacherObservations}
-                  selectedLessonId={selectedLessonId}
-                  onSelectLesson={setSelectedLessonId}
-                  onOpenAttendance={() => void openAttendance(suggestedLesson ?? undefined, true)}
-                  summary={{
-                    lessonCount: todayLessons.length,
-                    activeClass: activeLesson?.className ?? suggestedLesson?.className ?? "-",
-                    pendingAttendance: attendanceSession ? attendanceSession.records.filter((record) => record.status === "unknown").length : 0,
-                    observationCount: teacherObservations.length
-                  }}
+                  onOpenAttendance={(lesson) => void openAttendance(lesson, true)}
+                  studentCount={teacherStudents.length}
                 />
               }
             />
-            <Route path="lessons" element={<TeacherLessonsPage lessons={todayLessons} activeLessonId={activeLesson?.id} />} />
+            <Route path="lessons" element={<TeacherLessonsPage lessons={data.teacherLessons} activeLessonId={activeLesson?.id} />} />
             <Route
               path="attendance"
               element={
@@ -348,12 +386,13 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
                   attendanceError={attendanceError}
                   attendanceLoading={attendanceLoading}
                   attendanceMessage={attendanceMessage}
-                  currentLessonReason={data.currentLesson?.reason}
-                  lessons={todayLessons}
+                  lessons={data.teacherLessons}
                   session={attendanceSession}
                   onMarkAllPresent={markAllPresent}
-                  onOpenAttendance={(lesson) => void openAttendance(lesson)}
+                  onOpenList={(lesson) => void openAttendance(lesson)}
+                  onReopen={() => void reopenAttendance()}
                   onSaveAttendance={() => void saveAttendance()}
+                  onSessionClosed={closeAttendanceSession}
                   onUpdateStatus={updateAttendanceStatus}
                 />
               }
@@ -369,12 +408,23 @@ export function TeacherConsole({ session, onLogout }: { session: AuthSession; on
                   observations={teacherObservations}
                   students={teacherStudents}
                   onChange={setObservationForm}
+                  onPrepareForm={() => {
+                    setObservationMessage(null);
+                    setObservationError(null);
+                    setObservationForm((current) => ({
+                      studentId: current.studentId || teacherStudents[0]?.id || "",
+                      category: current.category || "participation",
+                      note: ""
+                    }));
+                  }}
                   onSubmit={createObservation}
                 />
               }
             />
-            <Route path="announcements" element={<TeacherAnnouncementsPage announcements={data.announcements} />} />
-            <Route path="support" element={<SupportContactForm session={session} />} />
+            <Route path="announcements" element={<RoleAnnouncementsPage announcements={data.announcements} />} />
+            <Route path="notifications" element={<RoleNotificationsPage onUnreadChange={setUnreadNotifications} />} />
+            <Route path="support" element={<RoleSupportPage session={session} />} />
+            <Route path="profile" element={<ProfilePage session={session} onSessionUpdate={onSessionUpdate} />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Routes>
         </div>
@@ -387,28 +437,44 @@ function TeacherOverviewPage({
   activeLesson,
   announcements,
   attendanceLoading,
+  attendanceSession,
   currentLessonReason,
   lessons,
   observations,
-  selectedLessonId,
-  onSelectLesson,
   onOpenAttendance,
-  summary
+  studentCount
 }: {
   activeLesson?: Lesson;
   announcements: Announcement[];
   attendanceLoading: boolean;
+  attendanceSession: AttendanceSession | null;
   currentLessonReason?: string;
   lessons: Lesson[];
   observations: Observation[];
-  selectedLessonId: string;
-  onSelectLesson: (lessonId: string) => void;
-  onOpenAttendance: () => void;
-  summary: { lessonCount: number; activeClass: string; pendingAttendance: number; observationCount: number };
+  onOpenAttendance: (lesson: Lesson) => void;
+  studentCount: number;
 }) {
-  const nextLesson = lessons.find((lesson) => lesson.id === selectedLessonId) ?? activeLesson ?? lessons[0] ?? null;
+  const [pickedLessonId, setPickedLessonId] = useState("");
+
+  useEffect(() => {
+    const nextId = activeLesson?.id ?? lessons[0]?.id ?? "";
+    setPickedLessonId((current) => {
+      if (current && lessons.some((lesson) => lesson.id === current)) {
+        return current;
+      }
+      return nextId;
+    });
+  }, [activeLesson?.id, lessons]);
+
+  const pickedLesson = lessons.find((lesson) => lesson.id === pickedLessonId) ?? activeLesson ?? lessons[0] ?? null;
+  const pendingAttendance = attendanceSession ? attendanceSession.records.filter((record) => record.status === "unknown").length : 0;
+  const attendanceTotal = attendanceSession?.records.length ?? 0;
+  const attendanceProgress =
+    attendanceTotal > 0 ? Math.round(((attendanceTotal - pendingAttendance) / attendanceTotal) * 100) : activeLesson ? 12 : 0;
+  const activeClassLabel = activeLesson?.className ?? pickedLesson?.className ?? "—";
+
   return (
-    <section className="teacher-page-stack">
+    <section className="guidance-page-stack guidance-overview-page guidance-surface-page teacher-overview-page">
       {lessons.length === 0 ? (
         <div className="teacher-alert-banner">
           <AlertCircle size={18} aria-hidden />
@@ -419,264 +485,125 @@ function TeacherOverviewPage({
         </div>
       ) : null}
 
-      {!activeLesson && lessons.length > 1 ? (
-        <article className="principal-surface-card teacher-lesson-picker">
-          <label className="field">
-            <span>Yoklama alınacak dersi seç</span>
-            <select value={selectedLessonId} onChange={(event) => onSelectLesson(event.target.value)}>
-              {lessons.map((lesson) => (
-                <option key={lesson.id} value={lesson.id}>
-                  {lesson.className} · {lesson.subjectName} ({formatLessonTime(lesson)})
-                </option>
-              ))}
-            </select>
-          </label>
-        </article>
-      ) : null}
+      <GuidanceMetricGrid>
+        <GuidanceKpiCard icon={<CalendarDays size={20} />} label="Bugünkü ders" value={lessons.length} detail="Yayınlanmış program" tone="sky" />
+        <GuidanceKpiCard icon={<UserCheck size={20} />} label="Aktif sınıf" value={activeClassLabel} detail={pickedLesson?.subjectName ?? "Ders seçin"} tone="emerald" />
+        <GuidanceKpiCard icon={<ClipboardCheck size={20} />} label="Yoklama bekleyen" value={pendingAttendance} detail={attendanceTotal > 0 ? `${attendanceTotal} öğrenci` : "Oturum kapalı"} tone="amber" />
+        <GuidanceKpiCard icon={<NotebookPen size={20} />} label="Gözlem kaydı" value={observations.length} detail={`${studentCount} öğrenci kapsamı`} tone="violet" />
+      </GuidanceMetricGrid>
 
-      <div className="teacher-kpi-grid" aria-label="Öğretmen günlük özet">
-        <TeacherKpiCard icon={<CalendarDays size={17} />} label="Bugünkü ders" value={summary.lessonCount} detail="Yayınlanmış programdan" tone="sky" />
-        <TeacherKpiCard icon={<UserCheck size={17} />} label="Aktif sınıf" value={summary.activeClass} detail={nextLesson?.subjectName ?? "Aktif ders bekleniyor"} tone="emerald" />
-        <TeacherKpiCard icon={<ClipboardCheck size={17} />} label="Yoklama bekleyen" value={summary.pendingAttendance} detail="Açık oturum içinde" tone="amber" />
-        <TeacherKpiCard icon={<NotebookPen size={17} />} label="Gözlem" value={summary.observationCount} detail="Öğretmen kapsamındaki kayıt" tone="violet" />
-      </div>
-
-      <div className="teacher-overview-grid">
-        <section className="principal-surface-card teacher-focus-card">
-          <div className="teacher-card-head">
-            <div>
-              <span className="section-kicker">Akıllı yoklama</span>
-              <h2>{activeLesson ? "Aktif ders algılandı" : "Aktif ders bekleniyor"}</h2>
+      <div className="teacher-bento teacher-bento--primary">
+        <GuidanceSectionPanel title="Yoklama" actionLabel="Yoklama sayfası" actionTo="/dashboard/attendance">
+          <div className="teacher-attendance-panel">
+            <div className="teacher-attendance-panel-body">
+              <TeacherAttendanceRing percent={attendanceProgress} caption={attendanceTotal > 0 ? "Tamamlanma" : "Hazırlık"} />
+              <div className="teacher-attendance-copy">
+                <strong>{pickedLesson ? `${pickedLesson.className} · ${pickedLesson.subjectName}` : currentLessonReason ?? "Ders seçilmedi"}</strong>
+                <span>
+                  {pickedLesson
+                    ? `${formatLessonTime(pickedLesson)} · ${pickedLesson.room || "Derslik belirtilmedi"}`
+                    : "Sağdaki listeden ders seçip yoklama açabilirsiniz."}
+                </span>
+                <span className={`status-badge ${activeLesson ? "active" : "warning"}`}>{activeLesson ? "Aktif ders" : "Manuel seçim"}</span>
+              </div>
             </div>
-            <span className={`status-badge ${activeLesson ? "active" : "warning"}`}>{activeLesson ? "Hazır" : "Beklemede"}</span>
-          </div>
-          <div className="teacher-active-lesson">
-            <div className="teacher-lesson-icon">
-              <ClipboardCheck size={22} />
-            </div>
-            <div>
-              <strong>{nextLesson ? `${nextLesson.className} · ${nextLesson.subjectName}` : currentLessonReason ?? "Atanmış ders bulunamadı"}</strong>
-              <span>{nextLesson ? `${formatLessonTime(nextLesson)} · ${nextLesson.room || "Derslik belirtilmedi"}` : "Ders programı yayınlandığında burada görünür."}</span>
-            </div>
-          </div>
-          <button className="primary-action teacher-wide-action" type="button" onClick={onOpenAttendance} disabled={attendanceLoading || !nextLesson}>
-            {attendanceLoading ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
-            Yoklama ekranını aç
-          </button>
-        </section>
-
-        <section className="principal-surface-card">
-          <div className="teacher-card-head">
-            <div>
-              <span className="section-kicker">Günlük akış</span>
-              <h2>Bugünkü dersler</h2>
-            </div>
-            <NavLink className="ghost-action small-action" to="/dashboard/lessons">
-              Tümü
-              <ChevronRight size={15} />
-            </NavLink>
-          </div>
-          <TeacherLessonTimeline lessons={lessons.slice(0, 4)} activeLessonId={activeLesson?.id} />
-        </section>
-      </div>
-
-      <div className="teacher-overview-grid teacher-overview-grid--secondary">
-        <section className="principal-surface-card">
-          <div className="teacher-card-head">
-            <div>
-              <span className="section-kicker">Öğrenci desteği</span>
-              <h2>Son gözlemler</h2>
-            </div>
-            <NavLink className="ghost-action small-action" to="/dashboard/observations">
-              Gözlem ekle
-            </NavLink>
-          </div>
-          <ObservationList observations={observations.slice(0, 4)} />
-        </section>
-        <section className="principal-surface-card">
-          <div className="teacher-card-head">
-            <div>
-              <span className="section-kicker">İletişim</span>
-              <h2>Duyurular</h2>
-            </div>
-            <NavLink className="ghost-action small-action" to="/dashboard/announcements">
-              Tümü
-            </NavLink>
-          </div>
-          <AnnouncementList announcements={announcements.slice(0, 4)} />
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function TeacherLessonsPage({ lessons, activeLessonId }: { lessons: Lesson[]; activeLessonId?: string }) {
-  return (
-    <section className="teacher-page-stack">
-      <div className="teacher-page-title">
-        <span className="section-kicker">Ders programı</span>
-        <h1>Derslerim</h1>
-      </div>
-      <section className="principal-surface-card">
-        <div className="teacher-card-head">
-          <div>
-            <h2>Günlük ders takvimi</h2>
-            <p>Yayınlanan ders programındaki öğretmen atamaları listelenir.</p>
-          </div>
-          <span className="status-badge active">{lessons.length} ders</span>
-        </div>
-        <TeacherLessonTimeline lessons={lessons} activeLessonId={activeLessonId} detailed />
-      </section>
-    </section>
-  );
-}
-
-function TeacherAttendancePage({
-  activeLesson,
-  attendanceError,
-  attendanceLoading,
-  attendanceMessage,
-  currentLessonReason,
-  lessons,
-  session,
-  onMarkAllPresent,
-  onOpenAttendance,
-  onSaveAttendance,
-  onUpdateStatus
-}: {
-  activeLesson?: Lesson;
-  attendanceError: string | null;
-  attendanceLoading: boolean;
-  attendanceMessage: string | null;
-  currentLessonReason?: string;
-  lessons: Lesson[];
-  session: AttendanceSession | null;
-  onMarkAllPresent: () => void;
-  onOpenAttendance: (lesson?: Lesson) => void;
-  onSaveAttendance: () => void;
-  onUpdateStatus: (studentId: string, status: AttendanceStatus) => void;
-}) {
-  const suggestedLesson = activeLesson ?? lessons[0] ?? null;
-  const completedCount = session?.records.filter((record) => record.status !== "unknown").length ?? 0;
-  const absentCount = session?.records.filter((record) => record.status === "absent").length ?? 0;
-  const isFinalized = Boolean(session?.finalizedAt);
-
-  return (
-    <section className="teacher-page-stack">
-      <div className="teacher-page-title">
-        <span className="section-kicker">Akıllı yoklama</span>
-        <h1>Yoklama</h1>
-      </div>
-
-      <div className="teacher-attendance-grid">
-        <section className="principal-surface-card teacher-focus-card">
-          <div className="teacher-card-head">
-            <div>
-              <h2>{activeLesson ? "Aktif ders" : "Yoklama başlat"}</h2>
-              <p>{activeLesson ? "Sistem ders programına göre bu dersi algıladı." : currentLessonReason ?? "Aktif ders yoksa bugünkü derslerden seçim yapılabilir."}</p>
-            </div>
-            <span className={`status-badge ${activeLesson ? "active" : "warning"}`}>{activeLesson ? "Otomatik" : "Manuel"}</span>
-          </div>
-          <div className="teacher-active-lesson">
-            <div className="teacher-lesson-icon">
-              <ClipboardCheck size={22} />
-            </div>
-            <div>
-              <strong>{suggestedLesson ? `${suggestedLesson.className} · ${suggestedLesson.subjectName}` : "Atanmış ders yok"}</strong>
-              <span>{suggestedLesson ? `${formatLessonTime(suggestedLesson)} · ${suggestedLesson.room || "Derslik belirtilmedi"}` : "Ders programı yayınlanmalı."}</span>
-            </div>
-          </div>
-          <button className="primary-action teacher-wide-action" type="button" onClick={() => onOpenAttendance(suggestedLesson)} disabled={attendanceLoading || !suggestedLesson}>
-            {attendanceLoading ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
-            Yoklama listesini aç
-          </button>
-          {attendanceMessage && <div className="form-success">{attendanceMessage}</div>}
-          {attendanceError && <div className="form-error">{attendanceError}</div>}
-        </section>
-
-        <section className="principal-surface-card">
-          <div className="teacher-card-head">
-            <div>
-              <h2>Bugünkü dersler</h2>
-              <p>Aktif ders algılanamazsa buradan oturum açılabilir.</p>
-            </div>
-          </div>
-          <div className="teacher-compact-list">
-            {lessons.map((lesson) => (
-              <button className="teacher-compact-row" type="button" key={lesson.id} onClick={() => onOpenAttendance(lesson)} disabled={attendanceLoading}>
-                <span>{lesson.startTime}</span>
-                <strong>{lesson.className}</strong>
-                <em>{lesson.subjectName}</em>
+            <div className="teacher-attendance-panel-actions">
+              <button className="primary-action" type="button" onClick={() => pickedLesson && onOpenAttendance(pickedLesson)} disabled={attendanceLoading || !pickedLesson}>
+                {attendanceLoading ? <Loader2 className="spin" size={17} /> : <ClipboardCheck size={17} />}
+                Yoklamayı aç
               </button>
-            ))}
-            {lessons.length === 0 && <p className="empty-text">Bugün için ders bulunamadı.</p>}
+              <NavLink className="ghost-action" to="/dashboard/attendance">
+                Detaylı yoklama
+              </NavLink>
+            </div>
           </div>
-        </section>
+        </GuidanceSectionPanel>
+
+        <GuidanceSectionPanel title="Bugünkü dersler" actionLabel="Derslerim" actionTo="/dashboard/lessons">
+          <p className="teacher-lesson-pick-hint">Yoklama için ders satırına tıklayın.</p>
+          <TeacherLessonPickList
+            lessons={lessons.slice(0, 6)}
+            activeLessonId={activeLesson?.id}
+            pickedLessonId={pickedLessonId}
+            onPick={setPickedLessonId}
+            onOpenAttendance={onOpenAttendance}
+            attendanceLoading={attendanceLoading}
+          />
+        </GuidanceSectionPanel>
       </div>
 
-      <section className="principal-surface-card">
-        <div className="teacher-card-head teacher-card-head--wrap">
-          <div>
-            <span className="section-kicker">Öğrenci listesi</span>
-            <h2>{session ? `${session.className} · ${session.subjectName}` : "Yoklama oturumu"}</h2>
-          </div>
-          <div className="teacher-attendance-actions">
-            <span className="status-badge active">{completedCount} işaretli</span>
-            <span className="status-badge critical">{absentCount} gelmedi</span>
-            {isFinalized ? <span className="status-badge active">Kesinleşti</span> : null}
-            <button className="ghost-action small-action" type="button" onClick={onMarkAllPresent} disabled={!session || attendanceLoading || isFinalized}>
-              Hepsi geldi
-            </button>
-            <button className="primary-action small-action" type="button" onClick={onSaveAttendance} disabled={!session || attendanceLoading || isFinalized}>
-              {attendanceLoading ? <Loader2 className="spin" size={16} /> : <CheckCircle2 size={16} />}
-              {isFinalized ? "Tamamlandı" : "Kaydet ve tamamla"}
-            </button>
-          </div>
-        </div>
-
-        {session ? (
-          <div className="principal-table-wrap teacher-table-wrap">
-            <table className="principal-table teacher-attendance-table">
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Öğrenci</th>
-                  <th>Durum</th>
-                </tr>
-              </thead>
-              <tbody>
-                {session.records.map((record) => (
-                  <tr key={record.studentId}>
-                    <td>{record.number}</td>
-                    <td>
-                      <strong>{record.studentName}</strong>
-                    </td>
-                    <td>
-                      <div className="teacher-status-toggle" aria-label={`${record.studentName} yoklama durumu`}>
-                        {attendanceStatuses.map((status) => (
-                          <button
-                            className={record.status === status.value ? "is-selected" : ""}
-                            type="button"
-                            key={status.value}
-                            disabled={isFinalized}
-                            onClick={() => onUpdateStatus(record.studentId, status.value)}
-                          >
-                            {status.icon}
-                            {status.label}
-                          </button>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="empty-text teacher-empty-pad">Yoklama almak için önce aktif dersi veya bugünkü derslerden birini açın.</p>
-        )}
-      </section>
+      <div className="teacher-bento teacher-bento--secondary">
+        <GuidanceSectionPanel title="Son gözlemler" actionLabel="Gözlemler" actionTo="/dashboard/observations">
+          <GuidanceObservationList observations={observations} limit={4} />
+        </GuidanceSectionPanel>
+        <GuidanceSectionPanel
+          title="Duyurular"
+          aside={
+            <span className="guidance-panel-badge">
+              <Bell size={14} />
+              {announcements.length}
+            </span>
+          }
+          actionLabel="Tümü"
+          actionTo="/dashboard/announcements"
+        >
+          <GuidanceAnnouncementList announcements={announcements.slice(0, 4)} />
+        </GuidanceSectionPanel>
+      </div>
     </section>
+  );
+}
+
+function TeacherLessonPickList({
+  lessons,
+  activeLessonId,
+  pickedLessonId,
+  onPick,
+  onOpenAttendance,
+  attendanceLoading
+}: {
+  lessons: Lesson[];
+  activeLessonId?: string;
+  pickedLessonId: string;
+  onPick: (lessonId: string) => void;
+  onOpenAttendance: (lesson: Lesson) => void;
+  attendanceLoading: boolean;
+}) {
+  if (lessons.length === 0) {
+    return <p className="empty-text guidance-empty-pad">Yayınlanmış programda ders bulunamadı.</p>;
+  }
+
+  return (
+    <div className="teacher-lesson-pick-list">
+      {lessons.map((lesson) => {
+        const isActive = lesson.id === activeLessonId;
+        const isSelected = lesson.id === pickedLessonId;
+        return (
+          <button
+            className={`teacher-lesson-pick-row${isActive ? " is-active" : ""}${isSelected ? " is-selected" : ""}`}
+            key={lesson.id}
+            type="button"
+            disabled={attendanceLoading}
+            onClick={() => onPick(lesson.id)}
+            onDoubleClick={() => onOpenAttendance(lesson)}
+          >
+            <div className="teacher-lesson-pick-time">
+              <strong>{lesson.startTime}</strong>
+              <span>{lesson.endTime}</span>
+            </div>
+            <div className="teacher-lesson-pick-main">
+              <strong>
+                {lesson.className} · {lesson.subjectName}
+              </strong>
+              <span>
+                {dayLabels[lesson.dayOfWeek] ?? "Gün"} · {lesson.room || "Derslik yok"}
+              </span>
+            </div>
+            <span className={`status-badge ${isActive ? "active" : "normal"}`}>{isActive ? "Aktif" : isSelected ? "Seçili" : "Seç"}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -688,6 +615,7 @@ function TeacherObservationsPage({
   observations,
   students,
   onChange,
+  onPrepareForm,
   onSubmit
 }: {
   error: string | null;
@@ -697,74 +625,211 @@ function TeacherObservationsPage({
   observations: Observation[];
   students: Array<{ id: string; name: string; className: string }>;
   onChange: (next: { studentId: string; category: string; note: string }) => void;
+  onPrepareForm: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [classFilter, setClassFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [query, setQuery] = useState("");
+
+  const stats = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recentCount = observations.filter((item) => new Date(item.createdAt).getTime() >= weekAgo).length;
+    const studentIds = new Set(observations.map((item) => item.studentId));
+    return { total: observations.length, students: studentIds.size, recentCount, roster: students.length };
+  }, [observations, students.length]);
+
+  const classOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const observation of observations) {
+      if (observation.className.trim()) {
+        set.add(observation.className);
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "tr"));
+  }, [observations]);
+
+  const filteredObservations = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("tr-TR");
+    return observations.filter((observation) => {
+      const categoryMatch = categoryFilter === "all" || observation.category === categoryFilter;
+      const classMatch = !classFilter || observation.className === classFilter;
+      const dateMatch = !dateFilter || observation.createdAt.startsWith(dateFilter);
+      const queryMatch =
+        normalizedQuery.length === 0 ||
+        `${observation.studentName} ${observation.className} ${categoryLabel(observation.category)} ${observation.note}`
+          .toLocaleLowerCase("tr-TR")
+          .includes(normalizedQuery);
+      return categoryMatch && classMatch && dateMatch && queryMatch;
+    });
+  }, [categoryFilter, classFilter, dateFilter, observations, query]);
+
+  const filterKey = `${categoryFilter}|${classFilter}|${dateFilter}|${query}`;
+  const { paginatedRows, page, setPage, totalPages, pageSize, totalItems } = usePaginatedRows(
+    filteredObservations,
+    filterKey,
+    OBSERVATION_PAGE_SIZE
+  );
+
+  function openModal() {
+    onPrepareForm();
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+  }
+
+  useEffect(() => {
+    if (modalOpen && message) {
+      closeModal();
+    }
+  }, [message, modalOpen]);
+
   return (
-    <section className="teacher-page-stack">
-      <div className="teacher-page-title">
-        <span className="section-kicker">Öğrenci destek</span>
-        <h1>Gözlemler</h1>
-      </div>
+    <section className="guidance-page-stack guidance-surface-page teacher-overview-page guidance-data-page">
+      {message && !modalOpen ? <div className="form-success">{message}</div> : null}
 
-      <div className="teacher-observation-grid">
-        <section className="principal-surface-card">
-          <div className="teacher-card-head">
-            <div>
-              <h2>Gözlem kaydı oluştur</h2>
-              <p>Tanı veya etiketleme amacı taşımaz; rehberlik değerlendirmesine veri sağlar.</p>
-            </div>
-          </div>
-          {message && <div className="form-success">{message}</div>}
-          {error && <div className="form-error">{error}</div>}
-          <form className="teacher-observation-form" onSubmit={onSubmit}>
-            <label className="field">
-              <span>Öğrenci</span>
-              <select value={form.studentId} onChange={(event) => onChange({ ...form, studentId: event.target.value })} required>
-                {students.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.name} · {student.className}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Kategori</span>
-              <select value={form.category} onChange={(event) => onChange({ ...form, category: event.target.value })} required>
-                {observationCategories.map((category) => (
-                  <option key={category.value} value={category.value}>
-                    {category.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field teacher-observation-note">
-              <span>Not</span>
-              <textarea
-                value={form.note}
-                onChange={(event) => onChange({ ...form, note: event.target.value })}
-                placeholder="Kısa, ölçülebilir ve olay odaklı gözlem notu yazın"
-                rows={6}
-                maxLength={1200}
-                required
-              />
-            </label>
-            <button className="primary-action" type="submit" disabled={loading}>
-              {loading ? <Loader2 className="spin" size={17} /> : <MessageSquareText size={17} />}
-              Rehberliğe aktar
+      <GuidanceMetricGrid>
+        <GuidanceKpiCard icon={<NotebookPen size={20} />} label="Toplam kayıt" value={stats.total} detail={`${filteredObservations.length} filtrelenmiş`} tone="sky" />
+        <GuidanceKpiCard icon={<UsersRound size={20} />} label="Öğrenci" value={stats.students} detail={`${stats.roster} kapsam`} tone="emerald" />
+        <GuidanceKpiCard icon={<CalendarDays size={20} />} label="Son 7 gün" value={stats.recentCount} detail="Yeni gözlem" tone="violet" />
+        <GuidanceKpiCard icon={<Search size={20} />} label="Kategori" value={observationCategories.length} detail="Gözlem türü" tone="amber" />
+      </GuidanceMetricGrid>
+
+      <article className="guidance-data-card">
+        <header className="guidance-data-card-head">
+          <h2>Gözlem kayıtları</h2>
+          <div className="guidance-data-card-head-actions">
+            <span>{filteredObservations.length} kayıt</span>
+            <button className="primary-action small-action" type="button" onClick={openModal} disabled={students.length === 0}>
+              <Plus size={16} />
+              Yeni gözlem
             </button>
-          </form>
-        </section>
-
-        <section className="principal-surface-card">
-          <div className="teacher-card-head">
-            <div>
-              <h2>Son gözlem kayıtları</h2>
-              <p>Öğretmen kapsamındaki kayıtlar listelenir.</p>
-            </div>
           </div>
-          <ObservationList observations={observations} />
-        </section>
-      </div>
+        </header>
+
+        <div className="guidance-data-toolbar">
+          <select className="guidance-data-select" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} aria-label="Kategori filtresi">
+            <option value="all">Tüm kategoriler</option>
+            {observationCategories.map((category) => (
+              <option key={category.value} value={category.value}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+          <select className="guidance-data-select" value={classFilter} onChange={(event) => setClassFilter(event.target.value)} aria-label="Sınıf filtresi">
+            <option value="">Tüm sınıflar</option>
+            {classOptions.map((className) => (
+              <option key={className} value={className}>
+                {className}
+              </option>
+            ))}
+          </select>
+          <input className="guidance-data-date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} type="date" aria-label="Tarih filtresi" />
+          <label className="guidance-data-search">
+            <Search size={16} aria-hidden />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Öğrenci, sınıf, not…" type="search" />
+          </label>
+        </div>
+
+        {filteredObservations.length === 0 ? (
+          <p className="guidance-data-empty">{observations.length === 0 ? "Henüz gözlem kaydı yok." : "Filtrelere uyan gözlem bulunamadı."}</p>
+        ) : (
+          <>
+            <div className="guidance-data-table-wrap">
+              <table className="guidance-data-table">
+                <thead>
+                  <tr>
+                    <th>Öğrenci</th>
+                    <th>Kategori</th>
+                    <th>Gözlem notu</th>
+                    <th>Tarih</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRows.map((observation) => (
+                    <tr key={observation.id}>
+                      <td>
+                        <span className="guidance-data-primary">{observation.studentName}</span>
+                        <span className="guidance-data-secondary">{observation.className || "—"}</span>
+                      </td>
+                      <td>
+                        <span className="guidance-data-badge">{categoryLabel(observation.category)}</span>
+                      </td>
+                      <td>
+                        <p className="guidance-data-text">{observation.note}</p>
+                      </td>
+                      <td className="guidance-data-date-cell">{formatDateTime(observation.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination page={page} totalPages={totalPages} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} />
+          </>
+        )}
+      </article>
+
+      {modalOpen ? (
+        <div className="guidance-modal-backdrop" role="presentation" onClick={closeModal}>
+          <div
+            className="guidance-modal guidance-note-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="teacher-observation-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="teacher-observation-modal-title">Yeni gözlem kaydı</h3>
+            <p className="teacher-observation-modal-lead">Seçtiğiniz öğrenci için kısa ve olay odaklı bir gözlem yazın; kayıt rehberlik değerlendirmesine aktarılır.</p>
+            {error ? <div className="form-error">{error}</div> : null}
+            <form className="guidance-note-form" onSubmit={onSubmit}>
+              <label className="field">
+                <span>Öğrenci</span>
+                <select value={form.studentId} onChange={(event) => onChange({ ...form, studentId: event.target.value })} required>
+                  {students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name} · {student.className}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Kategori</span>
+                <select value={form.category} onChange={(event) => onChange({ ...form, category: event.target.value })} required>
+                  {observationCategories.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Not</span>
+                <textarea
+                  value={form.note}
+                  onChange={(event) => onChange({ ...form, note: event.target.value })}
+                  placeholder="Kısa, ölçülebilir ve olay odaklı gözlem notu yazın"
+                  rows={5}
+                  maxLength={1200}
+                  required
+                />
+              </label>
+              <div className="guidance-modal-actions">
+                <button className="ghost-action" type="button" onClick={closeModal}>
+                  Vazgeç
+                </button>
+                <button className="primary-action" type="submit" disabled={loading}>
+                  {loading ? <Loader2 className="spin" size={17} /> : <MessageSquareText size={17} />}
+                  Rehberliğe aktar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -786,29 +851,6 @@ function TeacherAnnouncementsPage({ announcements }: { announcements: Announceme
         <AnnouncementList announcements={announcements} detailed />
       </section>
     </section>
-  );
-}
-
-function TeacherKpiCard({
-  detail,
-  icon,
-  label,
-  tone,
-  value
-}: {
-  detail: string;
-  icon: ReactNode;
-  label: string;
-  tone: "sky" | "emerald" | "amber" | "violet";
-  value: ReactNode;
-}) {
-  return (
-    <article className={`principal-stat-card principal-stat-card--${tone} teacher-kpi-card`}>
-      <div className="principal-stat-icon">{icon}</div>
-      <small>{label}</small>
-      <strong>{value}</strong>
-      <em>{detail}</em>
-    </article>
   );
 }
 

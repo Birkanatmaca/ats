@@ -72,6 +72,119 @@ func (s *Store) ListStudents(ctx context.Context, tenantID string) ([]schooldoma
 	return s.listPrincipalStudents(ctx, tenantID)
 }
 
+func (s *Store) ListStudentsForTeacher(ctx context.Context, tenantID, teacherUserID string) ([]schooldomain.PrincipalRosterStudent, error) {
+	const query = `
+SELECT DISTINCT ON (s.id)
+	s.id::text,
+	COALESCE(cs.class_id::text, '') AS class_id,
+	s.student_number,
+	s.full_name,
+	s.birth_date,
+	s.status,
+	s.created_at,
+	COALESCE(g.full_name, '') AS guardian_name,
+	COALESCE(g.phone, '') AS guardian_phone
+FROM students s
+LEFT JOIN LATERAL (
+	SELECT class_id
+	FROM class_students
+	WHERE tenant_id = s.tenant_id
+		AND student_id = s.id
+		AND (ends_on IS NULL OR ends_on >= CURRENT_DATE)
+	ORDER BY starts_on DESC
+	LIMIT 1
+) cs ON true
+LEFT JOIN LATERAL (
+	SELECT g.full_name, g.phone
+	FROM student_guardians sg
+	JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = sg.tenant_id
+	WHERE sg.tenant_id = s.tenant_id
+		AND sg.student_id = s.id
+		AND sg.is_primary = true
+	LIMIT 1
+) g ON true
+WHERE s.tenant_id = $1
+	AND s.deleted_at IS NULL
+	AND (
+		EXISTS (
+			SELECT 1
+			FROM schedule_lessons sl
+			JOIN schedules sch ON sch.id = sl.schedule_id AND sch.tenant_id = sl.tenant_id
+			JOIN teachers t ON t.id = sl.teacher_id AND t.tenant_id = sl.tenant_id
+			JOIN class_students cs2 ON cs2.tenant_id = sl.tenant_id
+				AND cs2.class_id = sl.class_id
+				AND cs2.student_id = s.id
+				AND (cs2.ends_on IS NULL OR cs2.ends_on >= CURRENT_DATE)
+			WHERE sl.tenant_id = $1
+				AND t.user_id = $2
+				AND sch.status = 'published'
+		)
+		OR EXISTS (
+			SELECT 1
+			FROM user_scopes us
+			WHERE us.tenant_id = $1
+				AND us.user_id = $2
+				AND (
+					us.scope_type = 'all'
+					OR (us.scope_type = 'student' AND us.student_id = s.id)
+					OR (
+						us.scope_type = 'class'
+						AND EXISTS (
+							SELECT 1
+							FROM class_students cs3
+							WHERE cs3.tenant_id = $1
+								AND cs3.class_id = us.class_id
+								AND cs3.student_id = s.id
+								AND (cs3.ends_on IS NULL OR cs3.ends_on >= CURRENT_DATE)
+						)
+					)
+				)
+		)
+	)
+ORDER BY s.id, s.student_number`
+
+	rows, err := s.db.QueryContext(ctx, query, tenantID, teacherUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []schooldomain.PrincipalRosterStudent{}
+	for rows.Next() {
+		var (
+			item      schooldomain.PrincipalRosterStudent
+			fullName  string
+			birthDate sql.NullTime
+			status    string
+		)
+		if err := rows.Scan(
+			&item.ID,
+			&item.ClassID,
+			&item.SchoolNumber,
+			&fullName,
+			&birthDate,
+			&status,
+			&item.CreatedAt,
+			&item.GuardianName,
+			&item.GuardianPhone,
+		); err != nil {
+			return nil, err
+		}
+		item.FirstName, item.LastName = splitFullName(fullName)
+		if birthDate.Valid {
+			item.BirthDate = birthDate.Time.Format("2006-01-02")
+		}
+		switch strings.ToLower(strings.TrimSpace(status)) {
+		case "passive", "inactive", "archived":
+			item.Status = "passive"
+		default:
+			item.Status = "active"
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) CreateStudent(ctx context.Context, tenantID string, input schooldomain.CreateStudentInput) (schooldomain.PrincipalRosterStudent, error) {
 	if input.ClassID != "" {
 		if ok, err := s.classExists(ctx, tenantID, input.ClassID); err != nil {

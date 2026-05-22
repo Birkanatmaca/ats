@@ -1,103 +1,78 @@
-import { AlertTriangle, Bell, HeartHandshake, NotebookTabs, UsersRound } from "lucide-react";
-import { NavLink } from "react-router-dom";
-import { guidancePlans } from "../data";
+import { AlertTriangle, Bell, FileText, HeartHandshake, NotebookTabs, UsersRound } from "lucide-react";
+import type { GuidanceNote, GuidanceSupportPlan } from "../../../lib/api";
 import { GuidanceAnnouncementList } from "../components/GuidanceAnnouncementList";
 import { GuidanceKpiCard } from "../components/GuidanceKpiCard";
+import { GuidanceMetricGrid } from "../components/GuidanceMetricGrid";
+import { GuidanceNoteList } from "../components/GuidanceNoteList";
 import { GuidanceObservationList } from "../components/GuidanceObservationList";
 import { GuidancePlanList } from "../components/GuidancePlanList";
 import { GuidanceRiskList } from "../components/GuidanceRiskList";
+import { GuidanceSectionPanel } from "../components/GuidanceSectionPanel";
 import { GuidanceStudentSupportList } from "../components/GuidanceStudentSupportList";
 import type { GuidanceData, GuidanceRiskSignal, GuidanceStudentSupport } from "../types";
+import "../GuidanceOverview.css";
+import "../GuidanceSurface.css";
 
 export function GuidanceOverviewPage({
   data,
   risks,
-  students
+  students,
+  notes,
+  plans
 }: {
   data: GuidanceData;
   risks: GuidanceRiskSignal[];
   students: GuidanceStudentSupport[];
+  notes: GuidanceNote[];
+  plans: GuidanceSupportPlan[];
 }) {
-  const openPlans = guidancePlans.filter((plan) => plan.status !== "closed").length;
+  const openPlans = plans.filter((plan) => plan.status !== "closed").length;
+  const reviewStudents = students.filter((s) => s.status === "review").length;
+  const highRisks = risks.filter((r) => r.level === "high").length;
 
   return (
-    <section className="guidance-page-stack">
-      <div className="guidance-kpi-grid" aria-label="Rehberlik özet metrikleri">
-        <GuidanceKpiCard icon={<NotebookTabs size={17} />} label="Gözlem" value={data.observations.length} detail="Öğretmenlerden gelen kayıt" tone="sky" />
-        <GuidanceKpiCard icon={<AlertTriangle size={17} />} label="Risk sinyali" value={risks.length} detail="İnsan değerlendirmesi bekler" tone="amber" />
-        <GuidanceKpiCard icon={<UsersRound size={17} />} label="Öğrenci" value={students.length || data.summary?.activeStudents || 0} detail="Destek kapsamı" tone="emerald" />
-        <GuidanceKpiCard icon={<HeartHandshake size={17} />} label="Takip planı" value={openPlans} detail="Açık / izlenen plan" tone="violet" />
-      </div>
+    <section className="guidance-page-stack guidance-overview-page guidance-surface-page">
+      <GuidanceMetricGrid>
+        <GuidanceKpiCard icon={<NotebookTabs size={20} />} label="Öğretmen gözlemi" value={data.observations.length} detail="Aktarılan kayıt" tone="sky" />
+        <GuidanceKpiCard icon={<FileText size={20} />} label="Rehberlik notu" value={notes.length} detail="Gizli kayıt" tone="rose" />
+        <GuidanceKpiCard icon={<AlertTriangle size={20} />} label="Risk sinyali" value={risks.length} detail={`${highRisks} yüksek öncelik`} tone="amber" />
+        <GuidanceKpiCard icon={<UsersRound size={20} />} label="Destek kapsamı" value={students.length || data.summary?.activeStudents || 0} detail={`${reviewStudents} incelemede`} tone="emerald" />
+        <GuidanceKpiCard icon={<HeartHandshake size={20} />} label="Açık plan" value={openPlans} detail={`${plans.length} toplam plan`} tone="violet" />
+      </GuidanceMetricGrid>
 
-      <div className="guidance-overview-grid">
-        <section className="principal-surface-card">
-          <div className="guidance-card-head">
-            <div>
-              <span className="section-kicker">Gözlem kuyruğu</span>
-              <h2>Son kayıtlar</h2>
-            </div>
-            <NavLink className="ghost-action small-action" to="/dashboard/observations">
-              Tümü
-            </NavLink>
-          </div>
+      <div className="guidance-bento guidance-bento--primary">
+        <GuidanceSectionPanel title="Son gözlemler" actionLabel="Tüm gözlemler" actionTo="/dashboard/observations">
           <GuidanceObservationList observations={data.observations} limit={4} />
-        </section>
-
-        <section className="principal-surface-card">
-          <div className="guidance-card-head">
-            <div>
-              <span className="section-kicker">Erken uyarı</span>
-              <h2>Risk sinyalleri</h2>
-            </div>
-            <NavLink className="ghost-action small-action" to="/dashboard/risks">
-              İncele
-            </NavLink>
-          </div>
+        </GuidanceSectionPanel>
+        <GuidanceSectionPanel title="Risk sinyalleri" actionLabel="Risk listesi" actionTo="/dashboard/risks">
           <GuidanceRiskList signals={risks} limit={4} />
-        </section>
+        </GuidanceSectionPanel>
       </div>
 
-      <div className="guidance-overview-grid guidance-overview-grid--secondary">
-        <section className="principal-surface-card">
-          <div className="guidance-card-head">
-            <div>
-              <span className="section-kicker">Öğrenci destek</span>
-              <h2>Takip özeti</h2>
-            </div>
-            <NavLink className="ghost-action small-action" to="/dashboard/students">
-              Detay
-            </NavLink>
-          </div>
+      <div className="guidance-bento guidance-bento--secondary">
+        <GuidanceSectionPanel title="Öğrenci özeti" actionLabel="Öğrenciler" actionTo="/dashboard/students">
           <GuidanceStudentSupportList students={students} limit={4} />
-        </section>
-
-        <section className="principal-surface-card">
-          <div className="guidance-card-head">
-            <div>
-              <span className="section-kicker">Planlar</span>
-              <h2>Yakın takip</h2>
-            </div>
-            <NavLink className="ghost-action small-action" to="/dashboard/plans">
-              Tümü
-            </NavLink>
-          </div>
-          <GuidancePlanList plans={guidancePlans} limit={4} />
-        </section>
+        </GuidanceSectionPanel>
+        <GuidanceSectionPanel title="Takip planları" actionLabel="Takip" actionTo="/dashboard/plans">
+          <GuidancePlanList plans={plans} limit={4} />
+        </GuidanceSectionPanel>
       </div>
 
-      <section className="principal-surface-card">
-        <div className="guidance-card-head">
-          <div>
-            <span className="section-kicker">İletişim</span>
-            <h2>Duyurular</h2>
-          </div>
-          <span className="status-badge active">
+      <GuidanceSectionPanel title="Son rehberlik notları" actionLabel="Notlar" actionTo="/dashboard/notes">
+        <GuidanceNoteList notes={notes.slice(0, 4)} />
+      </GuidanceSectionPanel>
+
+      <GuidanceSectionPanel
+        title="Duyurular"
+        aside={
+          <span className="guidance-panel-badge">
             <Bell size={14} />
             {data.announcements.length}
           </span>
-        </div>
+        }
+      >
         <GuidanceAnnouncementList announcements={data.announcements.slice(0, 3)} />
-      </section>
+      </GuidanceSectionPanel>
     </section>
   );
 }

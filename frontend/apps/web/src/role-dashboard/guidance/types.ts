@@ -1,10 +1,13 @@
-import type { Announcement, Observation, PrincipalSummary, Tenant } from "../../lib/api";
+import type { Announcement, GuidanceNote, GuidanceStudent, GuidanceSupportPlan, Observation, PrincipalSummary, Tenant } from "../../lib/api";
 
 export type GuidanceData = {
   tenant?: Tenant;
   summary?: PrincipalSummary;
   observations: Observation[];
   announcements: Announcement[];
+  guidanceStudents: GuidanceStudent[];
+  guidanceNotes: GuidanceNote[];
+  supportPlans: GuidanceSupportPlan[];
 };
 
 export type GuidanceRiskLevel = "low" | "medium" | "high";

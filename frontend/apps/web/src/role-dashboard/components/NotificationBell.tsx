@@ -1,11 +1,14 @@
 import { Bell } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { UserNotification } from "../../lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { NavLink } from "react-router-dom";
+import type { GuardianNotification, UserNotification } from "../../lib/api";
 import { api } from "../../lib/api";
 import { NoticeList, type NoticeItem } from "./NoticeList";
 import "./NotificationBell.css";
 
-function mapNotifications(items: UserNotification[]): NoticeItem[] {
+type NotificationRecord = UserNotification | GuardianNotification;
+
+function mapNotifications(items: NotificationRecord[]): NoticeItem[] {
   return items.map((item) => ({
     id: item.id,
     title: item.title,
@@ -15,29 +18,40 @@ function mapNotifications(items: UserNotification[]): NoticeItem[] {
   }));
 }
 
-export function NotificationBell() {
+export function NotificationBell({
+  mode = "user",
+  managePath = "/dashboard/notifications",
+  onUnreadChange
+}: {
+  mode?: "user" | "guardian";
+  managePath?: string;
+  onUnreadChange?: (count: number) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((item) => !item.readAt).length;
 
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const items = await api.notifications();
-      setNotifications(items ?? []);
+      const items = mode === "guardian" ? await api.guardianNotifications() : await api.notifications();
+      const list = items ?? [];
+      setNotifications(list);
+      onUnreadChange?.(list.filter((item) => !item.readAt).length);
     } catch {
       setNotifications([]);
+      onUnreadChange?.(0);
     } finally {
       setLoading(false);
     }
-  }
+  }, [mode, onUnreadChange]);
 
   useEffect(() => {
     void loadNotifications();
-  }, []);
+  }, [loadNotifications]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -53,8 +67,16 @@ export function NotificationBell() {
 
   async function markRead(notificationId: string) {
     try {
-      const updated = await api.notificationMarkRead(notificationId);
-      setNotifications((current) => current.map((item) => (item.id === notificationId ? updated : item)));
+      if (mode === "guardian") {
+        const updated = await api.guardianNotificationMarkRead(notificationId);
+        setNotifications((current) => current.map((item) => (item.id === notificationId ? updated : item)));
+      } else {
+        const updated = await api.notificationMarkRead(notificationId);
+        setNotifications((current) => current.map((item) => (item.id === notificationId ? updated : item)));
+      }
+      const nextUnread = notifications.filter((item) => item.id !== notificationId && !item.readAt).length;
+      onUnreadChange?.(notifications.find((item) => item.id === notificationId && !item.readAt) ? nextUnread : unreadCount);
+      void loadNotifications();
     } catch {
       /* ignore */
     }
@@ -84,7 +106,12 @@ export function NotificationBell() {
             <strong>Bildirimler</strong>
             {loading ? <small>Yükleniyor…</small> : <small>{unreadCount} okunmamış</small>}
           </header>
-          <NoticeList notices={mapNotifications(notifications)} onNoticeClick={(id) => void markRead(id)} />
+          <NoticeList notices={mapNotifications(notifications.slice(0, 6))} onNoticeClick={(id) => void markRead(id)} emptyText="Bildirim bulunmuyor." />
+          <footer className="notification-bell-footer">
+            <NavLink className="notification-bell-manage-link" to={managePath} onClick={() => setOpen(false)}>
+              Tüm bildirimleri yönet
+            </NavLink>
+          </footer>
         </div>
       ) : null}
     </div>

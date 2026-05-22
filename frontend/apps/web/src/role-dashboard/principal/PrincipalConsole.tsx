@@ -1,10 +1,11 @@
-import { GraduationCap, Loader2, LogOut, School } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { AppBrand } from "../../components/AppBrand";
+import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
 import type { AuthSession, PrincipalSchoolRoster, SchoolTeacherRecord, UserAccount } from "../../lib/api";
 import { api } from "../../lib/api";
-import { NotificationBell } from "../components/NotificationBell";
 import { principalTabs } from "./navTabs";
 import { PrincipalAnnouncementsPage } from "./pages/PrincipalAnnouncementsPage";
 import { PrincipalAttendancePage } from "./pages/PrincipalAttendancePage";
@@ -16,6 +17,7 @@ import { PrincipalOverviewPage } from "./pages/PrincipalOverviewPage";
 import { PrincipalSchedulePage } from "./pages/PrincipalSchedulePage";
 import { PrincipalStudentsPage } from "./pages/PrincipalStudentsPage";
 import { PrincipalTeachersPage } from "./pages/PrincipalTeachersPage";
+import { ProfilePage } from "../pages/ProfilePage";
 import type { StudentFormPayload } from "./components/StudentFormModal";
 import type { TeacherFormPayload } from "./components/TeacherFormModal";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, PrincipalManagedTeacher, SchoolClass } from "./types";
@@ -78,7 +80,15 @@ function mapRoster(roster: PrincipalSchoolRoster) {
   };
 }
 
-export function PrincipalConsole({ session, onLogout }: { session: AuthSession; onLogout: () => void }) {
+export function PrincipalConsole({
+  session,
+  onLogout,
+  onSessionUpdate
+}: {
+  session: AuthSession;
+  onLogout: () => void;
+  onSessionUpdate: (session: AuthSession) => void;
+}) {
   const [data, setData] = useState<PrincipalConsoleData>({ announcements: [] });
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [sections, setSections] = useState<ClassSection[]>([]);
@@ -338,29 +348,10 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
     <div className="admin-shell principal-console">
       <header className="admin-navbar">
         <div className="navbar-brand">
-          <div className="admin-mark">
-            <GraduationCap size={22} />
-          </div>
-          <div>
-            <strong>ÖTS</strong>
-            <span>{data.tenant?.name ?? "Müdür paneli"}</span>
-          </div>
+          <AppBrand />
         </div>
 
-        <div className="navbar-actions">
-          <NotificationBell />
-          <div className="navbar-profile" aria-label="Profil">
-            <div className="profile-avatar">{session.principal.name.slice(0, 1).toLocaleUpperCase("tr-TR")}</div>
-            <div className="navbar-profile-text">
-              <strong>{session.principal.name}</strong>
-              <span>{roleLabel(session.principal.role)}</span>
-            </div>
-          </div>
-          <button className="ghost-action navbar-logout" type="button" onClick={onLogout}>
-            <LogOut size={17} />
-            Çıkış
-          </button>
-        </div>
+        <NavbarUserMenu name={session.principal.name} meta={roleLabel(session.principal.role)} />
       </header>
 
       <aside className="admin-sidebar">
@@ -373,13 +364,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
           ))}
         </nav>
 
-        <div className="developer-note">
-          <School size={18} />
-          <div>
-            <strong>Müdür görünümü</strong>
-            <span>Operasyon, yoklama ve sınıf denetimi.</span>
-          </div>
-        </div>
+        <SidebarFooter tenantName={data.tenant?.name ?? "Kurum"} onLogout={onLogout} />
       </aside>
 
       <main className={`admin-workspace ${activeTab}-workspace`}>
@@ -456,7 +441,22 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
             <Route path="attendance" element={<PrincipalAttendancePage data={data} classes={classes} sections={sections} students={students} />} />
             <Route
               path="classes"
-              element={<PrincipalClassesPage classes={classes} sections={sections} students={students} onAddClass={addClass} onDeleteClass={deleteClass} />}
+              element={
+                <PrincipalClassesPage
+                  schoolName={data.tenant?.name ?? "Okul"}
+                  stats={{
+                    classes: classes.length,
+                    sections: sections.length,
+                    students: students.length,
+                    teachers: data.summary?.activeTeachers ?? teachers.length
+                  }}
+                  classes={classes}
+                  sections={sections}
+                  students={students}
+                  onAddClass={addClass}
+                  onDeleteClass={deleteClass}
+                />
+              }
             />
             <Route
               path="classes/:classId/:sectionId"
@@ -487,6 +487,7 @@ export function PrincipalConsole({ session, onLogout }: { session: AuthSession; 
               path="announcements"
               element={<PrincipalAnnouncementsPage data={data} classes={classes} onAnnouncementCreated={() => void refreshAnnouncements()} />}
             />
+            <Route path="profile" element={<ProfilePage session={session} onSessionUpdate={onSessionUpdate} />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Routes>
         </div>

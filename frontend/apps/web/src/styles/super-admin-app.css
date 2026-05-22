@@ -2,59 +2,31 @@
 
 /* Platform kabuğu teması — süper admin, müdür, öğretmen, veli, rehberlik */
 .admin-shell.super-admin-app,
-.admin-shell.principal-console {
-  font-family:
-    "Inter",
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+.admin-shell.principal-console,
+.admin-shell.teacher-console,
+.admin-shell.guardian-console,
+.admin-shell.guidance-console {
+  font-family: var(--shell-font, "Inter", system-ui, sans-serif);
   font-size: 12px;
 
-  --sa-bg: #e8edf4;
+  --sa-bg: #eef4fb;
   --sa-surface: #ffffff;
-  --sa-muted: #64748b;
-  --sa-border: #cfd8e6;
-  --sa-ink: #0f172a;
-  --sa-accent: #0f766e;
-  --sa-accent-2: #2dd4bf;
-  --sa-chart-soft: #6366f1;
-  --sa-shadow: 0 20px 48px rgba(15, 23, 42, 0.085);
+  --sa-muted: #5a6d82;
+  --sa-border: #b8cce0;
+  --sa-ink: #0c2340;
+  --sa-accent: #06b6d4;
+  --sa-accent-2: #67e8f9;
+  --sa-chart-soft: #3b82f6;
+  --sa-shadow: 0 20px 48px rgba(12, 35, 64, 0.085);
 
-  --sa-tint-warm: color-mix(in srgb, var(--sa-accent) 9%, var(--sa-surface));
-  --sa-tint-cream: color-mix(in srgb, var(--sa-accent) 7%, var(--sa-surface));
-  --sa-surface-tint: color-mix(in srgb, var(--sa-accent) 5%, var(--sa-surface));
-  --sa-accent-deep: #115e59;
-  --sa-accent-mid: #14b8a6;
+  --sa-tint-warm: #e8f4ff;
+  --sa-tint-cream: #f5faff;
+  --sa-surface-tint: #f8fbff;
+  --sa-accent-deep: #1a4a7a;
+  --sa-accent-mid: #0891b2;
+  --sa-navy: #163b63;
 
-  background: linear-gradient(168deg, #dfe8f2 0%, var(--sa-bg) 40%, #e8f0f9 100%);
-  grid-template-columns: 78px minmax(0, 1fr);
-}
-
-.admin-shell.super-admin-app .admin-navbar,
-.admin-shell.principal-console .admin-navbar {
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid var(--sa-border);
-  backdrop-filter: blur(18px);
-}
-
-.admin-shell.super-admin-app .admin-sidebar,
-.admin-shell.principal-console .admin-sidebar {
-  background: color-mix(in srgb, var(--sa-surface) 88%, transparent);
-  backdrop-filter: blur(18px);
-  border-right: 1px solid var(--sa-border);
-}
-
-.admin-shell.super-admin-app .developer-note,
-.admin-shell.principal-console .developer-note {
-  border-color: color-mix(in srgb, var(--sa-accent) 30%, var(--sa-border));
-  background: color-mix(in srgb, var(--sa-surface) 93%, transparent);
-}
-
-.admin-shell.super-admin-app .developer-note svg,
-.admin-shell.principal-console .developer-note svg {
-  color: var(--sa-accent);
+  background: linear-gradient(168deg, #dfeaf5 0%, var(--sa-bg) 40%, #f0f7ff 100%);
 }
 
 .admin-shell.super-admin-app .sa-main,
@@ -124,11 +96,6 @@
   letter-spacing: 0.05em;
 }
 
-.admin-shell.super-admin-app .nav-button span,
-.admin-shell.principal-console .nav-button span {
-  max-width: 72px;
-}
-
 .admin-shell.principal-console .principal-list-row,
 .admin-shell.principal-console .principal-inline-stats > div,
 .admin-shell.principal-console .principal-class-kpis > div,
@@ -160,21 +127,6 @@
 
 .admin-shell.principal-console .sa-inst-card--add:hover {
   box-shadow: 0 10px 22px color-mix(in srgb, var(--sa-accent) 14%, transparent);
-}
-
-.admin-shell.principal-console .admin-mark,
-.admin-shell.principal-console .profile-avatar {
-  color: var(--sa-accent-deep);
-  background: linear-gradient(145deg, var(--sa-accent-2), var(--sa-accent));
-  box-shadow: 0 10px 20px color-mix(in srgb, var(--sa-accent) 25%, transparent);
-}
-
-.admin-shell.principal-console .nav-button.active,
-.admin-shell.principal-console .nav-button:hover,
-.admin-shell.super-admin-app .nav-button.active,
-.admin-shell.super-admin-app .nav-button:hover {
-  border-color: color-mix(in srgb, var(--sa-accent) 35%, transparent);
-  background: linear-gradient(180deg, var(--sa-surface), var(--sa-tint-warm));
 }
 
 .admin-shell.super-admin-app .primary-action:not(.navbar-logout),
@@ -312,13 +264,4 @@
   min-height: 100px;
 }
 
-@media (max-width: 1080px) {
-  .admin-shell.super-admin-app,
-  .admin-shell.principal-console,
-  .admin-shell.teacher-console,
-  .admin-shell.guardian-console,
-  .admin-shell.guidance-console {
-    grid-template-columns: 1fr;
-    grid-template-rows: 56px auto minmax(0, 1fr);
-  }
-}
+/* Responsive kabuk: admin-shell.css */

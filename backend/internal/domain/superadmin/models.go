@@ -154,8 +154,11 @@ type UserAccount struct {
 	Tenant             string    `json:"tenant"`
 	FullName           string    `json:"fullName"`
 	Email              string    `json:"email"`
+	Phone              string    `json:"phone,omitempty"`
 	Role               string    `json:"role"`
 	Status             string    `json:"status"`
+	AvatarURL          string    `json:"avatarUrl,omitempty"`
+	ProfileAccent      string    `json:"profileAccent,omitempty"`
 	MustChangePassword bool      `json:"mustChangePassword"`
 	CreatedAt          time.Time `json:"createdAt"`
 }
@@ -174,11 +177,19 @@ type CreateUserInput struct {
 }
 
 type UpdateUserInput struct {
-	TenantID string `json:"tenantId"`
-	Email    string `json:"email"`
-	FullName string `json:"fullName"`
-	Role     string `json:"role"`
-	Status   string `json:"status"`
+	TenantID      string `json:"tenantId"`
+	Email         string `json:"email"`
+	FullName      string `json:"fullName"`
+	Phone         string `json:"phone"`
+	Role          string `json:"role"`
+	Status        string `json:"status"`
+	AvatarURL     string `json:"avatarUrl"`
+	ProfileAccent string `json:"profileAccent"`
+}
+
+type UpdateSelfProfileInput struct {
+	AvatarURL     *string `json:"avatarUrl"`
+	ProfileAccent *string `json:"profileAccent"`
 }
 
 type CreatedUserCredential struct {

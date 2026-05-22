@@ -14,6 +14,8 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
+  width: 100%;
 }
 
 .principal-kpi-card,
@@ -60,6 +62,8 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+  min-width: 0;
+  width: 100%;
 }
 
 .principal-stat-card {
@@ -260,6 +264,13 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-items: stretch;
+}
+
+.principal-surface-card--visual {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
 }
 
 .principal-card-head h2 {
@@ -593,22 +604,32 @@
   margin-top: 14px;
 }
 
+.principal-ring-grid--fit {
+  flex: 1;
+  align-items: center;
+  margin-top: auto;
+  padding: 8px 0 4px;
+  min-height: 0;
+}
+
 .principal-ring-wrap {
   display: grid;
   place-items: center;
   gap: 8px;
+  height: 100%;
 }
 
 .principal-ring-wrap span {
   font-size: 11px;
   color: var(--sa-muted);
   text-align: center;
+  line-height: 1.35;
 }
 
 .principal-ring {
   --principal-ring: 0%;
-  width: 114px;
-  height: 114px;
+  width: min(100%, 132px);
+  aspect-ratio: 1;
   border-radius: 999px;
   display: grid;
   place-items: center;
@@ -630,8 +651,65 @@
 }
 
 .principal-ring strong {
-  font-size: 1.2rem;
+  font-size: clamp(1rem, 2.4vw, 1.28rem);
   line-height: 1;
+}
+
+.principal-participation-panel {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  padding: 10px 0 6px;
+}
+
+.principal-participation-ring-wrap {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.principal-participation-ring {
+  --principal-ring: 0%;
+  width: min(188px, 72%);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  background:
+    radial-gradient(closest-side, #ffffff 70%, transparent 71% 100%),
+    conic-gradient(#14b8a6 var(--principal-ring), var(--sa-border) 0);
+}
+
+.principal-participation-ring--empty {
+  background:
+    radial-gradient(closest-side, #ffffff 70%, transparent 71% 100%),
+    conic-gradient(var(--sa-border) 0%, var(--sa-border) 100%);
+}
+
+.principal-participation-ring strong {
+  font-size: clamp(1.45rem, 3vw, 1.85rem);
+  line-height: 1;
+  color: var(--sa-ink);
+}
+
+.principal-participation-ring span {
+  font-size: 12px;
+  color: var(--sa-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.principal-participation-caption {
+  margin: 0;
+  max-width: 280px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sa-muted);
 }
 
 .principal-chart-frame {

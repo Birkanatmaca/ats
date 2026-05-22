@@ -8,12 +8,13 @@ const principalSegments = new Set([
   "attendance",
   "schedule",
   "operations",
-  "announcements"
+  "announcements",
+  "profile"
 ]);
 
-const teacherSegments = new Set(["overview", "lessons", "attendance", "observations", "announcements", "support"]);
-const guardianSegments = new Set(["overview", "child", "schedule", "attendance", "announcements", "support"]);
-const guidanceSegments = new Set(["overview", "observations", "students", "risks", "plans", "announcements", "support"]);
+const teacherSegments = new Set(["overview", "lessons", "attendance", "observations", "announcements", "notifications", "support", "profile"]);
+const guardianSegments = new Set(["overview", "child", "schedule", "attendance", "announcements", "notifications", "support", "profile"]);
+const guidanceSegments = new Set(["overview", "observations", "notes", "students", "risks", "plans", "announcements", "notifications", "support", "profile"]);
 
 function allowedSegments(role: Role): Set<string> | null {
   switch (role) {

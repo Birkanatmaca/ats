@@ -129,3 +129,22 @@
 .notification-bell-panel header small {
   color: #64748b;
 }
+
+.notification-bell-footer {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.notification-bell-manage-link {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0891b2;
+  text-decoration: none;
+}
+
+.notification-bell-manage-link:hover {
+  color: #0e7490;
+}

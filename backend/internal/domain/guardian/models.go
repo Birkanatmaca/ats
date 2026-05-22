@@ -16,11 +16,14 @@ type Student struct {
 }
 
 type AttendanceRecord struct {
-	ID     string            `json:"id"`
-	Date   string            `json:"date"`
-	Lesson string            `json:"lesson"`
-	Status attendance.Status `json:"status"`
-	Note   string            `json:"note,omitempty"`
+	ID        string            `json:"id"`
+	Date      string            `json:"date"`
+	Lesson    string            `json:"lesson"`
+	Status    attendance.Status `json:"status"`
+	Note      string            `json:"note,omitempty"`
+	StartTime string            `json:"startTime,omitempty"`
+	EndTime   string            `json:"endTime,omitempty"`
+	DayOfWeek int               `json:"dayOfWeek,omitempty"`
 }
 
 type Notification struct {

@@ -1,4 +1,4 @@
-import { CheckCircle2, ClipboardCheck, FileSpreadsheet, GraduationCap, Loader2, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound, X } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, FileSpreadsheet, Loader2, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { StudentFormModal, type StudentFormPayload } from "../components/StudentFormModal";
 import { TablePagination } from "../../components/TablePagination";
@@ -6,6 +6,7 @@ import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { api, type StudentAttendanceSummary } from "../../../lib/api";
 import { StudentImportModal } from "../components/StudentImportModal";
 import type { ClassSection, ClassStudent, SchoolClass } from "../types";
+import "../../guidance/GuidanceDataPage.css";
 import "./PrincipalStudentsPage.css";
 
 export function PrincipalStudentsPage({
@@ -156,7 +157,7 @@ export function PrincipalStudentsPage({
   }
 
   return (
-    <section className="principal-page-stack principal-students-page">
+    <section className="principal-page-stack principal-students-page guidance-data-page">
       <div className="principal-stat-grid principal-students-stats" aria-label="Öğrenci istatistikleri">
         <article className="principal-stat-card principal-stat-card--sky">
           <span className="principal-stat-icon" aria-hidden>
@@ -195,57 +196,53 @@ export function PrincipalStudentsPage({
         </article>
       </div>
 
-      <div className="principal-students-toolbar">
-        <div className="principal-students-toolbar-text">
-          <GraduationCap size={20} aria-hidden />
+      <article className="guidance-data-card">
+        <header className="guidance-data-card-head">
           <h2>Öğrenci listesi</h2>
-        </div>
-        <div className="principal-students-toolbar-actions">
-          <button className="ghost-action principal-students-import" type="button" onClick={() => setImportOpen(true)}>
-            <FileSpreadsheet size={18} />
-            Öğrenci listesine aktar
-          </button>
-          <button className="primary-action principal-students-add" type="button" onClick={openCreate}>
-            <Plus size={18} />
-            Öğrenci ekle
-          </button>
-        </div>
-      </div>
+          <div className="guidance-data-card-head-actions">
+            <span>{filteredRows.length} öğrenci</span>
+            <button className="ghost-action small-action principal-students-import" type="button" onClick={() => setImportOpen(true)}>
+              <FileSpreadsheet size={16} />
+              Listeye aktar
+            </button>
+            <button className="primary-action small-action" type="button" onClick={openCreate}>
+              <Plus size={16} />
+              Öğrenci ekle
+            </button>
+          </div>
+        </header>
 
-      <div className="principal-students-filters">
-        <label className="principal-students-search">
-          <Search size={17} aria-hidden />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ad, numara, veli veya sınıf ara…" type="search" />
-        </label>
-        <select className="principal-students-select" value={filterClassId} onChange={(event) => setFilterClassId(event.target.value)} aria-label="Sınıf filtresi">
-          <option value="">Tüm sınıflar</option>
-          {classes.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <select className="principal-students-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)} aria-label="Durum filtresi">
-          <option value="">Tüm durumlar</option>
-          <option value="active">Aktif</option>
-          <option value="passive">Pasif</option>
-        </select>
-      </div>
+        <div className="guidance-data-toolbar">
+          <select className="guidance-data-select" value={filterClassId} onChange={(event) => setFilterClassId(event.target.value)} aria-label="Sınıf filtresi">
+            <option value="">Tüm sınıflar</option>
+            {classes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+          <select className="guidance-data-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)} aria-label="Durum filtresi">
+            <option value="">Tüm durumlar</option>
+            <option value="active">Aktif</option>
+            <option value="passive">Pasif</option>
+          </select>
+          <label className="guidance-data-search">
+            <Search size={16} aria-hidden />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ad, numara, veli veya sınıf ara…" type="search" />
+          </label>
+        </div>
 
-      <article className="principal-surface-card principal-students-table-card">
         {filteredRows.length === 0 ? (
-          <p className="empty-text">{students.length === 0 ? "Henüz öğrenci kaydı yok." : "Filtrelere uyan öğrenci yok."}</p>
+          <p className="guidance-data-empty">{students.length === 0 ? "Henüz öğrenci kaydı yok." : "Filtrelere uyan öğrenci yok."}</p>
         ) : (
           <>
-            <div className="principal-table-wrap">
-              <table className="principal-table principal-students-table">
+            <div className="guidance-data-table-wrap">
+              <table className="guidance-data-table principal-students-table">
                 <thead>
                   <tr>
-                    <th>Okul no</th>
-                    <th>Ad soyad</th>
+                    <th>Öğrenci</th>
                     <th>Sınıf / şube</th>
                     <th>Veli</th>
-                    <th>Telefon</th>
                     <th>Durum</th>
                     <th>İşlemler</th>
                   </tr>
@@ -254,39 +251,57 @@ export function PrincipalStudentsPage({
                   {paginatedRows.map((item) => (
                     <tr key={item.id}>
                       <td>
-                        <code className="principal-students-number">{item.schoolNumber}</code>
-                      </td>
-                      <td>
-                        <span className="principal-table-name">
-                          <UsersRound size={16} aria-hidden />
+                        <span className="guidance-data-primary">
                           {item.firstName} {item.lastName}
                         </span>
+                        <span className="guidance-data-secondary">No: {item.schoolNumber}</span>
                       </td>
                       <td>{sectionLabelById.get(item.sectionId) ?? classNameById.get(item.classId) ?? "—"}</td>
-                      <td>{item.guardianName || "—"}</td>
-                      <td>{item.guardianPhone || "—"}</td>
                       <td>
-                        <span className={`principal-students-badge${item.status === "active" ? " principal-students-badge--active" : " principal-students-badge--passive"}`}>
+                        {item.guardianName || item.guardianPhone ? (
+                          <>
+                            <span className="guidance-data-primary">{item.guardianName || "—"}</span>
+                            {item.guardianPhone ? <span className="guidance-data-secondary">{item.guardianPhone}</span> : null}
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>
+                        <span
+                          className={`guidance-data-badge guidance-data-badge--inline${
+                            item.status === "active" ? " guidance-data-badge--emerald" : " guidance-data-badge--rose"
+                          }`}
+                        >
                           {item.status === "active" ? (
                             <>
-                              <CheckCircle2 size={12} />
+                              <CheckCircle2 size={11} aria-hidden />
                               Aktif
                             </>
                           ) : (
-                            "Pasif"
+                            <>
+                              <UserX size={11} aria-hidden />
+                              Pasif
+                            </>
                           )}
                         </span>
                       </td>
                       <td>
-                        <div className="principal-table-actions principal-students-actions">
-                          <button className="ghost-action" type="button" onClick={() => void openAttendanceSummary(item)} title="Devamsızlık özeti">
-                            <ClipboardCheck size={16} />
+                        <div className="guidance-data-actions principal-students-row-actions">
+                          <button
+                            className="ghost-action"
+                            type="button"
+                            onClick={() => void openAttendanceSummary(item)}
+                            title="Devamsızlık özeti"
+                            aria-label="Devamsızlık özeti"
+                          >
+                            <ClipboardCheck size={15} />
                           </button>
-                          <button className="ghost-action" type="button" onClick={() => openEdit(item)} title="Düzenle">
-                            <Pencil size={16} />
+                          <button className="ghost-action" type="button" onClick={() => openEdit(item)} title="Düzenle" aria-label="Düzenle">
+                            <Pencil size={15} />
                           </button>
-                          <button className="ghost-action danger" type="button" onClick={() => handleDelete(item)} title="Sil">
-                            <Trash2 size={16} />
+                          <button className="ghost-action danger" type="button" onClick={() => handleDelete(item)} title="Sil" aria-label="Sil">
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>

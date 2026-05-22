@@ -108,7 +108,7 @@ export function App() {
           ) : session.principal.role === "super_admin" ? (
             <Navigate to="/admin/overview" replace />
           ) : (
-            <RoleDashboardPage session={session} onLogout={() => handleLogout(setSession)} />
+            <RoleDashboardPage session={session} onLogout={() => handleLogout(setSession)} onSessionUpdate={setSession} />
           )
         }
       />

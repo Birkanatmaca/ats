@@ -13,6 +13,10 @@ func (s *Store) GetAttendanceSession(ctx context.Context, tenantID string, sessi
 	return s.loadAttendanceSessionByID(ctx, tenantID, sessionID)
 }
 
+func (s *Store) GetAttendanceSessionByLesson(ctx context.Context, tenantID string, lessonID string) (attendancedomain.Session, bool) {
+	return s.loadAttendanceSessionByLesson(ctx, tenantID, lessonID)
+}
+
 func (s *Store) GetOrCreateAttendanceSession(ctx context.Context, tenantID string, lessonID string, takenByUserID string) (attendancedomain.Session, bool) {
 	if session, ok := s.loadAttendanceSessionByLesson(ctx, tenantID, lessonID); ok {
 		return session, true
@@ -83,6 +87,31 @@ WHERE tenant_id = $2 AND id = $3 AND finalized_at IS NULL`,
 	}
 	s.emitAttendanceAbsenceNotifications(ctx, tenantID, sessionID, session)
 	s.writeOperationalAudit(ctx, tenantID, actorUserID, "attendance.finalize", "attendance_session", sessionID, `{}`)
+	return session, true
+}
+
+func (s *Store) ReopenAttendanceSession(ctx context.Context, tenantID string, sessionID string, actorUserID string) (attendancedomain.Session, bool) {
+	result, err := s.db.ExecContext(ctx, `
+UPDATE attendance_sessions
+SET finalized_at = NULL
+WHERE tenant_id = $1 AND id = $2 AND finalized_at IS NOT NULL`,
+		tenantID, sessionID)
+	if err != nil {
+		return attendancedomain.Session{}, false
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		session, ok := s.loadAttendanceSessionByID(ctx, tenantID, sessionID)
+		if !ok || session.FinalizedAt != nil {
+			return attendancedomain.Session{}, false
+		}
+		return session, true
+	}
+	session, ok := s.loadAttendanceSessionByID(ctx, tenantID, sessionID)
+	if !ok {
+		return attendancedomain.Session{}, false
+	}
+	s.writeOperationalAudit(ctx, tenantID, actorUserID, "attendance.reopen", "attendance_session", sessionID, `{}`)
 	return session, true
 }
 

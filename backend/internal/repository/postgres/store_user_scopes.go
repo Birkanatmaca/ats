@@ -33,8 +33,8 @@ WHERE tenant_id = $1 AND user_id = $2`,
 	return out, rows.Err()
 }
 
-func (s *Store) teacherCanObserveViaScopes(ctx context.Context, tenantID, teacherUserID, studentID string) (bool, bool) {
-	scopes, err := s.ListUserScopes(ctx, tenantID, teacherUserID)
+func (s *Store) userCanAccessStudentViaScopes(ctx context.Context, tenantID, userID, studentID string) (bool, bool) {
+	scopes, err := s.ListUserScopes(ctx, tenantID, userID)
 	if err != nil || len(scopes) == 0 {
 		return false, false
 	}
@@ -63,4 +63,8 @@ SELECT EXISTS (
 		}
 	}
 	return false, true
+}
+
+func (s *Store) teacherCanObserveViaScopes(ctx context.Context, tenantID, teacherUserID, studentID string) (bool, bool) {
+	return s.userCanAccessStudentViaScopes(ctx, tenantID, teacherUserID, studentID)
 }

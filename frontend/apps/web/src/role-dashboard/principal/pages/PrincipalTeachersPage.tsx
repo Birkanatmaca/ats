@@ -1,10 +1,11 @@
-import { BookOpen, CheckCircle2, Clock3, KeyRound, Pencil, Plus, RotateCcw, Search, Tags, Trash2, UserRound } from "lucide-react";
+import { CheckCircle2, Clock3, KeyRound, Pencil, Plus, RotateCcw, Search, Tags, Trash2, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { PrincipalManagedTeacher, SchoolClass } from "../types";
 import { TablePagination } from "../../components/TablePagination";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { CredentialRevealDialog } from "../components/CredentialRevealDialog";
 import { TeacherFormModal, type TeacherFormPayload } from "../components/TeacherFormModal";
+import "../../guidance/GuidanceDataPage.css";
 import "./PrincipalTeachersPage.css";
 
 export function PrincipalTeachersPage({
@@ -55,21 +56,23 @@ export function PrincipalTeachersPage({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return teachers.filter((t) => {
-      if (filterBranch && t.branch.trim() !== filterBranch) {
-        return false;
-      }
-      if (filterClassId) {
-        if (t.classId !== filterClassId) {
+    return teachers
+      .filter((t) => {
+        if (filterBranch && t.branch.trim() !== filterBranch) {
           return false;
         }
-      }
-      if (!q) {
-        return true;
-      }
-      const blob = `${t.firstName} ${t.lastName} ${t.username} ${t.branch} ${t.className ?? ""}`.toLowerCase();
-      return blob.includes(q);
-    });
+        if (filterClassId) {
+          if (t.classId !== filterClassId) {
+            return false;
+          }
+        }
+        if (!q) {
+          return true;
+        }
+        const blob = `${t.firstName} ${t.lastName} ${t.username} ${t.branch} ${t.className ?? ""}`.toLowerCase();
+        return blob.includes(q);
+      })
+      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, "tr"));
   }, [teachers, search, filterBranch, filterClassId]);
 
   const filterKey = `${search}|${filterBranch}|${filterClassId}`;
@@ -152,7 +155,7 @@ export function PrincipalTeachersPage({
   }
 
   return (
-    <section className="principal-page-stack principal-teachers-page">
+    <section className="principal-page-stack principal-teachers-page guidance-data-page">
       <div className="principal-stat-grid principal-teachers-stats" aria-label="Öğretmen istatistikleri">
         <article className="principal-stat-card principal-stat-card--sky">
           <span className="principal-stat-icon" aria-hidden>
@@ -188,54 +191,53 @@ export function PrincipalTeachersPage({
         </article>
       </div>
 
-      <div className="principal-teachers-toolbar">
-        <div className="principal-teachers-toolbar-text">
-          <BookOpen size={20} aria-hidden />
+      <article className="guidance-data-card">
+        <header className="guidance-data-card-head">
           <h2>Öğretmen listesi</h2>
+          <div className="guidance-data-card-head-actions">
+            <span>{filtered.length} öğretmen</span>
+            <button className="primary-action small-action" type="button" onClick={openCreate}>
+              <Plus size={16} />
+              Öğretmen ekle
+            </button>
+          </div>
+        </header>
+
+        <div className="guidance-data-toolbar">
+          <select className="guidance-data-select" value={filterBranch} onChange={(event) => setFilterBranch(event.target.value)} aria-label="Branş filtresi">
+            <option value="">Tüm branşlar</option>
+            {branchOptions.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+          <select className="guidance-data-select" value={filterClassId} onChange={(event) => setFilterClassId(event.target.value)} aria-label="Sınıf filtresi">
+            <option value="">Tüm sınıflar</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <label className="guidance-data-search">
+            <Search size={16} aria-hidden />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ad, kullanıcı adı, branş veya sınıf ara…" type="search" />
+          </label>
         </div>
-        <button className="primary-action principal-teachers-add" type="button" onClick={openCreate}>
-          <Plus size={18} />
-          Öğretmen ekle
-        </button>
-      </div>
 
-      <div className="principal-teachers-filters">
-        <label className="principal-teachers-search">
-          <Search size={17} aria-hidden />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ad, soyad, kullanıcı adı, branş veya sınıf ara…" type="search" />
-        </label>
-        <select className="principal-teachers-select" value={filterBranch} onChange={(event) => setFilterBranch(event.target.value)} aria-label="Branş filtresi">
-          <option value="">Tüm branşlar</option>
-          {branchOptions.map((b) => (
-            <option key={b} value={b}>
-              {b}
-            </option>
-          ))}
-        </select>
-        <select className="principal-teachers-select" value={filterClassId} onChange={(event) => setFilterClassId(event.target.value)} aria-label="Sınıf filtresi">
-          <option value="">Tüm sınıflar</option>
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <article className="principal-surface-card principal-teachers-table-card">
         {filtered.length === 0 ? (
-          <p className="empty-text">{teachers.length === 0 ? "Henüz öğretmen eklenmedi." : "Filtrelere uyan öğretmen yok."}</p>
+          <p className="guidance-data-empty">{teachers.length === 0 ? "Henüz öğretmen eklenmedi." : "Filtrelere uyan öğretmen yok."}</p>
         ) : (
           <>
-            <div className="principal-table-wrap">
-              <table className="principal-table principal-teachers-table">
+            <div className="guidance-data-table-wrap">
+              <table className="guidance-data-table principal-teachers-table">
                 <thead>
                   <tr>
-                    <th>Ad soyad</th>
+                    <th>Öğretmen</th>
                     <th>Branş</th>
-                    <th>Haftalık ders saati</th>
+                    <th>Haftalık saat</th>
                     <th>Sınıf</th>
-                    <th>Kullanıcı adı</th>
                     <th>İlk giriş</th>
                     <th>İşlemler</th>
                   </tr>
@@ -244,41 +246,55 @@ export function PrincipalTeachersPage({
                   {paginatedRows.map((row) => (
                     <tr key={row.id}>
                       <td>
-                        <span className="principal-table-name">
-                          <UserRound size={16} aria-hidden />
+                        <span className="guidance-data-primary">
                           {row.firstName} {row.lastName}
                         </span>
+                        <span className="guidance-data-secondary">{row.username}</span>
                       </td>
-                      <td>{row.branch}</td>
-                      <td>{row.weeklyLessonHours}</td>
+                      <td>
+                        <span className="guidance-data-badge guidance-data-badge--slate">{row.branch || "—"}</span>
+                      </td>
+                      <td className="guidance-data-num">{row.weeklyLessonHours} sa</td>
                       <td>{row.className ?? "—"}</td>
                       <td>
-                        <code className="principal-teachers-username">{row.username}</code>
-                      </td>
-                      <td>
-                        <span className={`principal-teachers-badge${row.mustChangePassword ? " principal-teachers-badge--pending" : " principal-teachers-badge--ok"}`}>
-                          {row.mustChangePassword ? "Şifre bekleniyor" : "Tamamlandı"}
+                        <span
+                          className={`guidance-data-badge guidance-data-badge--inline${
+                            row.mustChangePassword ? " guidance-data-badge--amber" : " guidance-data-badge--emerald"
+                          }`}
+                        >
+                          {row.mustChangePassword ? (
+                            <>
+                              <KeyRound size={11} aria-hidden />
+                              Şifre bekleniyor
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 size={11} aria-hidden />
+                              Tamamlandı
+                            </>
+                          )}
                         </span>
                       </td>
                       <td>
-                        <div className="principal-table-actions principal-teachers-actions">
-                          <button className="ghost-action" type="button" onClick={() => openEdit(row)} title="Düzenle">
-                            <Pencil size={16} />
+                        <div className="guidance-data-actions principal-teachers-row-actions">
+                          <button className="ghost-action" type="button" onClick={() => openEdit(row)} title="Düzenle" aria-label="Düzenle">
+                            <Pencil size={15} />
                           </button>
-                          <button className="ghost-action" type="button" onClick={() => handleResetPassword(row)} title="Şifre sıfırla">
-                            <RotateCcw size={16} />
+                          <button className="ghost-action" type="button" onClick={() => void handleResetPassword(row)} title="Şifre sıfırla" aria-label="Şifre sıfırla">
+                            <RotateCcw size={15} />
                           </button>
-                          <button className="ghost-action danger" type="button" onClick={() => handleDelete(row)} title="Sil">
-                            <Trash2 size={16} />
+                          <button className="ghost-action danger" type="button" onClick={() => handleDelete(row)} title="Sil" aria-label="Sil">
+                            <Trash2 size={15} />
                           </button>
                           {row.mustChangePassword ? (
                             <button
                               className="ghost-action"
                               type="button"
                               onClick={() => onMarkFirstLoginComplete(row.id)}
-                              title="İlk giriş ve şifre değişikliği tamamlandı (kayıt güncelle)"
+                              title="İlk giriş tamamlandı"
+                              aria-label="İlk giriş tamamlandı"
                             >
-                              <CheckCircle2 size={16} />
+                              <CheckCircle2 size={15} />
                             </button>
                           ) : null}
                         </div>

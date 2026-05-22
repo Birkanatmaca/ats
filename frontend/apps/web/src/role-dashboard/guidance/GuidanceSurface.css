@@ -1,0 +1,119 @@
+/* Rehberlik — ortak KPI kartları (Genel, Gözlemler, …) */
+
+.guidance-surface-page {
+  --go-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --go-card-bg: #ffffff;
+  --go-card-border: #e2e8f0;
+  --go-text: #0f172a;
+  --go-muted: #64748b;
+  --go-accent: #0e7490;
+  --go-accent-soft: #ecfeff;
+  font-family: var(--go-font);
+}
+
+.guidance-surface-page .guidance-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.guidance-overview-page.guidance-surface-page .guidance-metric-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.guidance-surface-page .guidance-metric-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--go-card-border);
+  border-radius: 12px;
+  background: var(--go-card-bg);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.guidance-surface-page .guidance-metric-card::before {
+  display: none;
+}
+
+.guidance-surface-page .guidance-metric-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.guidance-surface-page .guidance-metric-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: var(--go-accent);
+  background: var(--go-accent-soft);
+}
+
+.guidance-surface-page .guidance-metric-card--rose .guidance-metric-icon {
+  color: #be123c;
+  background: #fff1f2;
+}
+
+.guidance-surface-page .guidance-metric-card--amber .guidance-metric-icon {
+  color: #b45309;
+  background: #fffbeb;
+}
+
+.guidance-surface-page .guidance-metric-card--emerald .guidance-metric-icon {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.guidance-surface-page .guidance-metric-card--violet .guidance-metric-icon {
+  color: #6d28d9;
+  background: #f5f3ff;
+}
+
+.guidance-surface-page .guidance-metric-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.guidance-surface-page .guidance-metric-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--go-muted);
+  line-height: 1.35;
+}
+
+.guidance-surface-page .guidance-metric-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--go-text);
+}
+
+.guidance-surface-page .guidance-metric-detail {
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+@media (max-width: 1200px) {
+  .guidance-surface-page .guidance-metric-grid,
+  .guidance-overview-page.guidance-surface-page .guidance-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .guidance-surface-page .guidance-metric-grid,
+  .guidance-overview-page.guidance-surface-page .guidance-metric-grid {
+    grid-template-columns: 1fr;
+  }
+}

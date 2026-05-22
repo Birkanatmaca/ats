@@ -322,6 +322,43 @@ RETURNING id::text`, tenantID, reporterID, reporterName, reporterEmail, ticketTy
 	return ticket, nil
 }
 
+func (s *Store) ListSupportTicketsByReporter(ctx context.Context, principal identity.Principal) ([]superadmindomain.SupportTicket, error) {
+	reporterID := postgresUUID(principal.UserID)
+	if reporterID == "" {
+		return []superadmindomain.SupportTicket{}, nil
+	}
+	tenantID := postgresUUID(principal.TenantID)
+	const query = `
+SELECT
+	st.id::text,
+	COALESCE(st.tenant_id::text, '') AS tenant_id,
+	COALESCE(t.name, 'ÖTS Platform') AS tenant_name,
+	COALESCE(st.reporter_user_id::text, '') AS reporter_id,
+	COALESCE(NULLIF(st.reporter_name, ''), u.full_name, 'Kullanıcı') AS reporter_name,
+	COALESCE(NULLIF(st.reporter_email, ''), u.email, '') AS reporter_email,
+	st.type,
+	st.subject,
+	st.message,
+	st.status,
+	st.priority,
+	st.internal_note,
+	st.created_at,
+	st.updated_at
+FROM support_tickets st
+LEFT JOIN tenants t ON t.id = st.tenant_id
+LEFT JOIN users u ON u.id = st.reporter_user_id
+WHERE st.reporter_user_id = $1::uuid
+  AND ($2 = '' OR st.tenant_id = $2::uuid)
+ORDER BY st.created_at DESC
+LIMIT 100`
+	rows, err := s.db.QueryContext(ctx, query, reporterID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanSupportTickets(rows)
+}
+
 func (s *Store) ListSupportTickets(ctx context.Context) ([]superadmindomain.SupportTicket, error) {
 	const query = `
 SELECT
@@ -605,10 +642,17 @@ func (s *Store) UpdateUser(ctx context.Context, actor identity.Principal, userID
 	}
 
 	isActive := status == "active"
+	phone := strings.TrimSpace(input.Phone)
+	avatarURL := strings.TrimSpace(input.AvatarURL)
+	profileAccent := strings.TrimSpace(input.ProfileAccent)
+	if profileAccent == "" {
+		profileAccent = "#0891b2"
+	}
 	if _, err := tx.ExecContext(ctx, `
 UPDATE users
-SET email = $1, full_name = $2, is_active = $3, must_change_password = false, updated_at = now()
-WHERE id = $4`, email, fullName, isActive, userID); err != nil {
+SET email = $1, full_name = $2, phone = NULLIF($3, ''), avatar_url = NULLIF($4, ''), profile_accent = $5,
+    is_active = $6, must_change_password = false, updated_at = now()
+WHERE id = $7`, email, fullName, phone, avatarURL, profileAccent, isActive, userID); err != nil {
 		return superadmindomain.UserAccount{}, false, err
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -915,6 +959,9 @@ SELECT
 	t.name,
 	u.full_name,
 	COALESCE(u.email, '') AS email,
+	COALESCE(u.phone, '') AS phone,
+	COALESCE(u.avatar_url, '') AS avatar_url,
+	COALESCE(u.profile_accent, '#0891b2') AS profile_accent,
 	COALESCE(r.code, 'principal') AS role_code,
 	CASE
 		WHEN u.is_active = true AND tm.status = 'active' AND u.must_change_password = true THEN 'first_login'
@@ -966,6 +1013,9 @@ LEFT JOIN LATERAL (
 			&user.Tenant,
 			&user.FullName,
 			&user.Email,
+			&user.Phone,
+			&user.AvatarURL,
+			&user.ProfileAccent,
 			&user.Role,
 			&user.Status,
 			&user.MustChangePassword,

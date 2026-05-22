@@ -20,6 +20,7 @@ type Repository interface {
 	UpdateClass(ctx context.Context, tenantID string, classID string, input domain.UpdateClassInput) (domain.PrincipalRosterClass, error)
 
 	ListStudents(ctx context.Context, tenantID string) ([]domain.PrincipalRosterStudent, error)
+	ListStudentsForTeacher(ctx context.Context, tenantID, teacherUserID string) ([]domain.PrincipalRosterStudent, error)
 	ListStudentsPage(ctx context.Context, tenantID, query string, offset, limit int) ([]domain.PrincipalRosterStudent, int, error)
 	CreateStudent(ctx context.Context, tenantID string, input domain.CreateStudentInput) (domain.PrincipalRosterStudent, error)
 	UpdateStudent(ctx context.Context, tenantID string, studentID string, input domain.UpdateStudentInput) (domain.PrincipalRosterStudent, error)
@@ -142,6 +143,10 @@ func (s *Service) UpdateClass(ctx context.Context, tenantID string, classID stri
 
 func (s *Service) ListStudents(ctx context.Context, tenantID string) ([]domain.PrincipalRosterStudent, error) {
 	return s.repo.ListStudents(ctx, tenantID)
+}
+
+func (s *Service) ListStudentsForTeacher(ctx context.Context, tenantID, teacherUserID string) ([]domain.PrincipalRosterStudent, error) {
+	return s.repo.ListStudentsForTeacher(ctx, tenantID, teacherUserID)
 }
 
 func (s *Service) ListStudentsPage(ctx context.Context, tenantID, query string, offset, limit int) ([]domain.PrincipalRosterStudent, int, error) {
