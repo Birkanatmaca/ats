@@ -78,13 +78,20 @@ func main() {
 	mux := http.NewServeMux()
 	handlers.Register(mux)
 
-	stack := middleware.Chain(
+	middlewares := []middleware.Middleware{
 		middleware.Recoverer(logger),
 		middleware.RequestID(),
 		middleware.Logger(logger),
 		middleware.CORS(cfg.CORSAllowedOrigins),
 		middleware.JWTAuth(jwtIssuer),
-	)
+	}
+	if postgresStore != nil {
+		middlewares = append(middlewares,
+			middleware.UserScopes(postgresStore),
+			middleware.OperationalAudit(postgresStore.RecordOperationalAudit),
+		)
+	}
+	stack := middleware.Chain(middlewares...)
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,

@@ -475,6 +475,9 @@ LIMIT 50`, tenantID)
 }
 
 func (s *Store) TeacherCanObserveStudent(ctx context.Context, tenantID string, teacherUserID string, studentID string) bool {
+	if allowed, checked := s.teacherCanObserveViaScopes(ctx, tenantID, teacherUserID, studentID); checked {
+		return allowed
+	}
 	var exists bool
 	err := s.db.QueryRowContext(ctx, `
 SELECT EXISTS (

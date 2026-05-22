@@ -1,6 +1,7 @@
 import { categoryLabel } from "../../utils";
 import type { Observation } from "../../../lib/api";
 import { formatGuidanceDate } from "../utils";
+import { sensitivityBadgeClass, sensitivityLabel } from "../utils/sensitivity";
 
 export function GuidanceObservationList({ observations, limit }: { observations: Observation[]; limit?: number }) {
   const visibleObservations = typeof limit === "number" ? observations.slice(0, limit) : observations;
@@ -20,7 +21,9 @@ export function GuidanceObservationList({ observations, limit }: { observations:
                 {observation.className} · {categoryLabel(observation.category)} · {observation.authorName}
               </span>
             </div>
-            <span className="status-badge warning">{observation.sensitivity}</span>
+            <span className={sensitivityBadgeClass(observation.sensitivity)} title="Veri hassasiyeti">
+              {sensitivityLabel(observation.sensitivity)}
+            </span>
           </div>
           <p>{observation.note}</p>
           <small>{formatGuidanceDate(observation.createdAt)}</small>

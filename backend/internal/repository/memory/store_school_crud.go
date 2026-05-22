@@ -72,6 +72,33 @@ func (s *Store) UpdateClass(_ context.Context, tenantID string, classID string, 
 	return school.PrincipalRosterClass{}, school.ErrClassNotFound
 }
 
+func (s *Store) ListStudentsPage(_ context.Context, tenantID, query string, offset, limit int) ([]school.PrincipalRosterStudent, int, error) {
+	all, err := s.ListStudents(context.Background(), tenantID)
+	if err != nil {
+		return nil, 0, err
+	}
+	q := strings.ToLower(strings.TrimSpace(query))
+	filtered := all
+	if q != "" {
+		filtered = make([]school.PrincipalRosterStudent, 0)
+		for _, item := range all {
+			name := strings.ToLower(strings.TrimSpace(item.FirstName + " " + item.LastName))
+			if strings.Contains(name, q) || strings.Contains(strings.ToLower(item.SchoolNumber), q) {
+				filtered = append(filtered, item)
+			}
+		}
+	}
+	total := len(filtered)
+	if offset >= total {
+		return []school.PrincipalRosterStudent{}, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return filtered[offset:end], total, nil
+}
+
 func (s *Store) ListStudents(_ context.Context, tenantID string) ([]school.PrincipalRosterStudent, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

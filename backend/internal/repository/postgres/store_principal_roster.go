@@ -145,6 +145,81 @@ ORDER BY s.student_number`
 	return out, rows.Err()
 }
 
+func (s *Store) ListStudentsPage(ctx context.Context, tenantID, query string, offset, limit int) ([]schooldomain.PrincipalRosterStudent, int, error) {
+	q := "%" + strings.TrimSpace(query) + "%"
+	countQuery := `
+SELECT COUNT(*)
+FROM students s
+WHERE s.tenant_id = $1 AND s.deleted_at IS NULL
+  AND ($2 = '' OR s.full_name ILIKE $3 OR s.student_number ILIKE $3)`
+	var total int
+	if err := s.db.QueryRowContext(ctx, countQuery, tenantID, strings.TrimSpace(query), q).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	const pageQuery = `
+SELECT
+	s.id::text,
+	COALESCE(cs.class_id::text, '') AS class_id,
+	s.student_number,
+	s.full_name,
+	s.birth_date,
+	s.status,
+	s.created_at,
+	COALESCE(g.full_name, '') AS guardian_name,
+	COALESCE(g.phone, '') AS guardian_phone
+FROM students s
+LEFT JOIN LATERAL (
+	SELECT class_id
+	FROM class_students
+	WHERE tenant_id = s.tenant_id AND student_id = s.id AND ends_on IS NULL
+	ORDER BY starts_on DESC
+	LIMIT 1
+) cs ON true
+LEFT JOIN LATERAL (
+	SELECT g.full_name, g.phone
+	FROM student_guardians sg
+	JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = sg.tenant_id
+	WHERE sg.tenant_id = s.tenant_id AND sg.student_id = s.id AND sg.is_primary = true
+	LIMIT 1
+) g ON true
+WHERE s.tenant_id = $1 AND s.deleted_at IS NULL
+  AND ($2 = '' OR s.full_name ILIKE $3 OR s.student_number ILIKE $3)
+ORDER BY s.student_number
+LIMIT $4 OFFSET $5`
+	rows, err := s.db.QueryContext(ctx, pageQuery, tenantID, strings.TrimSpace(query), q, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	out := []schooldomain.PrincipalRosterStudent{}
+	for rows.Next() {
+		var (
+			item      schooldomain.PrincipalRosterStudent
+			fullName  string
+			birthDate sql.NullTime
+			status    string
+		)
+		if err := rows.Scan(
+			&item.ID, &item.ClassID, &item.SchoolNumber, &fullName, &birthDate, &status,
+			&item.CreatedAt, &item.GuardianName, &item.GuardianPhone,
+		); err != nil {
+			return nil, 0, err
+		}
+		item.FirstName, item.LastName = splitFullName(fullName)
+		if birthDate.Valid {
+			item.BirthDate = birthDate.Time.Format("2006-01-02")
+		}
+		switch strings.ToLower(strings.TrimSpace(status)) {
+		case "passive", "inactive", "archived":
+			item.Status = "passive"
+		default:
+			item.Status = "active"
+		}
+		out = append(out, item)
+	}
+	return out, total, rows.Err()
+}
+
 func splitFullName(fullName string) (string, string) {
 	parts := strings.Fields(strings.TrimSpace(fullName))
 	if len(parts) == 0 {

@@ -130,6 +130,14 @@ export type ScheduleValidationResult = {
   softWarnings: string[];
 };
 
+export type PageResult<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export type Tenant = {
   id: string;
   name: string;
@@ -764,6 +772,20 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   listStudents: () => request<SchoolStudentRecord[] | null>("/api/v1/students").then(asArray),
+  listStudentsPage: (params?: { page?: number; limit?: number; q?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.page) {
+      search.set("page", String(params.page));
+    }
+    if (params?.limit) {
+      search.set("limit", String(params.limit));
+    }
+    if (params?.q?.trim()) {
+      search.set("q", params.q.trim());
+    }
+    const query = search.toString();
+    return request<PageResult<SchoolStudentRecord>>(`/api/v1/students${query ? `?${query}` : "?page=1&limit=25"}`);
+  },
   createStudent: (payload: {
     firstName: string;
     lastName: string;

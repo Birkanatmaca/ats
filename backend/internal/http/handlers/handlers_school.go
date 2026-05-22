@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	schoolapp "ots/backend/internal/app/school"
 	"ots/backend/internal/domain/identity"
@@ -148,6 +149,16 @@ func (h *Handler) updateClass(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listStudents(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireSchoolOperator(w, r)
 	if !ok {
+		return
+	}
+	if r.URL.Query().Get("page") != "" || r.URL.Query().Get("limit") != "" || strings.TrimSpace(r.URL.Query().Get("q")) != "" {
+		params := httpx.ParsePageParams(r, 25, 100)
+		items, total, err := h.school.ListStudentsPage(r.Context(), principal.TenantID, params.Query, params.Offset, params.Limit)
+		if err != nil {
+			httpx.WriteError(w, http.StatusInternalServerError, "STUDENTS_FAILED", "Öğrenciler alınamadı.", nil)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, httpx.NewPageResult(items, total, params.Page, params.Limit), nil)
 		return
 	}
 	items, err := h.school.ListStudents(r.Context(), principal.TenantID)

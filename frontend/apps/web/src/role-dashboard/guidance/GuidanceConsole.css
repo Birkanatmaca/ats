@@ -306,6 +306,30 @@
   }
 }
 
+.sensitivity-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.sensitivity-badge.is-sensitive {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.sensitivity-badge.is-confidential {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+
 @media (max-width: 760px) {
   .guidance-kpi-grid,
   .guidance-toolbar {

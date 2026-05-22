@@ -387,9 +387,31 @@ export function PrincipalSchedulePage({
       setBuilderMessage("Kaydetmek için önce otomatik program önizlemesi oluşturun.");
       return;
     }
+    if (builderWarnings.length > 0) {
+      setBuilderMessage(`Yayınlamadan önce düzeltin: ${builderWarnings.join(" ")}`);
+      return;
+    }
     setApiPublishing(true);
     setBuilderMessage(null);
     try {
+      const validation = await api.validateSchedule(draft.id);
+      if (!validation.valid) {
+        const issues = [...validation.hardConflicts, ...validation.softWarnings];
+        setBuilderMessage(
+          issues.length > 0
+            ? `Program doğrulanamadı: ${issues.join(" · ")}`
+            : "Program doğrulanamadı; çakışmaları düzeltin."
+        );
+        return;
+      }
+      if (validation.softWarnings.length > 0) {
+        const proceed = window.confirm(
+          `Uyarılar var:\n${validation.softWarnings.join("\n")}\n\nYine de yayınlamak istiyor musunuz?`
+        );
+        if (!proceed) {
+          return;
+        }
+      }
       await api.publishSchedule(draft.id);
       onScheduleChange?.();
       setDraft(null);
