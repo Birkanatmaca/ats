@@ -1,5 +1,5 @@
-import { ArrowLeft, Building2, GraduationCap, GripHorizontal, Layers, Plus, Search, Sparkles, Trash2, UsersRound } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { ArrowLeft, BookOpen, ChevronRight, GraduationCap, LayoutGrid, Plus, Search, Trash2, UsersRound, X } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { ClassSection, ClassStudent, SchoolClass } from "../types";
 import "./PrincipalClassesPage.css";
@@ -11,15 +11,28 @@ type EcosystemStats = {
   teachers: number;
 };
 
-type OrbitView = "school" | "class";
-type Vec2 = { x: number; y: number };
-type EcosystemLayout = { center: Vec2; nodes: Record<string, Vec2> };
+type View = { kind: "school" } | { kind: "class"; classId: string };
 
-type OrbitItem =
-  | { kind: "class"; id: string; data: SchoolClass }
-  | { kind: "section"; id: string; data: ClassSection };
+const GRADE_TONES: Record<number, { label: string; color: string; bg: string; badge: string }> = {
+  9:  { label: "9",  color: "#7c3aed", bg: "#faf5ff", badge: "#ede9fe" },
+  10: { label: "10", color: "#2563eb", bg: "#eff6ff", badge: "#dbeafe" },
+  11: { label: "11", color: "#0d9488", bg: "#f0fdfa", badge: "#ccfbf1" },
+  12: { label: "12", color: "#d97706", bg: "#fffbeb", badge: "#fef3c7" },
+};
+const DEFAULT_TONE = { color: "#475569", bg: "#f8fafc", badge: "#e2e8f0" };
 
-const DRAG_CLICK_THRESHOLD = 6;
+function getTone(name: string) {
+  const match = name.match(/\d+/);
+  const n = match ? Number(match[0]) : null;
+  return n !== null && GRADE_TONES[n] ? GRADE_TONES[n] : DEFAULT_TONE;
+}
+
+function sortClasses(a: SchoolClass, b: SchoolClass) {
+  const an = a.name.match(/\d+/);
+  const bn = b.name.match(/\d+/);
+  if (an && bn) return Number(an[0]) - Number(bn[0]);
+  return a.name.localeCompare(b.name, "tr");
+}
 
 export function PrincipalClassesPage({
   schoolName,
@@ -28,7 +41,7 @@ export function PrincipalClassesPage({
   sections,
   students,
   onAddClass,
-  onDeleteClass
+  onDeleteClass,
 }: {
   schoolName: string;
   stats?: EcosystemStats;
@@ -39,641 +52,389 @@ export function PrincipalClassesPage({
   onDeleteClass: (classId: string) => void;
 }) {
   const navigate = useNavigate();
-  const stageRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ target: "center" | string; offsetX: number; offsetY: number; moved: boolean } | null>(null);
-  const suppressClickRef = useRef(false);
-
-  const [className, setClassName] = useState("");
+  const [view, setView] = useState<View>({ kind: "school" });
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [view, setView] = useState<OrbitView>("school");
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [layouts, setLayouts] = useState<Record<string, EcosystemLayout>>(() => readStoredLayouts(schoolName));
-  const [draggingTarget, setDraggingTarget] = useState<"center" | string | null>(null);
-
-  const layoutScope = view === "school" ? "school" : `class-${selectedClassId ?? "unknown"}`;
-
-  const sectionCountByClass = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const section of sections) {
-      map.set(section.classId, (map.get(section.classId) ?? 0) + 1);
-    }
-    return map;
-  }, [sections]);
-
-  const studentCountByClass = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const student of students) {
-      map.set(student.classId, (map.get(student.classId) ?? 0) + 1);
-    }
-    return map;
-  }, [students]);
-
-  const studentCountBySection = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const student of students) {
-      map.set(student.sectionId, (map.get(student.sectionId) ?? 0) + 1);
-    }
-    return map;
-  }, [students]);
+  const [newName, setNewName] = useState("");
 
   const sectionsByClass = useMemo(() => {
     const map = new Map<string, ClassSection[]>();
-    for (const section of sections) {
-      const list = map.get(section.classId) ?? [];
-      list.push(section);
-      map.set(section.classId, list);
+    for (const s of sections) {
+      const arr = map.get(s.classId) ?? [];
+      arr.push(s);
+      map.set(s.classId, arr);
     }
-    for (const list of map.values()) {
-      list.sort((a, b) => a.name.localeCompare(b.name, "tr"));
-    }
+    for (const arr of map.values()) arr.sort((a, b) => a.name.localeCompare(b.name, "tr"));
     return map;
   }, [sections]);
 
-  const orderedClasses = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
+  const studentsBySection = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const st of students) map.set(st.sectionId, (map.get(st.sectionId) ?? 0) + 1);
+    return map;
+  }, [students]);
+
+  const studentsByClass = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const st of students) map.set(st.classId, (map.get(st.classId) ?? 0) + 1);
+    return map;
+  }, [students]);
+
+  const q = search.trim().toLocaleLowerCase("tr-TR");
+
+  const filteredClasses = useMemo(() => {
     return [...classes]
-      .filter((item) => {
-        if (!normalizedSearch) {
-          return true;
-        }
-        const classMatch = item.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch);
-        const sectionMatch = (sectionsByClass.get(item.id) ?? []).some((section) =>
-          section.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch)
-        );
-        return classMatch || sectionMatch;
-      })
-      .sort((a, b) => compareGradeLikeNames(a.name, b.name, "asc"));
-  }, [classes, search, sectionsByClass]);
-
-  const selectedClass = selectedClassId ? classes.find((item) => item.id === selectedClassId) ?? null : null;
-
-  const classSections = useMemo(() => {
-    if (!selectedClassId) {
-      return [];
-    }
-    const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
-    return (sectionsByClass.get(selectedClassId) ?? []).filter((section) => {
-      if (!normalizedSearch) {
-        return true;
-      }
-      return (
-        section.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch) ||
-        (selectedClass?.name.toLocaleLowerCase("tr-TR").includes(normalizedSearch) ?? false)
-      );
-    });
-  }, [selectedClassId, sectionsByClass, search, selectedClass?.name]);
-
-  const orbitItems: OrbitItem[] =
-    view === "school"
-      ? orderedClasses.map((item) => ({ kind: "class", id: item.id, data: item }))
-      : classSections.map((item) => ({ kind: "section", id: item.id, data: item }));
-
-  const orbitRadius = computeOrbitRadius(orbitItems.length);
-  const activeLayout = layouts[layoutScope] ?? { center: { x: 0, y: 0 }, nodes: {} };
-
-  const resolvedPositions = useMemo(() => {
-    const nodes: Record<string, Vec2> = {};
-    orbitItems.forEach((item, index) => {
-      nodes[item.id] = activeLayout.nodes[item.id] ?? radialOffset(index, orbitItems.length, orbitRadius);
-    });
-    return nodes;
-  }, [activeLayout.nodes, orbitItems, orbitRadius]);
-
-  const centerPosition = activeLayout.center;
-  const stageSize = computeStageSize(centerPosition, Object.values(resolvedPositions));
-
-  useEffect(() => {
-    writeStoredLayouts(schoolName, layouts);
-  }, [layouts, schoolName]);
-
-  const getStagePoint = useCallback((clientX: number, clientY: number): Vec2 => {
-    const rect = stageRef.current?.getBoundingClientRect();
-    if (!rect) {
-      return { x: 0, y: 0 };
-    }
-    return {
-      x: clientX - (rect.left + rect.width / 2),
-      y: clientY - (rect.top + rect.height / 2)
-    };
-  }, []);
-
-  const patchLayout = useCallback(
-    (scope: string, patch: Partial<EcosystemLayout> | ((current: EcosystemLayout) => EcosystemLayout)) => {
-      setLayouts((current) => {
-        const base = current[scope] ?? { center: { x: 0, y: 0 }, nodes: {} };
-        const next = typeof patch === "function" ? patch(base) : { ...base, ...patch, nodes: { ...base.nodes, ...(patch.nodes ?? {}) } };
-        return { ...current, [scope]: next };
-      });
-    },
-    []
-  );
-
-  const beginDrag = useCallback(
-    (event: ReactPointerEvent, target: "center" | string, current: Vec2) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const point = getStagePoint(event.clientX, event.clientY);
-      dragRef.current = {
-        target,
-        offsetX: point.x - current.x,
-        offsetY: point.y - current.y,
-        moved: false
-      };
-      setDraggingTarget(target);
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [getStagePoint]
-  );
-
-  const onDragMove = useCallback(
-    (event: ReactPointerEvent) => {
-      const drag = dragRef.current;
-      if (!drag) {
-        return;
-      }
-      const point = getStagePoint(event.clientX, event.clientY);
-      const next = { x: point.x - drag.offsetX, y: point.y - drag.offsetY };
-      if (!drag.moved) {
-        const current = drag.target === "center" ? centerPosition : resolvedPositions[drag.target];
-        if (current && Math.hypot(next.x - current.x, next.y - current.y) > DRAG_CLICK_THRESHOLD) {
-          drag.moved = true;
-        }
-      }
-      if (drag.target === "center") {
-        patchLayout(layoutScope, { center: next });
-        return;
-      }
-      patchLayout(layoutScope, { nodes: { [drag.target]: next } });
-    },
-    [centerPosition, getStagePoint, layoutScope, patchLayout, resolvedPositions]
-  );
-
-  const endDrag = useCallback((event: ReactPointerEvent) => {
-    const drag = dragRef.current;
-    if (!drag) {
-      return;
-    }
-    if (drag.moved) {
-      suppressClickRef.current = true;
-      window.setTimeout(() => {
-        suppressClickRef.current = false;
-      }, 0);
-    }
-    dragRef.current = null;
-    setDraggingTarget(null);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }, []);
+      .sort(sortClasses)
+      .filter((c) => !q || c.name.toLocaleLowerCase("tr-TR").includes(q));
+  }, [classes, q]);
 
   const ecosystemStats: EcosystemStats = stats ?? {
     classes: classes.length,
     sections: sections.length,
     students: students.length,
-    teachers: 0
+    teachers: 0,
   };
 
-  function handleAddClass(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const name = className.trim();
-    if (!name) {
-      return;
-    }
+  const selectedClass = view.kind === "class"
+    ? classes.find((c) => c.id === view.classId) ?? null
+    : null;
+
+  const selectedSections = view.kind === "class"
+    ? (sectionsByClass.get(view.classId) ?? []).filter(
+        (s) => !q || s.name.toLocaleLowerCase("tr-TR").includes(q)
+      )
+    : [];
+
+  function handleAddClass(e: FormEvent) {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
     onAddClass({ name });
-    setClassName("");
+    setNewName("");
     setAddOpen(false);
   }
 
   function handleDeleteClass(item: SchoolClass) {
-    const sectionCount = sectionCountByClass.get(item.id) ?? 0;
-    const studentCount = studentCountByClass.get(item.id) ?? 0;
-    let message = `"${item.name}" sınıfını silmek istediğinize emin misiniz?`;
-    if (sectionCount > 0 || studentCount > 0) {
-      message += ` Bu işlem ${sectionCount} şube ve ${studentCount} öğrenci kaydını da kaldırır.`;
-    }
-    if (!window.confirm(message)) {
-      return;
-    }
-    if (selectedClassId === item.id) {
-      setView("school");
-      setSelectedClassId(null);
-    }
+    const sc = (sectionsByClass.get(item.id) ?? []).length;
+    const st = studentsByClass.get(item.id) ?? 0;
+    let msg = `"${item.name}" sınıfını silmek istediğinize emin misiniz?`;
+    if (sc > 0 || st > 0) msg += ` Bu işlem ${sc} şube ve ${st} öğrenci kaydını da kaldırır.`;
+    if (!window.confirm(msg)) return;
+    if (view.kind === "class" && view.classId === item.id) setView({ kind: "school" });
     onDeleteClass(item.id);
   }
 
-  function openClassView(classId: string) {
-    if (suppressClickRef.current) {
-      return;
-    }
-    setSelectedClassId(classId);
-    setView("class");
+  function openClass(classId: string) {
+    setSearch("");
+    setView({ kind: "class", classId });
   }
 
-  function openSection(classId: string, sectionId: string) {
-    if (suppressClickRef.current) {
-      return;
-    }
-    navigate(`/dashboard/classes/${classId}/${sectionId}`);
-  }
-
-  function backToSchool() {
-    setView("school");
-    setSelectedClassId(null);
-  }
-
-  function matchesSearch(value: string) {
-    const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
-    if (!normalizedSearch) {
-      return true;
-    }
-    return value.toLocaleLowerCase("tr-TR").includes(normalizedSearch);
-  }
-
-  const maxOrbitDistance = Math.max(
-    orbitRadius,
-    ...Object.values(resolvedPositions).map((pos) => Math.hypot(pos.x - centerPosition.x, pos.y - centerPosition.y))
-  );
+  const isClassView = view.kind === "class" && selectedClass !== null;
 
   return (
-    <section className="principal-page-stack school-ecosystem-page">
-      <div className="school-ecosystem-shell">
-        <div className="school-ecosystem-toolbar">
-          <label className="school-ecosystem-search">
-            <Search size={16} aria-hidden />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Sınıf veya şube ara…" type="search" />
-          </label>
-          {view === "school" ? (
-            <button className="ghost-action school-ecosystem-add-toggle" type="button" onClick={() => setAddOpen((open) => !open)}>
-              <Plus size={16} />
-              Yeni sınıf
-            </button>
-          ) : selectedClass ? (
-            <button className="ghost-action school-ecosystem-add-toggle" type="button" onClick={() => navigate(`/dashboard/classes/${selectedClass.id}`)}>
-              <Plus size={16} />
-              Şube yönet
-            </button>
-          ) : null}
-        </div>
+    <section className="clp-page">
 
-        {addOpen && view === "school" ? (
-          <form className="school-ecosystem-add-panel" onSubmit={handleAddClass}>
-            <strong>Yeni sınıf ekle</strong>
-            <div className="school-ecosystem-add-row">
-              <input value={className} onChange={(event) => setClassName(event.target.value)} placeholder="Örn: 11" autoFocus />
-              <button className="primary-action" type="submit">
-                Ekle
-              </button>
-              <button className="ghost-action" type="button" onClick={() => setAddOpen(false)}>
-                Vazgeç
-              </button>
-            </div>
-          </form>
-        ) : null}
-
-        <div className={`school-ecosystem-canvas${draggingTarget ? " is-dragging" : ""}`} aria-label="Okul ekosistemi akış haritası">
-          {view === "class" ? (
-            <button className="school-ecosystem-back" type="button" onClick={backToSchool} aria-label="Okula dön">
-              <ArrowLeft size={15} />
-              <span>Geri</span>
-            </button>
-          ) : null}
-
-          <p className="school-ecosystem-hint">
-            <GripHorizontal size={14} aria-hidden />
-            Kartları sürükleyerek düzenleyin
-          </p>
-
-          <div className="school-ecosystem-glow school-ecosystem-glow--left" aria-hidden />
-          <div className="school-ecosystem-glow school-ecosystem-glow--right" aria-hidden />
-
-          <div className={`school-ecosystem-orbit-view school-ecosystem-orbit-view--${view}`}>
-            {view === "school" && orderedClasses.length === 0 ? (
-              <div className="school-ecosystem-empty">
-                <article className="school-ecosystem-root-node school-ecosystem-root-node--solo">
-                  <span className="school-ecosystem-root-badge">
-                    <Sparkles size={14} aria-hidden />
-                    Okul ekosistemi
-                  </span>
-                  <div className="school-ecosystem-root-icon" aria-hidden>
-                    <Building2 size={28} strokeWidth={1.6} />
-                  </div>
-                  <h1>{schoolName}</h1>
-                  <p>{classes.length === 0 ? "Henüz sınıf oluşturulmadı." : "Aramanıza uyan sınıf bulunamadı."}</p>
-                </article>
-                {classes.length === 0 ? (
-                  <button className="primary-action" type="button" onClick={() => setAddOpen(true)}>
-                    <Plus size={16} />
-                    İlk sınıfı ekle
-                  </button>
-                ) : null}
-              </div>
-            ) : (
-              <div ref={stageRef} className="school-ecosystem-orbit-stage" style={{ width: stageSize, height: stageSize }}>
-                <svg className="school-ecosystem-orbit-lines" aria-hidden viewBox={`${-stageSize / 2} ${-stageSize / 2} ${stageSize} ${stageSize}`}>
-                  <defs>
-                    <linearGradient id="eco-line-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#0891b2" stopOpacity="0.35" />
-                      <stop offset="100%" stopColor="#64748b" stopOpacity="0.75" />
-                    </linearGradient>
-                  </defs>
-                  <circle className="school-ecosystem-orbit-ring" cx={centerPosition.x} cy={centerPosition.y} r={maxOrbitDistance} />
-                  {orbitItems.map((item) => {
-                    const pos = resolvedPositions[item.id];
-                    return (
-                      <g key={`link-${item.id}`}>
-                        <line
-                          className="school-ecosystem-orbit-line school-ecosystem-orbit-line--glow"
-                          x1={centerPosition.x}
-                          y1={centerPosition.y}
-                          x2={pos.x}
-                          y2={pos.y}
-                        />
-                        <line
-                          className="school-ecosystem-orbit-line"
-                          x1={centerPosition.x}
-                          y1={centerPosition.y}
-                          x2={pos.x}
-                          y2={pos.y}
-                        />
-                      </g>
-                    );
-                  })}
-                </svg>
-
-                <div
-                  className={`school-ecosystem-orbit-center school-ecosystem-draggable${draggingTarget === "center" ? " is-dragging" : ""}`}
-                  style={{ transform: `translate(calc(-50% + ${centerPosition.x}px), calc(-50% + ${centerPosition.y}px))` }}
-                  onPointerDown={(event) => beginDrag(event, "center", centerPosition)}
-                  onPointerMove={onDragMove}
-                  onPointerUp={endDrag}
-                  onPointerCancel={endDrag}
-                >
-                  {view === "school" ? (
-                    <article className="school-ecosystem-root-node">
-                      <span className="school-ecosystem-drag-handle" aria-hidden>
-                        <GripHorizontal size={14} />
-                      </span>
-                      <span className="school-ecosystem-root-badge">
-                        <Sparkles size={14} aria-hidden />
-                        Okul
-                      </span>
-                      <div className="school-ecosystem-root-icon" aria-hidden>
-                        <Building2 size={26} strokeWidth={1.6} />
-                      </div>
-                      <h1>{schoolName}</h1>
-                      <p>Tüm sınıflar bu merkeze bağlı</p>
-                      <div className="school-ecosystem-root-stats">
-                        <span>
-                          <Layers size={13} />
-                          {ecosystemStats.classes} sınıf
-                        </span>
-                        <span>
-                          <GraduationCap size={13} />
-                          {ecosystemStats.sections} şube
-                        </span>
-                        <span>
-                          <UsersRound size={13} />
-                          {ecosystemStats.students} öğrenci
-                        </span>
-                      </div>
-                    </article>
-                  ) : selectedClass ? (
-                    <article className={`school-ecosystem-class-node school-ecosystem-class-node--center school-ecosystem-class-node--${classToneFromName(selectedClass.name)}`}>
-                      <span className="school-ecosystem-drag-handle" aria-hidden>
-                        <GripHorizontal size={14} />
-                      </span>
-                      <button
-                        type="button"
-                        className="ghost-action danger school-ecosystem-class-delete"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleDeleteClass(selectedClass);
-                        }}
-                        title="Sınıfı sil"
-                        aria-label={`${selectedClass.name} sınıfını sil`}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                      <span className="school-ecosystem-class-label">Sınıf</span>
-                      <strong>{selectedClass.name}</strong>
-                      <div className="school-ecosystem-class-meta">
-                        <span>{sectionCountByClass.get(selectedClass.id) ?? 0} şube</span>
-                        <span>{studentCountByClass.get(selectedClass.id) ?? 0} öğrenci</span>
-                      </div>
-                      <button
-                        className="ghost-action school-ecosystem-center-link"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigate(`/dashboard/classes/${selectedClass.id}`);
-                        }}
-                      >
-                        Şube ve detay yönetimi
-                      </button>
-                    </article>
-                  ) : null}
-                </div>
-
-                {orbitItems.map((item) => {
-                  const pos = resolvedPositions[item.id];
-                  const isDragging = draggingTarget === item.id;
-                  const style = {
-                    transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px))`
-                  };
-
-                  if (item.kind === "class") {
-                    const schoolClass = item.data;
-                    const tone = classToneFromName(schoolClass.name);
-                    const classDimmed =
-                      search.trim() !== "" &&
-                      !matchesSearch(schoolClass.name) &&
-                      !(sectionsByClass.get(schoolClass.id) ?? []).some((section) => matchesSearch(section.name));
-
-                    return (
-                      <div
-                        key={schoolClass.id}
-                        className={`school-ecosystem-orbit-satellite school-ecosystem-draggable${classDimmed ? " is-dimmed" : ""}${isDragging ? " is-dragging" : ""}`}
-                        style={style}
-                        onPointerDown={(event) => beginDrag(event, schoolClass.id, pos)}
-                        onPointerMove={onDragMove}
-                        onPointerUp={endDrag}
-                        onPointerCancel={endDrag}
-                      >
-                        <button
-                          type="button"
-                          className={`school-ecosystem-class-node school-ecosystem-class-node--satellite school-ecosystem-class-node--${tone}`}
-                          onClick={() => openClassView(schoolClass.id)}
-                        >
-                          <span className="school-ecosystem-drag-handle" aria-hidden>
-                            <GripHorizontal size={13} />
-                          </span>
-                          <span className="school-ecosystem-class-label">Sınıf</span>
-                          <strong>{schoolClass.name}</strong>
-                          <div className="school-ecosystem-class-meta">
-                            <span>{sectionCountByClass.get(schoolClass.id) ?? 0} şube</span>
-                            <span>{studentCountByClass.get(schoolClass.id) ?? 0} öğrenci</span>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  }
-
-                  const section = item.data;
-                  const tone = selectedClass ? classToneFromName(selectedClass.name) : "slate";
-                  return (
-                    <div
-                      key={section.id}
-                      className={`school-ecosystem-orbit-satellite school-ecosystem-draggable${isDragging ? " is-dragging" : ""}`}
-                      style={style}
-                      onPointerDown={(event) => beginDrag(event, section.id, pos)}
-                      onPointerMove={onDragMove}
-                      onPointerUp={endDrag}
-                      onPointerCancel={endDrag}
-                    >
-                      <button
-                        type="button"
-                        className={`school-ecosystem-section-node school-ecosystem-section-node--satellite school-ecosystem-section-node--${tone}`}
-                        onClick={() => selectedClassId && openSection(selectedClassId, section.id)}
-                      >
-                        <span className="school-ecosystem-drag-handle" aria-hidden>
-                          <GripHorizontal size={12} />
-                        </span>
-                        <span className="school-ecosystem-section-name">{section.name}</span>
-                        <span className="school-ecosystem-section-detail">
-                          {studentCountBySection.get(section.id) ?? 0} öğrenci
-                          {section.advisor ? ` · ${section.advisor}` : ""}
-                        </span>
-                      </button>
-                    </div>
-                  );
-                })}
-
-                {view === "class" && selectedClass && classSections.length === 0 ? (
-                  <div className="school-ecosystem-orbit-empty-hint">
-                    <p>{sectionsByClass.get(selectedClass.id)?.length === 0 ? "Bu sınıfa henüz şube eklenmedi." : "Aramanıza uyan şube yok."}</p>
-                    {sectionsByClass.get(selectedClass.id)?.length === 0 ? (
-                      <button className="primary-action small-action" type="button" onClick={() => navigate(`/dashboard/classes/${selectedClass.id}`)}>
-                        <Plus size={14} />
-                        İlk şubeyi ekle
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            )}
+      {/* ── Üst şerit ── */}
+      <div className="clp-topbar">
+        {isClassView ? (
+          <button
+            type="button"
+            className="clp-back"
+            onClick={() => { setSearch(""); setView({ kind: "school" }); }}
+          >
+            <ArrowLeft size={16} />
+            <span>Sınıflar</span>
+          </button>
+        ) : (
+          <div className="clp-topbar-title">
+            <LayoutGrid size={18} aria-hidden />
+            <span>Sınıflar</span>
           </div>
-        </div>
+        )}
+
+        <label className="clp-search">
+          <Search size={15} aria-hidden />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={isClassView ? "Şube ara…" : "Sınıf ara…"}
+            type="search"
+          />
+          {search ? (
+            <button type="button" className="clp-search-clear" onClick={() => setSearch("")} aria-label="Temizle">
+              <X size={13} />
+            </button>
+          ) : null}
+        </label>
+
+        {!isClassView ? (
+          <button
+            type="button"
+            className="clp-add-btn primary-action"
+            onClick={() => setAddOpen((o) => !o)}
+          >
+            <Plus size={16} />
+            Sınıf ekle
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="clp-add-btn primary-action"
+            onClick={() => navigate(`/dashboard/classes/${selectedClass!.id}`)}
+          >
+            <Plus size={16} />
+            Şube ekle
+          </button>
+        )}
       </div>
+
+      {/* ── Yeni sınıf formu ── */}
+      {addOpen && !isClassView ? (
+        <form className="clp-add-form" onSubmit={handleAddClass}>
+          <label className="clp-add-form-label">Sınıf adı</label>
+          <div className="clp-add-form-row">
+            <input
+              className="clp-add-form-input"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Örn: 9, 10A, 11-Fen…"
+              autoFocus
+            />
+            <button className="primary-action" type="submit">Ekle</button>
+            <button className="ghost-action" type="button" onClick={() => setAddOpen(false)}>Vazgeç</button>
+          </div>
+        </form>
+      ) : null}
+
+      {/* ══════════════════════════════════
+           OKUL GÖRÜNÜMÜ
+      ══════════════════════════════════ */}
+      {!isClassView ? (
+        <>
+          {/* Hero */}
+          <div className="clp-hero">
+            <div className="clp-hero-left">
+              <div className="clp-hero-icon" aria-hidden>
+                <BookOpen size={22} strokeWidth={1.7} />
+              </div>
+              <div>
+                <h1 className="clp-hero-name">{schoolName}</h1>
+                <p className="clp-hero-sub">Sınıf ve şube yönetimi</p>
+              </div>
+            </div>
+            <div className="clp-hero-stats">
+              <div className="clp-hero-stat">
+                <strong>{ecosystemStats.classes}</strong>
+                <span>Sınıf</span>
+              </div>
+              <div className="clp-hero-stat">
+                <strong>{ecosystemStats.sections}</strong>
+                <span>Şube</span>
+              </div>
+              <div className="clp-hero-stat">
+                <strong>{ecosystemStats.students}</strong>
+                <span>Öğrenci</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sınıf kartları */}
+          {filteredClasses.length === 0 ? (
+            <div className="clp-empty">
+              {classes.length === 0
+                ? <>
+                    <GraduationCap size={32} strokeWidth={1.4} />
+                    <strong>Henüz sınıf oluşturulmadı</strong>
+                    <p>Okul yapınızı oluşturmaya başlamak için ilk sınıfı ekleyin.</p>
+                    <button type="button" className="primary-action" onClick={() => setAddOpen(true)}>
+                      <Plus size={15} /> İlk sınıfı ekle
+                    </button>
+                  </>
+                : <>
+                    <Search size={28} strokeWidth={1.4} />
+                    <strong>Sonuç bulunamadı</strong>
+                    <p>"{search}" araması için eşleşen sınıf yok.</p>
+                  </>}
+            </div>
+          ) : (
+            <div className="clp-class-grid">
+              {filteredClasses.map((cls, i) => {
+                const tone = getTone(cls.name);
+                const sc = (sectionsByClass.get(cls.id) ?? []).length;
+                const st = studentsByClass.get(cls.id) ?? 0;
+                return (
+                  <article
+                    key={cls.id}
+                    className="clp-class-card"
+                    style={{
+                      "--clp-tone": tone.color,
+                      "--clp-tone-bg": tone.bg,
+                      "--clp-tone-badge": tone.badge,
+                      animationDelay: `${i * 40}ms`,
+                    } as React.CSSProperties}
+                  >
+                    <div className="clp-class-card-accent" aria-hidden />
+
+                    <button
+                      type="button"
+                      className="ghost-action danger clp-class-card-del"
+                      onClick={() => handleDeleteClass(cls)}
+                      title={`${cls.name} sınıfını sil`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+
+                    <div className="clp-class-card-grade" aria-hidden>
+                      {cls.name}
+                    </div>
+
+                    <div className="clp-class-card-body">
+                      <p className="clp-class-card-label">Sınıf</p>
+
+                      <div className="clp-class-card-chips">
+                        <span className="clp-chip">
+                          <GraduationCap size={11} aria-hidden />
+                          {sc} şube
+                        </span>
+                        <span className="clp-chip">
+                          <UsersRound size={11} aria-hidden />
+                          {st} öğrenci
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="clp-class-card-open"
+                      onClick={() => openClass(cls.id)}
+                    >
+                      Şubeleri gör
+                      <ChevronRight size={14} aria-hidden />
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {/* ══════════════════════════════════
+           SINIF / ŞUBE GÖRÜNÜMÜ
+      ══════════════════════════════════ */}
+      {isClassView ? (
+        <>
+          {/* Sınıf hero */}
+          {(() => {
+            const tone = getTone(selectedClass!.name);
+            const sc = (sectionsByClass.get(selectedClass!.id) ?? []).length;
+            const st = studentsByClass.get(selectedClass!.id) ?? 0;
+            return (
+              <div
+                className="clp-class-hero"
+                style={{ "--clp-tone": tone.color, "--clp-tone-bg": tone.bg } as React.CSSProperties}
+              >
+                <div className="clp-class-hero-grade">{selectedClass!.name}</div>
+                <div className="clp-class-hero-info">
+                  <h2>{selectedClass!.name}. Sınıf</h2>
+                  <div className="clp-class-hero-chips">
+                    <span className="clp-chip"><GraduationCap size={11} />{sc} şube</span>
+                    <span className="clp-chip"><UsersRound size={11} />{st} öğrenci</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Şube kartları */}
+          {selectedSections.length === 0 ? (
+            <div className="clp-empty">
+              {(sectionsByClass.get(selectedClass!.id) ?? []).length === 0
+                ? <>
+                    <GraduationCap size={30} strokeWidth={1.4} />
+                    <strong>Bu sınıfta şube yok</strong>
+                    <p>Şube ekleyerek sınıfı tamamlayın.</p>
+                    <button
+                      type="button"
+                      className="primary-action"
+                      onClick={() => navigate(`/dashboard/classes/${selectedClass!.id}`)}
+                    >
+                      <Plus size={15} /> İlk şubeyi ekle
+                    </button>
+                  </>
+                : <>
+                    <Search size={26} strokeWidth={1.4} />
+                    <strong>Sonuç bulunamadı</strong>
+                    <p>"{search}" araması için eşleşen şube yok.</p>
+                  </>}
+            </div>
+          ) : (
+            <div className="clp-section-grid">
+              {selectedSections.map((sec, i) => {
+                const tone = getTone(selectedClass!.name);
+                const st = studentsBySection.get(sec.id) ?? 0;
+                return (
+                  <article
+                    key={sec.id}
+                    className="clp-section-card"
+                    style={{
+                      "--clp-tone": tone.color,
+                      "--clp-tone-bg": tone.bg,
+                      "--clp-tone-badge": tone.badge,
+                      animationDelay: `${i * 50}ms`,
+                    } as React.CSSProperties}
+                  >
+                    <div className="clp-section-card-name">{sec.name}</div>
+                    <div className="clp-section-card-stats">
+                      <div className="clp-section-stat">
+                        <UsersRound size={13} aria-hidden />
+                        <div>
+                          <strong>{st}</strong>
+                          <span>Öğrenci</span>
+                        </div>
+                      </div>
+                      {sec.capacity > 0 ? (
+                        <div className="clp-section-stat">
+                          <LayoutGrid size={13} aria-hidden />
+                          <div>
+                            <strong>{sec.capacity}</strong>
+                            <span>Kapasite</span>
+                          </div>
+                        </div>
+                      ) : null}
+                      {sec.advisor ? (
+                        <div className="clp-section-stat clp-section-stat--wide">
+                          <GraduationCap size={13} aria-hidden />
+                          <div>
+                            <strong>{sec.advisor}</strong>
+                            <span>Sınıf Danışmanı</span>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                    {st > 0 && sec.capacity > 0 ? (
+                      <div className="clp-section-progress" aria-label={`Doluluk: ${st} / ${sec.capacity}`}>
+                        <div
+                          className="clp-section-progress-fill"
+                          style={{ width: `${Math.min(100, Math.round((st / sec.capacity) * 100))}%` }}
+                        />
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="clp-section-open"
+                      onClick={() => navigate(`/dashboard/classes/${selectedClass!.id}/${sec.id}`)}
+                    >
+                      Öğrencileri gör
+                      <ChevronRight size={14} aria-hidden />
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : null}
     </section>
   );
-}
-
-function radialOffset(index: number, total: number, radius: number) {
-  if (total === 0) {
-    return { x: 0, y: 0 };
-  }
-  const angle = (360 / total) * index - 90;
-  const rad = (angle * Math.PI) / 180;
-  return {
-    x: Math.cos(rad) * radius,
-    y: Math.sin(rad) * radius
-  };
-}
-
-function computeOrbitRadius(count: number) {
-  if (count === 0) {
-    return 0;
-  }
-  if (count === 1) {
-    return 150;
-  }
-  if (count <= 3) {
-    return 168;
-  }
-  if (count <= 6) {
-    return 198;
-  }
-  return Math.min(248, 168 + count * 10);
-}
-
-function computeStageSize(center: Vec2, positions: Vec2[]) {
-  const nodePadding = 120;
-  let maxExtent = 0;
-  for (const pos of positions) {
-    maxExtent = Math.max(maxExtent, Math.abs(pos.x - center.x), Math.abs(pos.y - center.y));
-  }
-  maxExtent = Math.max(maxExtent, 150);
-  return Math.max(380, (maxExtent + nodePadding) * 2);
-}
-
-function readStoredLayouts(schoolName: string): Record<string, EcosystemLayout> {
-  if (typeof window === "undefined") {
-    return {};
-  }
-  try {
-    const raw = window.localStorage.getItem(storageKey(schoolName));
-    if (!raw) {
-      return {};
-    }
-    const parsed = JSON.parse(raw) as Record<string, EcosystemLayout>;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeStoredLayouts(schoolName: string, layouts: Record<string, EcosystemLayout>) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(storageKey(schoolName), JSON.stringify(layouts));
-  } catch {
-    /* ignore quota errors */
-  }
-}
-
-function storageKey(schoolName: string) {
-  return `ots-ecosystem-layout:${schoolName.trim().toLocaleLowerCase("tr-TR")}`;
-}
-
-function compareGradeLikeNames(a: string, b: string, direction: "asc" | "desc") {
-  const aNumber = extractClassNumber(a);
-  const bNumber = extractClassNumber(b);
-  if (aNumber !== null && bNumber !== null && aNumber !== bNumber) {
-    return direction === "asc" ? aNumber - bNumber : bNumber - aNumber;
-  }
-  if (aNumber !== null && bNumber === null) {
-    return -1;
-  }
-  if (aNumber === null && bNumber !== null) {
-    return 1;
-  }
-  return direction === "asc" ? a.localeCompare(b, "tr") : b.localeCompare(a, "tr");
-}
-
-function extractClassNumber(value: string) {
-  const match = value.match(/\d+/);
-  return match ? Number(match[0]) : null;
-}
-
-function classToneFromName(name: string): "violet" | "sky" | "teal" | "amber" | "rose" | "slate" {
-  const grade = extractClassNumber(name);
-  if (grade === 9) {
-    return "violet";
-  }
-  if (grade === 10) {
-    return "sky";
-  }
-  if (grade === 11) {
-    return "teal";
-  }
-  if (grade === 12) {
-    return "amber";
-  }
-  if (grade !== null && grade <= 8) {
-    return "rose";
-  }
-  return "slate";
 }

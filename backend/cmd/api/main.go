@@ -8,6 +8,7 @@ import (
 	"time"
 
 	attendanceapp "ots/backend/internal/app/attendance"
+	aiapp "ots/backend/internal/app/ai"
 	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
@@ -20,6 +21,7 @@ import (
 	"ots/backend/internal/http/middleware"
 	platformauth "ots/backend/internal/platform/auth"
 	"ots/backend/internal/platform/config"
+	"ots/backend/internal/platform/openai"
 	"ots/backend/internal/repository/memory"
 	"ots/backend/internal/repository/postgres"
 )
@@ -40,6 +42,7 @@ func main() {
 	var attendanceRepo attendanceapp.Repository = memoryStore
 	var guardianRepo guardianapp.Repository = memoryStore
 	var guidanceRepo guidanceapp.Repository = memoryStore
+	var aiRepo aiapp.Repository = memoryStore
 
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {
@@ -63,21 +66,65 @@ func main() {
 		attendanceRepo = postgresStore
 		guardianRepo = postgresStore
 		guidanceRepo = postgresStore
+		aiRepo = postgresStore
 		logger.Info("postgres repository connected")
 	}
 
+	schoolService := schoolapp.NewService(schoolRepo)
+	observationService := observationapp.NewService(observationRepo)
+	openAIClient := openai.NewHTTPClient(openai.Config{
+		APIKey:        os.Getenv("OPENAI_API_KEY"),
+		Model:         cfg.AIModel,
+		StoreResponse: cfg.AIStoreResponses,
+		Timeout:       time.Duration(cfg.AITimeoutSeconds) * time.Second,
+	})
+	aiService := aiapp.NewService(aiapp.Dependencies{
+		Repo:        aiRepo,
+		School:      schoolService,
+		Observation: observationService,
+		Guidance:    guidanceapp.NewService(guidanceRepo),
+		Dashboard:   dashboardapp.NewService(dashboardRepo),
+		Guardian:    guardianapp.NewService(guardianRepo),
+		SuperAdmin:  superadminapp.NewService(superAdminRepo),
+		Attendance:  attendanceapp.NewService(attendanceRepo),
+		Scheduling:  schedulingapp.NewService(schedulingRepo),
+		OpenAI:      openAIClient,
+		Clock:       time.Now,
+		Config: aiapp.Config{
+			Model:             cfg.AIModel,
+			StoreResponse:     cfg.AIStoreResponses,
+			DailyMessageLimit: cfg.AIDailyMessageLimit,
+			RetentionDays:     cfg.AIRetentionDays,
+		},
+	})
+
 	handlers := httphandlers.New(httphandlers.Dependencies{
 		Identity:    identityapp.NewService(identityRepo, jwtIssuer, time.Now),
-		School:      schoolapp.NewService(schoolRepo),
+		School:      schoolService,
 		Scheduling:  schedulingapp.NewService(schedulingRepo),
 		Attendance:  attendanceapp.NewService(attendanceRepo),
-		Observation: observationapp.NewService(observationRepo),
+		Observation: observationService,
 		Guardian:    guardianapp.NewService(guardianRepo),
 		Guidance:    guidanceapp.NewService(guidanceRepo),
 		Dashboard:   dashboardapp.NewService(dashboardRepo),
 		SuperAdmin:  superadminapp.NewService(superAdminRepo),
+		AI:          aiService,
 		Clock:       time.Now,
 	})
+
+	go func() {
+		run := func() {
+			if _, err := aiService.RunRetentionAll(context.Background()); err != nil {
+				logger.Warn("ai retention job failed", slog.String("error", err.Error()))
+			}
+		}
+		run()
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			run()
+		}
+	}()
 
 	mux := http.NewServeMux()
 	handlers.Register(mux)
@@ -88,6 +135,7 @@ func main() {
 		middleware.Logger(logger),
 		middleware.CORS(cfg.CORSAllowedOrigins),
 		middleware.JWTAuth(jwtIssuer),
+		middleware.AIRateLimit(cfg.AIMessagesPerMinute),
 	}
 	if postgresStore != nil {
 		middlewares = append(middlewares,

@@ -18,5 +18,8 @@ Okuma sırası:
 12. [Backlog ve Future Modüller](11-backlog-ve-future-moduller.md)
 13. [Teknik Kararlar](12-teknik-kararlar.md)
 14. [MVP Epik ve Kabul Kriterleri](13-mvp-epik-kabul-kriterleri.md)
+15. [Web MVP Durum Analizi ve Görev Listesi](14-web-mvp-durum-ve-gorevler.md)
+16. [ogta.ai Komut Asistanı Tasarımı](15-ogta-ai-komut-asistani.md)
+17. [Eksik Kalan Kısımlar Analizi](16-eksik-kalan-kisimlar-analizi.md)
 
 Bu sıra, önce çalışır bir MVP çıkarmayı, sonra ürünün premium modüllerini kontrollü şekilde büyütmeyi hedefler.

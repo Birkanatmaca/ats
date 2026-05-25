@@ -18,6 +18,7 @@ import { GuidanceRisksPage } from "./pages/GuidanceRisksPage";
 import { GuidanceStudentsPage } from "./pages/GuidanceStudentsPage";
 import type { GuidanceData } from "./types";
 import { buildGuidanceRiskSignals, buildGuidanceStudentSupports } from "./utils";
+import { OgtaAiDock } from "../ai/OgtaAiDock";
 import "../../styles/super-admin-app.css";
 import "./GuidanceConsole.css";
 
@@ -177,6 +178,7 @@ export function GuidanceConsole({
           </Routes>
         </div>
       </main>
+      <OgtaAiDock onActionCompleted={() => void load()} />
     </div>
   );
 }

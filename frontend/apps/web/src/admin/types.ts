@@ -18,4 +18,4 @@ export type SuperAdminState = {
   systemMetrics?: SystemMetrics;
 };
 
-export type AdminTab = "overview" | "institutions" | "users" | "support" | "logs" | "modules" | "settings";
+export type AdminTab = "overview" | "institutions" | "users" | "support" | "logs" | "ai" | "modules" | "settings";

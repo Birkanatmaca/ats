@@ -48,6 +48,7 @@ import { TeacherAttendanceRing } from "./components/TeacherAttendanceRing";
 import { TeacherAttendancePage } from "./pages/TeacherAttendancePage";
 import { TeacherLessonsPage } from "./pages/TeacherLessonsPage";
 import { isLessonInAttendanceWindow } from "./utils/lessonSchedule";
+import { OgtaAiDock } from "../ai/OgtaAiDock";
 import "../../styles/super-admin-app.css";
 import "./TeacherOverview.css";
 import "./TeacherConsole.css";
@@ -429,6 +430,7 @@ export function TeacherConsole({
           </Routes>
         </div>
       </main>
+      <OgtaAiDock onActionCompleted={() => void load()} />
     </div>
   );
 }

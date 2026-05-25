@@ -36,6 +36,14 @@ func (s *Service) ListStudents(ctx context.Context, tenantID string, guardianUse
 	return s.repo.ListGuardianStudents(ctx, tenantID, guardianUserID)
 }
 
+func (s *Service) HasStudent(ctx context.Context, tenantID string, guardianUserID string, studentID string) bool {
+	studentID = strings.TrimSpace(studentID)
+	if studentID == "" {
+		return false
+	}
+	return s.repo.GuardianHasStudent(ctx, tenantID, guardianUserID, studentID)
+}
+
 func (s *Service) StudentSchedule(ctx context.Context, tenantID string, guardianUserID string, studentID string) (domain.StudentSchedule, error) {
 	studentID = strings.TrimSpace(studentID)
 	if studentID == "" || !s.repo.GuardianHasStudent(ctx, tenantID, guardianUserID, studentID) {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	attendanceapp "ots/backend/internal/app/attendance"
+	aiapp "ots/backend/internal/app/ai"
 	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
@@ -34,6 +35,7 @@ type Dependencies struct {
 	Guidance    *guidanceapp.Service
 	Dashboard   *dashboardapp.Service
 	SuperAdmin  *superadminapp.Service
+	AI          *aiapp.Service
 	Clock       func() time.Time
 }
 
@@ -47,6 +49,7 @@ type Handler struct {
 	guidance    *guidanceapp.Service
 	dashboard   *dashboardapp.Service
 	superAdmin  *superadminapp.Service
+	ai          *aiapp.Service
 	clock       func() time.Time
 }
 
@@ -61,6 +64,7 @@ func New(deps Dependencies) *Handler {
 		guidance:    deps.Guidance,
 		dashboard:   deps.Dashboard,
 		superAdmin:  deps.SuperAdmin,
+		ai:          deps.AI,
 		clock:       deps.Clock,
 	}
 }
@@ -112,6 +116,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/super-admin/settings", h.updateSuperAdminSettings)
 	mux.HandleFunc("GET /api/v1/super-admin/support/tickets", h.superAdminSupportTickets)
 	mux.HandleFunc("PATCH /api/v1/super-admin/support/tickets/{id}", h.updateSuperAdminSupportTicket)
+	h.registerSuperAdminAIRoutes(mux)
 	mux.HandleFunc("GET /api/v1/scheduling/requirements", h.listSchedulingRequirements)
 	mux.HandleFunc("POST /api/v1/scheduling/requirements", h.saveSchedulingRequirements)
 	mux.HandleFunc("GET /api/v1/scheduling/teacher-availabilities", h.listTeacherAvailabilities)
@@ -157,6 +162,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/students/import", h.importStudents)
 	mux.HandleFunc("POST /api/v1/teachers/{id}/reset-password", h.resetTeacherPassword)
 	h.RegisterGuidanceRoutes(mux)
+	h.registerAIRoutes(mux)
 }
 
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
@@ -1059,6 +1065,10 @@ func (h *Handler) attendanceToday(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !h.canViewTenantAttendanceReport(principal) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu rapor yalnızca müdür ve sistem yöneticisi rollerine açıktır.", nil)
+		return
+	}
 	date := h.clock()
 	if raw := strings.TrimSpace(r.URL.Query().Get("date")); raw != "" {
 		parsed, err := time.Parse("2006-01-02", raw)
@@ -1174,7 +1184,12 @@ func (h *Handler) studentAttendanceSummary(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	summary, err := h.attendance.StudentSummary(r.Context(), principal.TenantID, r.PathValue("id"))
+	studentID := r.PathValue("id")
+	if !h.canViewStudentAttendanceSummary(r.Context(), principal, studentID) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu öğrencinin devamsızlık özetine erişim yetkiniz yok.", nil)
+		return
+	}
+	summary, err := h.attendance.StudentSummary(r.Context(), principal.TenantID, studentID)
 	if errors.Is(err, attendanceapp.ErrStudentNotFound) {
 		httpx.WriteError(w, http.StatusNotFound, "STUDENT_NOT_FOUND", "Öğrenci bulunamadı.", nil)
 		return
@@ -1191,7 +1206,11 @@ func (h *Handler) listObservations(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items := h.observation.List(r.Context(), principal.TenantID)
+	items := h.filterObservationsForRole(r.Context(), principal, h.observation.List(r.Context(), principal.TenantID))
+	if principal.Role == identity.RoleGuardian {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Veli hesapları gözlem kayıtlarına erişemez.", nil)
+		return
+	}
 	category := strings.TrimSpace(r.URL.Query().Get("category"))
 	classFilter := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("className")))
 	dateFilter := strings.TrimSpace(r.URL.Query().Get("date"))
@@ -1265,12 +1284,29 @@ func (h *Handler) getObservation(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusInternalServerError, "OBSERVATION_LOOKUP_FAILED", "Gözlem kaydı alınamadı.", nil)
 		return
 	}
+	if !h.canReadObservation(r.Context(), principal, item) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu gözlem kaydına erişim yetkiniz yok.", nil)
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, item, nil)
 }
 
 func (h *Handler) updateObservation(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requirePrincipal(w, r)
 	if !ok {
+		return
+	}
+	current, err := h.observation.Get(r.Context(), principal.TenantID, r.PathValue("id"))
+	if errors.Is(err, observationapp.ErrObservationNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "OBSERVATION_NOT_FOUND", "Gözlem kaydı bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "OBSERVATION_LOOKUP_FAILED", "Gözlem kaydı alınamadı.", nil)
+		return
+	}
+	if !h.canModifyObservation(principal, current) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu gözlem kaydını güncelleme yetkiniz yok.", nil)
 		return
 	}
 	var input observationDomain.UpdateInput
@@ -1297,6 +1333,19 @@ func (h *Handler) updateObservation(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) deleteObservation(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requirePrincipal(w, r)
 	if !ok {
+		return
+	}
+	current, err := h.observation.Get(r.Context(), principal.TenantID, r.PathValue("id"))
+	if errors.Is(err, observationapp.ErrObservationNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "OBSERVATION_NOT_FOUND", "Gözlem kaydı bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "OBSERVATION_LOOKUP_FAILED", "Gözlem kaydı alınamadı.", nil)
+		return
+	}
+	if !h.canModifyObservation(principal, current) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu gözlem kaydını silme yetkiniz yok.", nil)
 		return
 	}
 	if err := h.observation.Delete(r.Context(), principal.TenantID, r.PathValue("id")); errors.Is(err, observationapp.ErrObservationNotFound) {

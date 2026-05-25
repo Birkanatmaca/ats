@@ -12,6 +12,7 @@ import (
 
 	"ots/backend/internal/domain/attendance"
 	"ots/backend/internal/domain/dashboard"
+	aidomain "ots/backend/internal/domain/ai"
 	guardiandomain "ots/backend/internal/domain/guardian"
 	"ots/backend/internal/domain/identity"
 	"ots/backend/internal/domain/observation"
@@ -49,6 +50,12 @@ type Store struct {
 	notifications     []memoryNotification
 	studentGuardians  []memoryStudentGuardian
 	resetTokens       map[string]memoryResetToken
+	aiConversations   []memoryAIConversation
+	aiMessages        []memoryAIMessage
+	aiPendingActions  []memoryAIPendingAction
+	aiToolCalls       []memoryAIToolCall
+	aiSeq             int
+	aiCostSettings    aidomain.CostSettings
 }
 
 type memoryResetToken struct {
@@ -338,6 +345,11 @@ func NewStore(clock func() time.Time) *Store {
 			},
 		},
 		resetTokens: map[string]memoryResetToken{},
+		aiCostSettings: aidomain.CostSettings{
+			InputCostPer1MUSD:  0.15,
+			OutputCostPer1MUSD: 0.60,
+			UsdTryRate:         34.50,
+		},
 	}
 }
 

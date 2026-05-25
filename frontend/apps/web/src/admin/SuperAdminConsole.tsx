@@ -7,6 +7,7 @@ import type { AuthSession, SystemStatus } from "../lib/api";
 import { api } from "../lib/api";
 import { navTabs } from "./config/navTabs";
 import type { AdminTab, SuperAdminState } from "./types";
+import { AiUsagePage } from "./pages/AiUsagePage";
 import { InstitutionDetailPage } from "./pages/InstitutionDetailPage";
 import { InstitutionsListPage } from "./pages/InstitutionsListPage";
 import { LogsPage } from "./pages/LogsPage";
@@ -17,6 +18,7 @@ import { SupportPage } from "./pages/SupportPage";
 import { UsersPage } from "./pages/UsersPage";
 import "../styles/super-admin-app.css";
 import "./SuperAdminConsole.css";
+import "./pages/AiUsagePage.css";
 
 export function SuperAdminConsole({
   session,
@@ -121,6 +123,7 @@ export function SuperAdminConsole({
             <Route path="users" element={<UsersPage users={state.users ?? []} institutions={state.institutions ?? []} onRefresh={load} />} />
             <Route path="support" element={<SupportPage tickets={state.supportTickets ?? []} onRefresh={load} />} />
             <Route path="logs" element={<LogsPage auditLogs={state.auditLogs ?? []} />} />
+            <Route path="ai" element={<AiUsagePage />} />
             <Route path="modules" element={<ModulesPage modules={state.overview?.modules ?? []} />} />
             <Route path="settings" element={<SettingsPage settings={state.settings} onRefresh={load} onSystemStatusChange={onSystemStatusChange} />} />
             <Route path="*" element={<Navigate to="overview" replace />} />

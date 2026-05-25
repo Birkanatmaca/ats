@@ -21,6 +21,7 @@ import { ProfilePage } from "../pages/ProfilePage";
 import type { StudentFormPayload } from "./components/StudentFormModal";
 import type { TeacherFormPayload } from "./components/TeacherFormModal";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, PrincipalManagedTeacher, SchoolClass } from "./types";
+import { OgtaAiDock } from "../ai/OgtaAiDock";
 import "../../styles/super-admin-app.css";
 import "./PrincipalConsole.css";
 
@@ -492,6 +493,7 @@ export function PrincipalConsole({
           </Routes>
         </div>
       </main>
+      <OgtaAiDock onActionCompleted={() => void load()} />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { GuardianOverviewPage } from "./pages/GuardianOverviewPage";
 import { GuardianSchedulePage } from "./pages/GuardianSchedulePage";
 import { NavbarStudentSelector } from "./components/NavbarStudentSelector";
 import type { GuardianChild, GuardianData } from "./types";
+import { OgtaAiDock } from "../ai/OgtaAiDock";
 import "../../styles/super-admin-app.css";
 import "./GuardianConsole.css";
 
@@ -258,6 +259,7 @@ export function GuardianConsole({
           ) : null}
         </div>
       </main>
+      <OgtaAiDock onActionCompleted={() => void load()} />
     </div>
   );
 }

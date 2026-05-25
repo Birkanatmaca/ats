@@ -387,6 +387,59 @@ export type UsagePoint = {
   value: number;
 };
 
+export type AICostSettings = {
+  inputCostPer1mUsd: number;
+  outputCostPer1mUsd: number;
+  usdTryRate: number;
+};
+
+export type AIUsagePoint = {
+  label: string;
+  userMessages: number;
+  tokenInput: number;
+  tokenOutput: number;
+};
+
+export type AITenantUsageRow = {
+  tenantId: string;
+  tenantName: string;
+  userMessages: number;
+  tokenInput: number;
+  tokenOutput: number;
+  estCostUsd: number;
+  estCostTry: number;
+};
+
+export type AIModelUsageRow = {
+  model: string;
+  messages: number;
+  tokenInput: number;
+  tokenOutput: number;
+};
+
+export type AIPlatformAnalytics = {
+  periodDays: number;
+  updatedAt: string;
+  totalConversations: number;
+  totalUserMessages: number;
+  totalAssistantMessages: number;
+  activeUsers: number;
+  tokenInput: number;
+  tokenOutput: number;
+  estCostUsd: number;
+  estCostTry: number;
+  costSettings: AICostSettings;
+  dailyUsage: AIUsagePoint[];
+  byTenant: AITenantUsageRow[];
+  byModel: AIModelUsageRow[];
+};
+
+export type AIRetentionResult = {
+  conversationsArchived: number;
+  messagesDeleted: number;
+  pendingActionsExpired: number;
+};
+
 export type Incident = {
   id: string;
   title: string;
@@ -500,6 +553,55 @@ export type UserAccount = {
 export type CreatedUserCredential = {
   user: UserAccount;
   temporaryPassword: string;
+};
+
+export type AiMessage = {
+  id: string;
+  conversationId: string;
+  role: string;
+  content: string;
+  createdAt?: string;
+};
+
+export type AiCandidate = {
+  kind: string;
+  id: string;
+  label: string;
+  meta: string;
+};
+
+export type AiPendingActionSummary = {
+  id: string;
+  actionType: string;
+  riskLevel: string;
+  summary: string;
+  confirmLabel: string;
+  cancelLabel: string;
+};
+
+export type AiPendingAction = {
+  id: string;
+  actionType: string;
+  riskLevel: string;
+  status: string;
+};
+
+export type AiSendMessageResult = {
+  message: AiMessage;
+  candidates?: AiCandidate[];
+  pendingAction?: AiPendingActionSummary | null;
+};
+
+export type AiConversation = {
+  id: string;
+  title: string;
+  status: string;
+};
+
+export type AiCapabilitiesResult = {
+  role: string;
+  capabilities: Array<{ key: string; label: string; description: string }>;
+  suggestions: string[];
 };
 
 export type AuditEntry = {
@@ -754,6 +856,15 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
+  superAdminAIOverview: (days = 30) =>
+    request<AIPlatformAnalytics>(`/api/v1/super-admin/ai/overview?days=${encodeURIComponent(String(days))}`),
+  updateSuperAdminAICostSettings: (payload: AICostSettings) =>
+    request<AICostSettings>("/api/v1/super-admin/ai/cost-settings", {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  runSuperAdminAIRetention: () =>
+    request<AIRetentionResult>("/api/v1/super-admin/ai/retention/run", { method: "POST" }),
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
   teacherCalendar: () => request<Lesson[] | null>("/api/v1/teachers/me/calendar").then(asArray),
@@ -1055,5 +1166,27 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   deleteSupportPlan: (planId: string) =>
-    request<void>(`/api/v1/guidance/support-plans/${planId}`, { method: "DELETE" })
+    request<void>(`/api/v1/guidance/support-plans/${planId}`, { method: "DELETE" }),
+
+  aiCapabilities: () => request<AiCapabilitiesResult>("/api/v1/ai/capabilities"),
+  createAiConversation: (payload?: { title?: string }) =>
+    request<AiConversation>("/api/v1/ai/conversations", {
+      method: "POST",
+      body: JSON.stringify(payload ?? {})
+    }),
+  sendAiMessage: (conversationId: string, payload: { content: string; selectedCandidateId?: string }) =>
+    request<AiSendMessageResult>(`/api/v1/ai/conversations/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  confirmAiAction: (actionId: string) =>
+    request<{ message: AiMessage }>(`/api/v1/ai/actions/${actionId}/confirm`, {
+      method: "POST",
+      body: "{}"
+    }),
+  cancelAiAction: (actionId: string) =>
+    request<AiPendingAction>(`/api/v1/ai/actions/${actionId}/cancel`, {
+      method: "POST",
+      body: "{}"
+    })
 };
