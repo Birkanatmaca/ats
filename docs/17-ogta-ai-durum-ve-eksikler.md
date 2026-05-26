@@ -12,16 +12,16 @@ ogta.ai artık **çalışan bir modül**. Tasarım dokümanındaki Faz 1–5'in 
 
 **Temel mimari korunuyor:** Model yalnızca öneri üretir; gerçek yazma işlemleri Go backend'de, pending action + kullanıcı onayı + audit ile yapılır.
 
-**Önemli sınırlama:** Üretim davranışı şu an **kural motoru (rule-engine)** ile çalışıyor. OpenAI client altyapısı var; API key tanımlı olsa bile niyet çözümleme büyük ölçüde deterministik kurallara dayanıyor. Tam LLM orkestrasyonu (tool loop, structured outputs) henüz bağlanmadı.
+**Önemli sınırlama:** OpenAI API key tanımlı ve `OGTA_AI_USE_LLM=true` iken model **tool loop** ile devreye girer; hata/başarısızlıkta **rule-engine fallback** kullanılır.
 
 | Alan | Durum | Tahmini |
 |------|--------|---------|
-| ogta.ai çekirdek altyapı | Tamamlandı | %95 |
-| Rol bazlı MVP akışları | Tamamlandı | %90 |
-| Güvenlik sertleştirme (Faz 5) | Kısmen | %70 |
-| OpenAI agentic entegrasyon | Eksik | %20 |
-| Web E2E (Playwright) | Eksik | %0 |
-| Platform geneli P0 scope açıkları | Açık | — |
+| ogta.ai çekirdek altyapı | Tamamlandı | %98 |
+| Rol bazlı MVP akışları | Tamamlandı | %95 |
+| Güvenlik sertleştirme (Faz 5) | Tamamlandı | %85 |
+| OpenAI agentic entegrasyon | Tamamlandı (tool loop + fallback) | %75 |
+| Web E2E (Playwright) | İlk smoke eklendi | %40 |
+| Platform geneli P0 scope açıkları | Kapatıldı | — |
 
 ---
 
@@ -64,7 +64,18 @@ OGTA_AI_TIMEOUT_SECONDS=30
 OGTA_AI_MESSAGES_PER_MINUTE=20
 OGTA_AI_DAILY_MESSAGE_LIMIT=200
 OGTA_AI_RETENTION_DAYS=90
+OGTA_AI_USE_LLM=true
 OPENAI_API_KEY=...
+```
+
+**Yeni API uçları:**
+
+```text
+POST   /api/v1/ai/conversations/{id}/messages:stream
+PATCH  /api/v1/super-admin/institutions/{id}/ai-quota
+GET    /api/v1/super-admin/ai/overview
+PATCH  /api/v1/super-admin/ai/cost-settings
+POST   /api/v1/super-admin/ai/retention/run
 ```
 
 ### 2.2 Rol bazlı yetenekler
@@ -137,9 +148,9 @@ OPENAI_API_KEY=...
 
 ## 4. Bilinçli Sapmalar (Tasarım vs Uygulama)
 
-1. **OpenAI Responses API + tool loop yok** — Client Chat Completions interface'ine hazır; orkestrasyon rule-engine.
-2. **Streaming yok** — `POST .../messages:stream` endpoint'i tanımlı dokümanda var, uygulanmadı.
-3. **Ayrı tool registry dosyası yok** — Davranış `orchestrator_*.go` içinde inline.
+1. **OpenAI Responses API + tool loop** — Chat Completions tool loop eklendi; Responses API henüz yok.
+2. **Streaming** — `POST .../messages:stream` SSE ile eklendi.
+3. **Ayrı tool registry dosyası yok** — Davranış `tools.go` + `llm_orchestrator.go` içinde.
 4. **Structured outputs / JSON schema** — Model çıktısı şemaya bağlı değil; Go tarafında regex + kurallar.
 5. **Veli rol kodu** — Dokümanda "veli", kodda `guardian`.
 
@@ -151,11 +162,11 @@ OPENAI_API_KEY=...
 
 | Eksik | Açıklama | Önerilen iş |
 |-------|----------|-------------|
-| OpenAI tool loop | Modelin `search_students`, `draft_observation` vb. çağırması | `app/ai` içinde Responses API adapter + tool registry |
-| Mesaj streaming | UX için SSE/WebSocket | `POST /messages:stream` handler |
-| Token / maliyet kaydı | `ai_messages.token_input/output` alanları doldurulmuyor | OpenAI yanıtından token sayacı yaz |
-| Tenant bazlı AI kotası | Yalnızca kullanıcı limiti var | `platform_settings` veya tenant plan alanı |
-| Super-admin AI retention tetikleme | Job arka planda çalışıyor; manuel endpoint yok | `POST /api/v1/super-admin/ai/retention` |
+| OpenAI tool loop | ✅ | `tools.go`, `llm_orchestrator.go`; rule-engine fallback |
+| Mesaj streaming | ✅ | SSE handler + `OgtaAiDock` stream client |
+| Token / maliyet kaydı | ✅ | `token_input/output` + süper admin panel |
+| Tenant bazlı AI kotası | ✅ | `tenants.ai_*` + super-admin kota PATCH |
+| Super-admin AI retention tetikleme | ✅ | `POST /super-admin/ai/retention/run` |
 | `redacted_content` kullanımı | Alan var, doldurulmuyor | Hassas metin maskeleme pipeline |
 | Öğretmen ek yetenekler | Aktif ders, yoklama, ders özeti | Doc §7.1 kalan maddeler |
 
@@ -163,7 +174,7 @@ OPENAI_API_KEY=...
 
 | Eksik | Açıklama |
 |-------|----------|
-| Playwright / Cypress E2E | Tarayıcıdan login → ogta.ai → onay akışı yok |
+| Playwright / Cypress E2E | İlk smoke: `e2e/ogta-ai-teacher.spec.ts` |
 | HTTP handler seviyesi test | `httptest` ile tam auth zinciri yok (servis testleri var) |
 | Yük / concurrency testi | Rate limiter çoklu instance'ta paylaşımsız (in-memory) |
 
@@ -173,7 +184,7 @@ OPENAI_API_KEY=...
 |-------|----------|
 | Rate limit Redis | Çok instance deploy'da dakikalık limit instance başına |
 | Secret encryption at rest | `ai_provider_key` düz metin |
-| AI usage dashboard | Super-admin için tenant/kullanıcı bazlı rapor ekranı |
+| AI usage dashboard | Super-admin `/admin/ai` ekranı |
 
 ---
 
@@ -188,9 +199,9 @@ ogta.ai modülü tamamlansa bile **docs/16** içindeki şu maddeler hâlâ geçe
 | 3.1 | `GET /api/v1/observations` tenant geneli dönüyor | Hassas gözlem sızıntısı |
 | 3.2 | Gözlem get/update/delete author/scope kontrolsüz | Yetkisiz düzenleme |
 | 3.3 | `GET /students/{id}/attendance-summary` scope eksik | Veli dışı erişim |
-| 3.4 | `GET /dashboard/attendance/today` role sınırı yok | Kurum geneli veri sızıntısı |
+| 3.4 | `GET /dashboard/attendance/today` role sınırı yok | ✅ Kapatıldı |
 
-> **Not:** ogta.ai kendi katmanında scope kontrolü yapıyor; fakat aynı verilere doğrudan REST ile erişim hâlâ açık olabilir. Production öncesi P0 maddeleri kapatılmalı.
+> **Not:** P0 scope maddeleri REST katmanında kapatıldı (`handlers_scope.go`).
 
 ### P1 — Ürün
 
@@ -224,6 +235,9 @@ cd backend && go build ./...
 
 # Frontend build
 cd frontend/apps/web && npm run build
+
+# Playwright (backend + frontend ayakta olmalı)
+cd frontend/apps/web && npx playwright install chromium && npm run test:e2e
 ```
 
 **Mevcut integration test senaryoları:**
@@ -280,8 +294,10 @@ backend/
       orchestrator_helpers.go
       security.go
       retention.go
-      errors.go
-      integration_test.go
+      tools.go
+      llm_orchestrator.go
+      stream.go
+      llm_integration_test.go
       security_test.go
       security_integration_test.go
     platform/openai/client.go
@@ -302,8 +318,8 @@ ogta.ai **MVP+ seviyesinde çalışır durumda**: dört rol, onaylı yazma işle
 
 En büyük kalan boşluklar:
 
-1. **Platform P0 scope açıkları** (REST katmanı) — ogta.ai'den bağımsız ama kritik  
-2. **Gerçek OpenAI agentic orkestrasyon** — bugün rule-engine  
-3. **Playwright E2E** — tarayıcı regresyonu yok  
+1. **Responses API / structured outputs** — Chat Completions tool loop var; JSON schema bağlı değil
+2. **Playwright kapsamı genişletme** — tek smoke senaryo mevcut
+3. **`redacted_content` pipeline** — hassas metin maskeleme
 
 Bu doküman, [16-eksik-kalan-kisimlar-analizi.md](./16-eksik-kalan-kisimlar-analizi.md) içindeki ogta.ai maddelerini günceller; §10 checklist artık büyük ölçüde tamamlanmış sayılmalı, §3–§9 platform eksikleri ise ayrı sprint backlog'u olarak açık kalmalıdır.

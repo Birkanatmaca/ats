@@ -479,3 +479,44 @@ func (s *Store) GetAIPlatformAnalytics(_ context.Context, since time.Time) (aido
 	sort.Slice(out.ByModel, func(i, j int) bool { return out.ByModel[i].Messages > out.ByModel[j].Messages })
 	return out, nil
 }
+
+func (s *Store) GetTenantAIQuota(_ context.Context, tenantID string) (aidomain.TenantQuota, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if quota, ok := s.tenantAIQuotas[tenantID]; ok {
+		return quota, nil
+	}
+	return aidomain.TenantQuota{}, nil
+}
+
+func (s *Store) UpdateTenantAIQuota(_ context.Context, tenantID string, quota aidomain.TenantQuota) (aidomain.TenantQuota, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tenantAIQuotas[tenantID] = quota
+	return quota, nil
+}
+
+func (s *Store) CountTenantUserMessagesSince(_ context.Context, tenantID string, since time.Time) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	count := 0
+	for _, msg := range s.aiMessages {
+		if msg.TenantID == tenantID && msg.Role == "user" && !msg.CreatedAt.Before(since) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (s *Store) SumTenantTokensSince(_ context.Context, tenantID string, since time.Time) (int, int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	input, output := 0, 0
+	for _, msg := range s.aiMessages {
+		if msg.TenantID == tenantID && !msg.CreatedAt.Before(since) {
+			input += msg.TokenInput
+			output += msg.TokenOutput
+		}
+	}
+	return input, output, nil
+}

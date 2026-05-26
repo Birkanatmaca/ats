@@ -8,6 +8,7 @@ import (
 
 	attendanceapp "ots/backend/internal/app/attendance"
 	aiapp "ots/backend/internal/app/ai"
+	billingapp "ots/backend/internal/app/billing"
 	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
@@ -35,6 +36,7 @@ type Dependencies struct {
 	Guidance    *guidanceapp.Service
 	Dashboard   *dashboardapp.Service
 	SuperAdmin  *superadminapp.Service
+	Billing     *billingapp.Service
 	AI          *aiapp.Service
 	Clock       func() time.Time
 }
@@ -49,6 +51,7 @@ type Handler struct {
 	guidance    *guidanceapp.Service
 	dashboard   *dashboardapp.Service
 	superAdmin  *superadminapp.Service
+	billing     *billingapp.Service
 	ai          *aiapp.Service
 	clock       func() time.Time
 }
@@ -64,6 +67,7 @@ func New(deps Dependencies) *Handler {
 		guidance:    deps.Guidance,
 		dashboard:   deps.Dashboard,
 		superAdmin:  deps.SuperAdmin,
+		billing:     deps.Billing,
 		ai:          deps.AI,
 		clock:       deps.Clock,
 	}
@@ -117,6 +121,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/super-admin/support/tickets", h.superAdminSupportTickets)
 	mux.HandleFunc("PATCH /api/v1/super-admin/support/tickets/{id}", h.updateSuperAdminSupportTicket)
 	h.registerSuperAdminAIRoutes(mux)
+	h.registerSuperAdminBillingRoutes(mux)
 	mux.HandleFunc("GET /api/v1/scheduling/requirements", h.listSchedulingRequirements)
 	mux.HandleFunc("POST /api/v1/scheduling/requirements", h.saveSchedulingRequirements)
 	mux.HandleFunc("GET /api/v1/scheduling/teacher-availabilities", h.listTeacherAvailabilities)

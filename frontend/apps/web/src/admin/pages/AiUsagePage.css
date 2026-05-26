@@ -105,6 +105,13 @@
   font-weight: 600;
 }
 
+.sa-ai-quota-input {
+  width: 88px;
+  border: 1px solid #dbdbd9;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+}
+
 .ai-workspace .sa-main {
   max-width: 1200px;
 }

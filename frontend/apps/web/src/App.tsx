@@ -4,6 +4,7 @@ import type { AuthSession, SystemStatus } from "./lib/api";
 import { api, readAuthSession } from "./lib/api";
 import { handleLogout } from "./auth/handleLogout";
 import { SuperAdminConsole } from "./admin/SuperAdminConsole";
+import { AppSeo } from "./components/AppSeo";
 import { FirstLoginPasswordPage } from "./pages/FirstLoginPasswordPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -34,7 +35,9 @@ export function App() {
     : "/login";
 
   return (
-    <Routes>
+    <>
+      <AppSeo />
+      <Routes>
       <Route
         path="/login"
         element={
@@ -115,6 +118,7 @@ export function App() {
 
       <Route path="/" element={<Navigate to={homePath} replace />} />
       <Route path="*" element={<Navigate to={homePath} replace />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }

@@ -10,6 +10,8 @@ import (
 func (s *Service) UsageSummary(ctx context.Context, tenantID, userID string) (aidomain.UsageSummary, error) {
 	since := s.clock().Add(-24 * time.Hour)
 	startOfDay := time.Date(s.clock().Year(), s.clock().Month(), s.clock().Day(), 0, 0, 0, 0, s.clock().Location())
+	startOfMonth := time.Date(s.clock().Year(), s.clock().Month(), 1, 0, 0, 0, 0, s.clock().Location())
+
 	last24h, err := s.repo.CountUserMessagesSince(ctx, tenantID, userID, since)
 	if err != nil {
 		return aidomain.UsageSummary{}, err
@@ -23,12 +25,39 @@ func (s *Service) UsageSummary(ctx context.Context, tenantID, userID string) (ai
 	if remaining < 0 {
 		remaining = 0
 	}
-	return aidomain.UsageSummary{
+
+	summary := aidomain.UsageSummary{
 		MessagesLast24h: last24h,
 		MessagesToday:   today,
 		DailyLimit:      limit,
 		RemainingToday:  remaining,
-	}, nil
+	}
+
+	quota, err := s.repo.GetTenantAIQuota(ctx, tenantID)
+	if err != nil {
+		return aidomain.UsageSummary{}, err
+	}
+	tenantToday, err := s.repo.CountTenantUserMessagesSince(ctx, tenantID, startOfDay)
+	if err != nil {
+		return aidomain.UsageSummary{}, err
+	}
+	summary.TenantMessagesToday = tenantToday
+	if quota.DailyMessageLimit != nil && *quota.DailyMessageLimit > 0 {
+		summary.TenantDailyLimit = *quota.DailyMessageLimit
+		summary.TenantRemainingToday = *quota.DailyMessageLimit - tenantToday
+		if summary.TenantRemainingToday < 0 {
+			summary.TenantRemainingToday = 0
+		}
+	}
+	if quota.MonthlyTokenLimit != nil && *quota.MonthlyTokenLimit > 0 {
+		tokenInput, tokenOutput, err := s.repo.SumTenantTokensSince(ctx, tenantID, startOfMonth)
+		if err != nil {
+			return aidomain.UsageSummary{}, err
+		}
+		summary.TenantMonthlyTokenLimit = *quota.MonthlyTokenLimit
+		summary.TenantTokensThisMonth = tokenInput + tokenOutput
+	}
+	return summary, nil
 }
 
 func (s *Service) RunRetention(ctx context.Context, tenantID string) (aidomain.RetentionResult, error) {
@@ -58,6 +87,9 @@ func (s *Service) RunRetentionAll(ctx context.Context) (aidomain.RetentionResult
 }
 
 func (s *Service) CheckDailyLimit(ctx context.Context, tenantID, userID string) error {
+	if err := s.checkTenantQuota(ctx, tenantID); err != nil {
+		return err
+	}
 	if s.cfg.DailyMessageLimit <= 0 {
 		return nil
 	}
@@ -72,3 +104,34 @@ func (s *Service) CheckDailyLimit(ctx context.Context, tenantID, userID string) 
 	return nil
 }
 
+func (s *Service) checkTenantQuota(ctx context.Context, tenantID string) error {
+	quota, err := s.repo.GetTenantAIQuota(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	startOfDay := time.Date(s.clock().Year(), s.clock().Month(), s.clock().Day(), 0, 0, 0, 0, s.clock().Location())
+	if quota.DailyMessageLimit != nil && *quota.DailyMessageLimit > 0 {
+		count, err := s.repo.CountTenantUserMessagesSince(ctx, tenantID, startOfDay)
+		if err != nil {
+			return err
+		}
+		if count >= *quota.DailyMessageLimit {
+			return ErrTenantDailyLimitExceeded
+		}
+	}
+	if quota.MonthlyTokenLimit != nil && *quota.MonthlyTokenLimit > 0 {
+		startOfMonth := time.Date(s.clock().Year(), s.clock().Month(), 1, 0, 0, 0, 0, s.clock().Location())
+		tokenInput, tokenOutput, err := s.repo.SumTenantTokensSince(ctx, tenantID, startOfMonth)
+		if err != nil {
+			return err
+		}
+		if tokenInput+tokenOutput >= *quota.MonthlyTokenLimit {
+			return ErrTenantTokenLimitExceeded
+		}
+	}
+	return nil
+}
+
+func (s *Service) UpdateTenantQuota(ctx context.Context, tenantID string, quota aidomain.TenantQuota) (aidomain.TenantQuota, error) {
+	return s.repo.UpdateTenantAIQuota(ctx, tenantID, quota)
+}

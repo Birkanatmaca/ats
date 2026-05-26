@@ -1,27 +1,65 @@
-import { BookOpen, Building2, CheckCircle2, Clipboard, GraduationCap, KeyRound, Loader2, Mail, Pencil, Plus, Search, ShieldCheck, Trash2, UserCog, UsersRound, Users } from "lucide-react";
+import {
+  Building2,
+  CheckCircle2,
+  Clipboard,
+  KeyRound,
+  Loader2,
+  Mail,
+  Pencil,
+  Plus,
+  Search,
+  ShieldCheck,
+  Trash2,
+  UserCog,
+  UsersRound
+} from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Institution, UserAccount } from "../../lib/api";
 import { api, type CreatedUserCredential } from "../../lib/api";
+import { TablePagination } from "../../role-dashboard/components/TablePagination";
+import { usePaginatedRows } from "../../role-dashboard/hooks/usePaginatedRows";
+import "../../role-dashboard/guidance/GuidanceDataPage.css";
+import "../../role-dashboard/principal/PrincipalConsole.css";
 import { Modal } from "../components/Modal";
-import { PanelHeader } from "../components/PanelHeader";
-import { StatusBadge } from "../components/StatusBadge";
-import type { LucideIcon } from "lucide-react";
 import { roleLabel } from "../utils/labels";
 import "./UsersPage.css";
 
-type RoleCardDef = { role: string; colorClass: string; icon: LucideIcon };
-
-const ROLE_CARDS: RoleCardDef[] = [
-  { role: "principal", colorClass: "sa-kpi--indigo", icon: ShieldCheck },
-  { role: "guidance", colorClass: "sa-kpi--teal", icon: BookOpen },
-  { role: "teacher", colorClass: "sa-kpi--amber", icon: GraduationCap },
-  { role: "guardian", colorClass: "sa-kpi--coral", icon: Users }
+const ROLE_FILTER_OPTIONS = [
+  { value: "", label: "Tüm roller" },
+  { value: "super_admin", label: "Süper admin" },
+  { value: "principal", label: "Müdür" },
+  { value: "guidance", label: "Rehberlik" },
+  { value: "teacher", label: "Öğretmen" },
+  { value: "guardian", label: "Veli" }
 ];
 
+function roleBadgeClass(role: string) {
+  switch (role) {
+    case "super_admin":
+      return "guidance-data-badge--rose";
+    case "principal":
+      return "guidance-data-badge--violet";
+    case "guidance":
+      return "guidance-data-badge--slate";
+    case "teacher":
+      return "guidance-data-badge--amber";
+    case "guardian":
+      return "guidance-data-badge--emerald";
+    default:
+      return "guidance-data-badge--slate";
+  }
+}
+
+function statusBadgeClass(status: string) {
+  return status === "active" ? "guidance-data-badge--emerald" : "guidance-data-badge--rose";
+}
+
 export function UsersPage({ users, institutions, onRefresh }: { users: UserAccount[]; institutions: Institution[]; onRefresh: () => Promise<void> }) {
-  const roles = Array.from(new Set(users.map((user) => user.role)));
   const [query, setQuery] = useState("");
+  const [filterRole, setFilterRole] = useState("");
+  const [filterTenantId, setFilterTenantId] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [createForm, setCreateForm] = useState({ tenantId: institutions[0]?.id ?? "", email: "", fullName: "", role: "principal" });
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
@@ -32,12 +70,44 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
   const [savingEdit, setSavingEdit] = useState(false);
   const [userError, setUserError] = useState<string | null>(null);
 
-  const activeUsers = users.filter((user) => user.status === "active").length;
-  const firstLoginUsers = users.filter((user) => user.mustChangePassword).length;
-  const filteredUsers = users.filter((user) => {
-    const value = `${user.fullName} ${user.email} ${user.tenant} ${user.role} ${user.status}`.toLowerCase();
-    return value.includes(query.toLowerCase().trim());
-  });
+  const userStats = useMemo(() => {
+    const activeUsers = users.filter((user) => user.status === "active").length;
+    const firstLoginUsers = users.filter((user) => user.mustChangePassword).length;
+    const roleCount = new Set(users.map((user) => user.role)).size;
+    return {
+      total: users.length,
+      activeUsers,
+      firstLoginUsers,
+      roleCount,
+      institutions: institutions.length
+    };
+  }, [institutions.length, users]);
+
+  const filteredUsers = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase("tr-TR");
+    return users
+      .filter((user) => {
+        if (filterRole && user.role !== filterRole) {
+          return false;
+        }
+        if (filterTenantId && user.tenantId !== filterTenantId) {
+          return false;
+        }
+        if (filterStatus && user.status !== filterStatus) {
+          return false;
+        }
+        if (!q) {
+          return true;
+        }
+        const blob = `${user.fullName} ${user.email} ${user.tenant} ${user.role} ${user.status}`.toLocaleLowerCase("tr-TR");
+        return blob.includes(q);
+      })
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, "tr"));
+  }, [filterRole, filterStatus, filterTenantId, query, users]);
+
+  const filterKey = `${query}|${filterRole}|${filterTenantId}|${filterStatus}`;
+  const { paginatedRows, page, setPage, totalPages, pageSize, totalItems } = usePaginatedRows(filteredUsers, filterKey);
+
   const protectedSelection = editingUser?.role === "super_admin";
 
   async function createGlobalUser(event: FormEvent<HTMLFormElement>) {
@@ -145,128 +215,211 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
   }, [editingUser]);
 
   return (
-    <section className="sa-page-stack users-page">
-      <div className="users-page-kpis">
-        <article className="sa-kpi sa-kpi--blue">
-          <div className="sa-kpi-icon">
+    <section className="principal-page-stack guidance-data-page sa-users-page">
+      <div className="principal-stat-grid sa-users-stats" aria-label="Kullanıcı istatistikleri">
+        <article className="principal-stat-card principal-stat-card--sky">
+          <span aria-hidden className="principal-stat-icon">
             <UsersRound size={20} />
-          </div>
-          <label>Toplam kullanıcı</label>
-          <span className="sa-kpi-value">{users.length}</span>
+          </span>
+          <small>Toplam kullanıcı</small>
+          <strong>{userStats.total}</strong>
+          <em>Tüm kurumlar ve roller</em>
         </article>
-        <article className="sa-kpi sa-kpi--green">
-          <div className="sa-kpi-icon">
+        <article className="principal-stat-card principal-stat-card--emerald">
+          <span aria-hidden className="principal-stat-icon">
             <CheckCircle2 size={20} />
-          </div>
-          <label>Aktif hesap</label>
-          <span className="sa-kpi-value">{activeUsers}</span>
+          </span>
+          <small>Aktif hesap</small>
+          <strong>{userStats.activeUsers}</strong>
+          <em>{userStats.total - userStats.activeUsers} pasif hesap</em>
         </article>
-        <article className="sa-kpi sa-kpi--purple">
-          <div className="sa-kpi-icon">
+        <article className="principal-stat-card principal-stat-card--amber">
+          <span aria-hidden className="principal-stat-icon">
             <KeyRound size={20} />
-          </div>
-          <label>İlk giriş bekleyen</label>
-          <span className="sa-kpi-value">{firstLoginUsers}</span>
+          </span>
+          <small>İlk giriş bekleyen</small>
+          <strong>{userStats.firstLoginUsers}</strong>
+          <em>Tek kullanımlık şifre tamamlanmadı</em>
         </article>
-        <article className="sa-kpi sa-kpi--rose">
-          <div className="sa-kpi-icon">
+        <article className="principal-stat-card principal-stat-card--violet">
+          <span aria-hidden className="principal-stat-icon">
             <Building2 size={20} />
-          </div>
-          <label>Kurum kapsamı</label>
-          <span className="sa-kpi-value">{institutions.length}</span>
+          </span>
+          <small>Kurum kapsamı</small>
+          <strong>{userStats.institutions}</strong>
+          <em>{userStats.roleCount} farklı rol tipi</em>
         </article>
-        {ROLE_CARDS.map(({ role, colorClass, icon: RoleIcon }) => (
-          <article className={`sa-kpi ${colorClass}`} key={role}>
-            <div className="sa-kpi-icon">
-              <RoleIcon size={20} />
-            </div>
-            <label>{roleLabel(role)}</label>
-            <span className="sa-kpi-value">{users.filter((u) => u.role === role).length}</span>
-            <span className="sa-kpi-hint">hesap</span>
-          </article>
-        ))}
       </div>
 
-      <section className="sa-card">
-        <PanelHeader
-          kicker="Global CRUD"
-          title="Tüm kullanıcılar"
-          icon={<ShieldCheck size={22} />}
-          trailing={
-            <button className="primary-action small-action" type="button" onClick={() => setShowCreateUser(true)}>
-              <Plus size={17} />
+      <article className="guidance-data-card">
+        <header className="guidance-data-card-head">
+          <h2>Tüm kullanıcılar</h2>
+          <div className="guidance-data-card-head-actions">
+            <span>{filteredUsers.length} kullanıcı</span>
+            <button className="sa-users-btn sa-users-btn--primary" type="button" onClick={() => setShowCreateUser(true)}>
+              <Plus size={16} />
               Kullanıcı oluştur
             </button>
-          }
-        />
-        <div className="sa-card-body">
-          <div className="user-toolbar">
-            <label className="field search-field">
-              <span>Arama</span>
-              <div className="field-control">
-                <Search size={17} />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ad, mail, kurum veya rol ara" />
-              </div>
-            </label>
           </div>
+        </header>
 
-          {credential && (
-            <div className="sa-credential-banner" style={{ marginTop: 14 }}>
-              <div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--sa-muted)", textTransform: "uppercase" }}>Geçici giriş bilgisi</span>
-                <strong>{credential.user.email}</strong>
-                <code>{credential.temporaryPassword}</code>
-              </div>
-              <button className="ghost-action" type="button" onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}>
-                <Clipboard size={17} />
-                Kopyala
-              </button>
-            </div>
-          )}
-
-          <div className="sa-data-grid" style={{ marginTop: 16 }}>
-            <div className="sa-row-head sa-users-global-head">
-              <span>Kullanıcı</span>
-              <span>Kurum</span>
-              <span>Rol</span>
-              <span>Durum</span>
-              <span>İşlem</span>
-            </div>
-            {filteredUsers.map((user) => (
-              <div
-                className={`sa-row-body sa-users-global-row ${selectedUser?.id === user.id && selectedUser?.tenantId === user.tenantId ? "sa-row-selected" : ""}`}
-                key={`${user.tenantId}-${user.id}`}
-              >
-                <div className="sa-row-body-cell">
-                  <strong>{user.fullName}</strong>
-                  <small>{user.email}</small>
-                </div>
-                <span>{user.tenant}</span>
-                <span>{roleLabel(user.role)}</span>
-                <StatusBadge value={user.status} />
-                <div className="sa-row-actions">
-                  <button
-                    className="sa-icon-btn"
-                    type="button"
-                    onClick={() => {
-                      setUserError(null);
-                      setSelectedUser(user);
-                      setEditingUser(user);
-                    }}
-                    aria-label={`${user.fullName} düzenle`}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button className="sa-icon-btn danger" type="button" onClick={() => void deleteGlobalUser(user)} aria-label={`${user.fullName} sil`} disabled={user.role === "super_admin"}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
+        <div className="guidance-data-toolbar">
+          <select
+            aria-label="Rol filtresi"
+            className="guidance-data-select"
+            onChange={(event) => setFilterRole(event.target.value)}
+            value={filterRole}
+          >
+            {ROLE_FILTER_OPTIONS.map((option) => (
+              <option key={option.value || "all"} value={option.value}>
+                {option.label}
+              </option>
             ))}
-            {filteredUsers.length === 0 && <p className="empty-text">Aramaya uygun kullanıcı bulunamadı.</p>}
-          </div>
+          </select>
+          <select
+            aria-label="Kurum filtresi"
+            className="guidance-data-select"
+            onChange={(event) => setFilterTenantId(event.target.value)}
+            value={filterTenantId}
+          >
+            <option value="">Tüm kurumlar</option>
+            {institutions.map((institution) => (
+              <option key={institution.id} value={institution.id}>
+                {institution.name}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Durum filtresi"
+            className="guidance-data-select"
+            onChange={(event) => setFilterStatus(event.target.value)}
+            value={filterStatus}
+          >
+            <option value="">Tüm durumlar</option>
+            <option value="active">Aktif</option>
+            <option value="passive">Pasif</option>
+          </select>
+          <label className="guidance-data-search">
+            <Search aria-hidden size={16} />
+            <input
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Ad, e-posta, kurum veya rol ara…"
+              type="search"
+              value={query}
+            />
+          </label>
         </div>
-      </section>
+
+        {credential ? (
+          <div className="sa-users-credential-banner">
+            <div>
+              <span>Geçici giriş bilgisi</span>
+              <strong>{credential.user.email}</strong>
+              <code>{credential.temporaryPassword}</code>
+            </div>
+            <button
+              className="sa-users-btn sa-users-btn--ghost"
+              onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}
+              type="button"
+            >
+              <Clipboard size={16} />
+              Kopyala
+            </button>
+          </div>
+        ) : null}
+
+        {filteredUsers.length === 0 ? (
+          <p className="guidance-data-empty">{users.length === 0 ? "Henüz kullanıcı kaydı yok." : "Filtrelere uyan kullanıcı bulunamadı."}</p>
+        ) : (
+          <>
+            <div className="guidance-data-table-wrap">
+              <table className="guidance-data-table sa-users-table">
+                <thead>
+                  <tr>
+                    <th>Kullanıcı</th>
+                    <th>Kurum</th>
+                    <th>Rol</th>
+                    <th>Durum</th>
+                    <th>İlk giriş</th>
+                    <th>İşlemler</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRows.map((user) => (
+                    <tr
+                      className={selectedUser?.id === user.id && selectedUser?.tenantId === user.tenantId ? "sa-users-row-selected" : undefined}
+                      key={`${user.tenantId}-${user.id}`}
+                    >
+                      <td>
+                        <span className="guidance-data-primary">{user.fullName}</span>
+                        <span className="guidance-data-secondary">{user.email}</span>
+                      </td>
+                      <td>
+                        <span className="guidance-data-primary">{user.tenant}</span>
+                      </td>
+                      <td>
+                        <span className={`guidance-data-badge ${roleBadgeClass(user.role)}`}>{roleLabel(user.role)}</span>
+                      </td>
+                      <td>
+                        <span className={`guidance-data-badge guidance-data-badge--inline ${statusBadgeClass(user.status)}`}>
+                          {user.status === "active" ? "Aktif" : "Pasif"}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`guidance-data-badge guidance-data-badge--inline${
+                            user.mustChangePassword ? " guidance-data-badge--amber" : " guidance-data-badge--emerald"
+                          }`}
+                        >
+                          {user.mustChangePassword ? (
+                            <>
+                              <KeyRound aria-hidden size={11} />
+                              Bekleniyor
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 aria-hidden size={11} />
+                              Tamamlandı
+                            </>
+                          )}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="guidance-data-actions sa-users-row-actions">
+                          <button
+                            aria-label={`${user.fullName} düzenle`}
+                            className="sa-users-btn sa-users-btn--ghost sa-users-btn--icon"
+                            onClick={() => {
+                              setUserError(null);
+                              setSelectedUser(user);
+                              setEditingUser(user);
+                            }}
+                            title="Düzenle"
+                            type="button"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            aria-label={`${user.fullName} sil`}
+                            className="sa-users-btn sa-users-btn--ghost sa-users-btn--icon sa-users-btn--danger"
+                            disabled={user.role === "super_admin"}
+                            onClick={() => void deleteGlobalUser(user)}
+                            title="Pasifleştir"
+                            type="button"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination page={page} totalPages={totalPages} pageSize={pageSize} totalItems={totalItems} onPageChange={setPage} />
+          </>
+        )}
+      </article>
 
       <Modal open={showCreateUser} onClose={() => setShowCreateUser(false)} title="Yeni kullanıcı" kicker="Global CRUD" icon={<UserCog size={20} />}>
         {userError && <div className="form-error">{userError}</div>}
@@ -275,9 +428,9 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
             <span>Kurum</span>
             <div className="field-control">
               <Building2 size={17} />
-              <select value={createForm.tenantId} onChange={(event) => setCreateForm((form) => ({ ...form, tenantId: event.target.value }))} required>
+              <select onChange={(event) => setCreateForm((form) => ({ ...form, tenantId: event.target.value }))} required value={createForm.tenantId}>
                 {institutions.map((institution) => (
-                  <option value={institution.id} key={institution.id}>
+                  <option key={institution.id} value={institution.id}>
                     {institution.name}
                   </option>
                 ))}
@@ -288,21 +441,21 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
             <span>E-posta</span>
             <div className="field-control">
               <Mail size={17} />
-              <input value={createForm.email} onChange={(event) => setCreateForm((form) => ({ ...form, email: event.target.value }))} type="email" required />
+              <input onChange={(event) => setCreateForm((form) => ({ ...form, email: event.target.value }))} required type="email" value={createForm.email} />
             </div>
           </label>
           <label className="field">
             <span>Ad soyad</span>
             <div className="field-control">
               <UserCog size={17} />
-              <input value={createForm.fullName} onChange={(event) => setCreateForm((form) => ({ ...form, fullName: event.target.value }))} />
+              <input onChange={(event) => setCreateForm((form) => ({ ...form, fullName: event.target.value }))} value={createForm.fullName} />
             </div>
           </label>
           <label className="field">
             <span>Rol</span>
             <div className="field-control">
               <ShieldCheck size={17} />
-              <select value={createForm.role} onChange={(event) => setCreateForm((form) => ({ ...form, role: event.target.value }))}>
+              <select onChange={(event) => setCreateForm((form) => ({ ...form, role: event.target.value }))} value={createForm.role}>
                 <option value="principal">Müdür</option>
                 <option value="guidance">Rehberlik</option>
                 <option value="teacher">Öğretmen</option>
@@ -311,10 +464,10 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
             </div>
           </label>
           <div className="sa-modal-actions">
-            <button type="button" className="ghost-action" onClick={() => setShowCreateUser(false)}>
+            <button className="ghost-action" onClick={() => setShowCreateUser(false)} type="button">
               Vazgeç
             </button>
-            <button className="primary-action" type="submit" disabled={savingCreate || institutions.length === 0}>
+            <button className="primary-action" disabled={savingCreate || institutions.length === 0} type="submit">
               {savingCreate ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
               Oluştur
             </button>
@@ -323,14 +476,14 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
       </Modal>
 
       <Modal
-        open={editingUser !== null}
+        icon={<Pencil size={20} />}
+        kicker={editingUser?.fullName ?? ""}
         onClose={() => {
           setEditingUser(null);
           setUserError(null);
         }}
+        open={editingUser !== null}
         title="Kullanıcı düzenle"
-        kicker={editingUser?.fullName ?? ""}
-        icon={<Pencil size={20} />}
       >
         {userError && <div className="form-error">{userError}</div>}
         <form className="sa-modal-form" onSubmit={(event) => void updateGlobalUser(event)}>
@@ -338,9 +491,13 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
             <span>Kurum</span>
             <div className="field-control">
               <Building2 size={17} />
-              <select value={editForm.tenantId} onChange={(event) => setEditForm((form) => ({ ...form, tenantId: event.target.value }))} disabled={protectedSelection}>
+              <select
+                disabled={protectedSelection}
+                onChange={(event) => setEditForm((form) => ({ ...form, tenantId: event.target.value }))}
+                value={editForm.tenantId}
+              >
                 {institutions.map((institution) => (
-                  <option value={institution.id} key={institution.id}>
+                  <option key={institution.id} value={institution.id}>
                     {institution.name}
                   </option>
                 ))}
@@ -351,21 +508,34 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
             <span>E-posta</span>
             <div className="field-control">
               <Mail size={17} />
-              <input value={editForm.email} onChange={(event) => setEditForm((form) => ({ ...form, email: event.target.value }))} type="email" disabled={protectedSelection} />
+              <input
+                disabled={protectedSelection}
+                onChange={(event) => setEditForm((form) => ({ ...form, email: event.target.value }))}
+                type="email"
+                value={editForm.email}
+              />
             </div>
           </label>
           <label className="field">
             <span>Ad soyad</span>
             <div className="field-control">
               <UserCog size={17} />
-              <input value={editForm.fullName} onChange={(event) => setEditForm((form) => ({ ...form, fullName: event.target.value }))} disabled={protectedSelection} />
+              <input
+                disabled={protectedSelection}
+                onChange={(event) => setEditForm((form) => ({ ...form, fullName: event.target.value }))}
+                value={editForm.fullName}
+              />
             </div>
           </label>
           <label className="field">
             <span>Rol</span>
             <div className="field-control">
               <ShieldCheck size={17} />
-              <select value={editForm.role} onChange={(event) => setEditForm((form) => ({ ...form, role: event.target.value }))} disabled={protectedSelection}>
+              <select
+                disabled={protectedSelection}
+                onChange={(event) => setEditForm((form) => ({ ...form, role: event.target.value }))}
+                value={editForm.role}
+              >
                 <option value="principal">Müdür</option>
                 <option value="guidance">Rehberlik</option>
                 <option value="teacher">Öğretmen</option>
@@ -377,25 +547,29 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
             <span>Durum</span>
             <div className="field-control">
               <CheckCircle2 size={17} />
-              <select value={editForm.status} onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value }))} disabled={protectedSelection}>
+              <select
+                disabled={protectedSelection}
+                onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value }))}
+                value={editForm.status}
+              >
                 <option value="active">Aktif</option>
                 <option value="passive">Pasif</option>
               </select>
             </div>
           </label>
-          {protectedSelection && <p className="empty-text">Süper admin hesabı sistem hesabıdır; bu ekranda değiştirilemez.</p>}
+          {protectedSelection ? <p className="guidance-data-empty sa-users-protected-note">Süper admin hesabı sistem hesabıdır; bu ekranda değiştirilemez.</p> : null}
           <div className="sa-modal-actions">
             <button
-              type="button"
               className="ghost-action"
               onClick={() => {
                 setEditingUser(null);
                 setUserError(null);
               }}
+              type="button"
             >
               Vazgeç
             </button>
-            <button className="primary-action" type="submit" disabled={savingEdit || protectedSelection}>
+            <button className="primary-action" disabled={protectedSelection || savingEdit} type="submit">
               {savingEdit ? <Loader2 className="spin" size={18} /> : <Pencil size={18} />}
               Güncelle
             </button>

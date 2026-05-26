@@ -440,6 +440,99 @@ export type AIRetentionResult = {
   pendingActionsExpired: number;
 };
 
+export type BillingSettings = {
+  usdTryRate: number;
+  quoteValidityDays: number;
+  companyName: string;
+  companyEmail: string;
+};
+
+export type BillingLicensePackage = {
+  id: string;
+  name: string;
+  tagline: string;
+  pricePerStudentUsd: number;
+  minOrderUsd: number;
+  features: string[];
+};
+
+export type BillingInstitutionRow = {
+  tenantId: string;
+  institutionName: string;
+  plan: string;
+  status: string;
+  studentCount: number;
+  annualUsd: number;
+  annualTry: number;
+  packageId: string;
+};
+
+export type BillingOverview = {
+  settings: BillingSettings;
+  packages: BillingLicensePackage[];
+  totalInstitutions: number;
+  totalStudents: number;
+  totalAnnualUsd: number;
+  totalAnnualTry: number;
+  institutions: BillingInstitutionRow[];
+  updatedAt: string;
+};
+
+export type BillingQuoteLineItem = {
+  label: string;
+  quantity: number;
+  unitPrice: number;
+  unitLabel: string;
+  amountUsd: number;
+};
+
+export type BillingQuotePreviewInput = {
+  tenantId?: string;
+  institutionName?: string;
+  contactName?: string;
+  contactEmail?: string;
+  packageId: string;
+  studentCount: number;
+  termYears?: number;
+  discountPercent?: number;
+  usdTryRate?: number;
+  pricePerStudentUsd?: number;
+  minOrderUsd?: number;
+  notes?: string;
+};
+
+export type BillingQuotePreview = {
+  quoteNumber: string;
+  issuedAt: string;
+  validUntil: string;
+  tenantId: string;
+  institutionName: string;
+  contactName: string;
+  contactEmail: string;
+  packageId: string;
+  packageName: string;
+  packageFeatures: string[];
+  studentCount: number;
+  termYears: number;
+  pricePerStudentUsd: number;
+  minOrderUsd: number;
+  defaultPricePerStudentUsd: number;
+  defaultMinOrderUsd: number;
+  pricingCustomized: boolean;
+  minimumApplied: boolean;
+  calculatedUsd: number;
+  discountPercent: number;
+  subtotalUsd: number;
+  discountUsd: number;
+  totalUsd: number;
+  totalTry: number;
+  usdTryRate: number;
+  lineItems: BillingQuoteLineItem[];
+  notes: string;
+  companyName: string;
+  companyEmail: string;
+};
+
 export type Incident = {
   id: string;
   title: string;
@@ -590,6 +683,20 @@ export type AiSendMessageResult = {
   message: AiMessage;
   candidates?: AiCandidate[];
   pendingAction?: AiPendingActionSummary | null;
+};
+
+export type AiStreamEvent = {
+  type: "token" | "done" | "error";
+  delta?: string;
+  message?: AiMessage;
+  candidates?: AiCandidate[];
+  pendingAction?: AiPendingActionSummary | null;
+  error?: string;
+};
+
+export type AiTenantQuota = {
+  dailyMessageLimit?: number | null;
+  monthlyTokenLimit?: number | null;
 };
 
 export type AiConversation = {
@@ -865,6 +972,23 @@ export const api = {
     }),
   runSuperAdminAIRetention: () =>
     request<AIRetentionResult>("/api/v1/super-admin/ai/retention/run", { method: "POST" }),
+  updateSuperAdminInstitutionAIQuota: (institutionId: string, payload: AiTenantQuota) =>
+    request<AiTenantQuota>(`/api/v1/super-admin/institutions/${institutionId}/ai-quota`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  superAdminBillingOverview: () => request<BillingOverview>("/api/v1/super-admin/billing/overview"),
+  superAdminBillingSettings: () => request<BillingSettings>("/api/v1/super-admin/billing/settings"),
+  updateSuperAdminBillingSettings: (payload: BillingSettings) =>
+    request<BillingSettings>("/api/v1/super-admin/billing/settings", {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  previewSuperAdminBillingQuote: (payload: BillingQuotePreviewInput) =>
+    request<BillingQuotePreview>("/api/v1/super-admin/billing/quotes/preview", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
   teacherCalendar: () => request<Lesson[] | null>("/api/v1/teachers/me/calendar").then(asArray),
@@ -1179,6 +1303,48 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  sendAiMessageStream: async (
+    conversationId: string,
+    payload: { content: string; selectedCandidateId?: string },
+    onEvent: (event: AiStreamEvent) => void
+  ) => {
+    const headers = new Headers({ "Content-Type": "application/json" });
+    for (const [key, value] of Object.entries(authHeaders())) {
+      headers.set(key, value);
+    }
+    const response = await fetch(`${API_BASE_URL}/api/v1/ai/conversations/${conversationId}/messages:stream`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+      throw new Error(payload?.error?.message ?? "Mesaj akışı başlatılamadı.");
+    }
+    if (!response.body) {
+      throw new Error("Mesaj akışı desteklenmiyor.");
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split("\n\n");
+      buffer = chunks.pop() ?? "";
+      for (const chunk of chunks) {
+        const dataLine = chunk.split("\n").find((line) => line.startsWith("data:"));
+        if (!dataLine) {
+          continue;
+        }
+        const payloadText = dataLine.replace(/^data:\s*/, "");
+        onEvent(JSON.parse(payloadText) as AiStreamEvent);
+      }
+    }
+  },
   confirmAiAction: (actionId: string) =>
     request<{ message: AiMessage }>(`/api/v1/ai/actions/${actionId}/confirm`, {
       method: "POST",

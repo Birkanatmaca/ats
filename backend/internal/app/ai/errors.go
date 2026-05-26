@@ -11,4 +11,6 @@ var (
 	ErrDailyLimitExceeded   = errors.New("ai daily message limit exceeded")
 	ErrInvalidCostSettings  = errors.New("invalid ai cost settings")
 	ErrForbidden            = errors.New("ai action forbidden")
+	ErrTenantDailyLimitExceeded = errors.New("ai tenant daily message limit exceeded")
+	ErrTenantTokenLimitExceeded = errors.New("ai tenant monthly token limit exceeded")
 )

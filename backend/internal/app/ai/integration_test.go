@@ -43,7 +43,7 @@ func newTestService(t *testing.T) (*aiapp.Service, *memory.Store) {
 		Scheduling:  schedulingapp.NewService(store),
 		OpenAI:      openai.NoopClient{},
 		Clock:       func() time.Time { return fixed },
-		Config:      aiapp.Config{Model: "rule-engine"},
+		Config:      aiapp.Config{Model: "rule-engine", UseLLM: true, DailyMessageLimit: 200},
 	})
 	return service, store
 }

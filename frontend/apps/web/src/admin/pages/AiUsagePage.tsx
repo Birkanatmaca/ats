@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import type { AIPlatformAnalytics, AICostSettings } from "../../lib/api";
+import type { AIPlatformAnalytics, AICostSettings, AiTenantQuota } from "../../lib/api";
 import { api } from "../../lib/api";
 import { formatTRY } from "../utils/labels";
 import "./AiUsagePage.css";
@@ -46,6 +46,8 @@ export function AiUsagePage() {
   const [runningRetention, setRunningRetention] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [quotaDrafts, setQuotaDrafts] = useState<Record<string, AiTenantQuota>>({});
+  const [savingQuotaFor, setSavingQuotaFor] = useState<string | null>(null);
 
   const load = useCallback(async (periodDays: number) => {
     setLoading(true);
@@ -54,6 +56,17 @@ export function AiUsagePage() {
       const data = await api.superAdminAIOverview(periodDays);
       setAnalytics(data);
       setCostSettings(data.costSettings);
+      setQuotaDrafts(
+        Object.fromEntries(
+          data.byTenant.map((row) => [
+            row.tenantId,
+            {
+              dailyMessageLimit: null,
+              monthlyTokenLimit: null
+            }
+          ])
+        )
+      );
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "AI kullanım verileri alınamadı.");
     } finally {
@@ -79,6 +92,20 @@ export function AiUsagePage() {
       setError(saveError instanceof Error ? saveError.message : "Maliyet ayarları kaydedilemedi.");
     } finally {
       setSavingCosts(false);
+    }
+  }
+
+  async function saveTenantQuota(tenantId: string) {
+    setSavingQuotaFor(tenantId);
+    setNotice(null);
+    setError(null);
+    try {
+      await api.updateSuperAdminInstitutionAIQuota(tenantId, quotaDrafts[tenantId] ?? {});
+      setNotice("Kurum kotası güncellendi.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Kurum kotası kaydedilemedi.");
+    } finally {
+      setSavingQuotaFor(null);
     }
   }
 
@@ -331,6 +358,9 @@ export function AiUsagePage() {
                     <th>Token (out)</th>
                     <th>USD</th>
                     <th>TRY</th>
+                    <th>Gün limiti</th>
+                    <th>Ay token</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -342,6 +372,52 @@ export function AiUsagePage() {
                       <td>{formatNumber(row.tokenOutput)}</td>
                       <td>{formatUSD(row.estCostUsd)}</td>
                       <td>{formatTRY(row.estCostTry)}</td>
+                      <td>
+                        <input
+                          className="sa-ai-quota-input"
+                          min={0}
+                          onChange={(event) =>
+                            setQuotaDrafts((current) => ({
+                              ...current,
+                              [row.tenantId]: {
+                                ...current[row.tenantId],
+                                dailyMessageLimit: event.target.value ? Number(event.target.value) : null
+                              }
+                            }))
+                          }
+                          placeholder="∞"
+                          type="number"
+                          value={quotaDrafts[row.tenantId]?.dailyMessageLimit ?? ""}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="sa-ai-quota-input"
+                          min={0}
+                          onChange={(event) =>
+                            setQuotaDrafts((current) => ({
+                              ...current,
+                              [row.tenantId]: {
+                                ...current[row.tenantId],
+                                monthlyTokenLimit: event.target.value ? Number(event.target.value) : null
+                              }
+                            }))
+                          }
+                          placeholder="∞"
+                          type="number"
+                          value={quotaDrafts[row.tenantId]?.monthlyTokenLimit ?? ""}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          className="ghost-button"
+                          disabled={savingQuotaFor === row.tenantId}
+                          onClick={() => void saveTenantQuota(row.tenantId)}
+                          type="button"
+                        >
+                          {savingQuotaFor === row.tenantId ? <Loader2 className="spin" size={14} /> : "Kaydet"}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

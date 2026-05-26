@@ -8,6 +8,7 @@ import { api } from "../lib/api";
 import { navTabs } from "./config/navTabs";
 import type { AdminTab, SuperAdminState } from "./types";
 import { AiUsagePage } from "./pages/AiUsagePage";
+import { BillingPage } from "./pages/BillingPage";
 import { InstitutionDetailPage } from "./pages/InstitutionDetailPage";
 import { InstitutionsListPage } from "./pages/InstitutionsListPage";
 import { LogsPage } from "./pages/LogsPage";
@@ -19,6 +20,7 @@ import { UsersPage } from "./pages/UsersPage";
 import "../styles/super-admin-app.css";
 import "./SuperAdminConsole.css";
 import "./pages/AiUsagePage.css";
+import "./pages/BillingPage.css";
 
 export function SuperAdminConsole({
   session,
@@ -120,6 +122,7 @@ export function SuperAdminConsole({
             <Route path="overview" element={<OverviewPage overview={state.overview} systemMetrics={state.systemMetrics} />} />
             <Route path="institutions" element={<InstitutionsListPage institutions={state.institutions ?? []} onRefresh={load} />} />
             <Route path="institutions/:id" element={<InstitutionDetailPage institutions={state.institutions ?? []} onRefresh={load} />} />
+            <Route path="billing" element={<BillingPage />} />
             <Route path="users" element={<UsersPage users={state.users ?? []} institutions={state.institutions ?? []} onRefresh={load} />} />
             <Route path="support" element={<SupportPage tickets={state.supportTickets ?? []} onRefresh={load} />} />
             <Route path="logs" element={<LogsPage auditLogs={state.auditLogs ?? []} />} />

@@ -46,6 +46,10 @@ type Repository interface {
 	GetAICostSettings(ctx context.Context) (aidomain.CostSettings, error)
 	UpdateAICostSettings(ctx context.Context, input aidomain.CostSettings) (aidomain.CostSettings, error)
 	GetAIPlatformAnalytics(ctx context.Context, since time.Time) (aidomain.PlatformAnalytics, error)
+	GetTenantAIQuota(ctx context.Context, tenantID string) (aidomain.TenantQuota, error)
+	UpdateTenantAIQuota(ctx context.Context, tenantID string, quota aidomain.TenantQuota) (aidomain.TenantQuota, error)
+	CountTenantUserMessagesSince(ctx context.Context, tenantID string, since time.Time) (int, error)
+	SumTenantTokensSince(ctx context.Context, tenantID string, since time.Time) (int, int, error)
 }
 
 type Config struct {
@@ -53,6 +57,7 @@ type Config struct {
 	StoreResponse      bool
 	DailyMessageLimit  int
 	RetentionDays      int
+	UseLLM             bool
 }
 
 type Dependencies struct {
@@ -217,28 +222,12 @@ func (s *Service) SendMessage(ctx context.Context, principal identity.Principal,
 		}
 	}
 
-	var result aidomain.SendMessageResult
-	switch principal.Role {
-	case identity.RoleTeacher:
-		result, err = s.orchestrateTeacherMessage(ctx, principal, conversation, input)
-	case identity.RoleGuidance:
-		result, err = s.orchestrateGuidanceMessage(ctx, principal, conversation, input)
-	case identity.RolePrincipal, identity.RoleSystemAdmin:
-		result, err = s.orchestratePrincipalMessage(ctx, principal, conversation, input)
-	case identity.RoleGuardian:
-		result, err = s.orchestrateGuardianMessage(ctx, principal, conversation, input)
-	default:
-		result = s.assistantReply(conversation, "Bu rol için ogta.ai henüz etkin değil.")
-	}
+	result, model, tokenInput, tokenOutput, err := s.orchestrateMessage(ctx, principal, conversation, input)
 	if err != nil {
 		return aidomain.SendMessageResult{}, err
 	}
 
-	model := "rule-engine"
-	if s.openai.Available() {
-		model = s.cfg.Model
-	}
-	saved, err := s.saveMessage(ctx, principal.TenantID, conversationID, "", result.Message.Role, result.Message.Content, model)
+	saved, err := s.saveMessageWithUsage(ctx, principal.TenantID, conversationID, "", result.Message.Role, result.Message.Content, model, tokenInput, tokenOutput)
 	if err != nil {
 		return aidomain.SendMessageResult{}, err
 	}
@@ -247,9 +236,15 @@ func (s *Service) SendMessage(ctx context.Context, principal identity.Principal,
 	return result, nil
 }
 
-func (s *Service) saveMessage(ctx context.Context, tenantID, conversationID, userID, role, content, model string) (aidomain.Message, error) {
-	tokenInput, tokenOutput := messageTokenUsage(role, content)
+func (s *Service) saveMessageWithUsage(ctx context.Context, tenantID, conversationID, userID, role, content, model string, tokenInput, tokenOutput int) (aidomain.Message, error) {
+	if tokenInput == 0 && tokenOutput == 0 {
+		tokenInput, tokenOutput = messageTokenUsage(role, content)
+	}
 	return s.repo.CreateMessage(ctx, tenantID, conversationID, userID, role, content, model, tokenInput, tokenOutput)
+}
+
+func (s *Service) saveMessage(ctx context.Context, tenantID, conversationID, userID, role, content, model string) (aidomain.Message, error) {
+	return s.saveMessageWithUsage(ctx, tenantID, conversationID, userID, role, content, model, 0, 0)
 }
 
 func (s *Service) GetPendingAction(ctx context.Context, principal identity.Principal, actionID string) (aidomain.PendingAction, error) {
@@ -493,4 +488,10 @@ func (s *Service) ResolveOpenAIClient(ctx context.Context) openai.Client {
 		Model:         s.cfg.Model,
 		StoreResponse: s.cfg.StoreResponse,
 	})
+}
+
+func (s *Service) SetOpenAIClientForTest(client openai.Client) {
+	if client != nil {
+		s.openai = client
+	}
 }

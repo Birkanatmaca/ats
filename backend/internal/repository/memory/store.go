@@ -13,6 +13,7 @@ import (
 	"ots/backend/internal/domain/attendance"
 	"ots/backend/internal/domain/dashboard"
 	aidomain "ots/backend/internal/domain/ai"
+	billingdomain "ots/backend/internal/domain/billing"
 	guardiandomain "ots/backend/internal/domain/guardian"
 	"ots/backend/internal/domain/identity"
 	"ots/backend/internal/domain/observation"
@@ -56,6 +57,8 @@ type Store struct {
 	aiToolCalls       []memoryAIToolCall
 	aiSeq             int
 	aiCostSettings    aidomain.CostSettings
+	tenantAIQuotas    map[string]aidomain.TenantQuota
+	billingSettings   billingdomain.Settings
 }
 
 type memoryResetToken struct {
@@ -349,6 +352,13 @@ func NewStore(clock func() time.Time) *Store {
 			InputCostPer1MUSD:  0.15,
 			OutputCostPer1MUSD: 0.60,
 			UsdTryRate:         34.50,
+		},
+		tenantAIQuotas: map[string]aidomain.TenantQuota{},
+		billingSettings: billingdomain.Settings{
+			UsdTryRate:        34.50,
+			QuoteValidityDays: 30,
+			CompanyName:       "OGTA Platform",
+			CompanyEmail:      "billing@ogta.ai",
 		},
 	}
 }

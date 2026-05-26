@@ -66,11 +66,36 @@ export function OgtaAiDock({ onActionCompleted }: { onActionCompleted?: () => vo
     setError(null);
     try {
       const id = await ensureConversation();
+      const assistantId = `assistant-${Date.now()}`;
       if (trimmed) {
         setMessages((current) => [...current, { id: `local-${Date.now()}`, conversationId: id, role: "user", content: trimmed }]);
+        setMessages((current) => [...current, { id: assistantId, conversationId: id, role: "assistant", content: "" }]);
       }
-      const result = await api.sendAiMessage(id, { content: trimmed, selectedCandidateId });
-      setMessages((current) => [...current, { ...result.message, candidates: result.candidates, pendingAction: result.pendingAction }]);
+
+      if (selectedCandidateId) {
+        const result = await api.sendAiMessage(id, { content: trimmed, selectedCandidateId });
+        setMessages((current) => [...current, { ...result.message, candidates: result.candidates, pendingAction: result.pendingAction }]);
+        setInput("");
+        return;
+      }
+
+      let streamed = "";
+      await api.sendAiMessageStream(id, { content: trimmed, selectedCandidateId }, (event) => {
+        if (event.type === "token" && event.delta) {
+          streamed += event.delta;
+          setMessages((current) =>
+            current.map((item) => (item.id === assistantId ? { ...item, content: streamed } : item))
+          );
+        }
+        if (event.type === "done" && event.message) {
+          const finalItem: ChatItem = {
+            ...event.message,
+            candidates: event.candidates,
+            pendingAction: event.pendingAction
+          };
+          setMessages((current) => current.filter((item) => item.id !== assistantId).concat(finalItem));
+        }
+      });
       setInput("");
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Mesaj gönderilemedi.");

@@ -57,7 +57,7 @@ async function main() {
   console.log(">> Git arsiv olusturuluyor...");
   const archivePath = join(root, ".deploy-bundle.tar.gz");
   execSync(
-    `tar -czf "${archivePath}" --exclude=node_modules --exclude=.git --exclude=frontend/apps/web/dist --exclude=backend/tmp --exclude=.deploy-bundle.tar.gz -C "${root}" .`,
+    `tar -czf "${archivePath}" --exclude=node_modules --exclude=.git --exclude=frontend/apps/web/dist --exclude=landing/node_modules --exclude=landing/dist --exclude=backend/tmp --exclude=.deploy-bundle.tar.gz -C "${root}" .`,
     { stdio: "inherit", shell: true }
   );
 
@@ -75,7 +75,12 @@ async function main() {
     });
   });
 
-  const envFile = `OTS_POSTGRES_PASSWORD=${password}\n`;
+  const envFile = `OTS_POSTGRES_PASSWORD=${password}
+NGINX_CONFIG=${process.env.NGINX_CONFIG || "nginx.ssl.conf"}
+LANDING_URL=${process.env.LANDING_URL || "https://ogtasis.com"}
+PANEL_URL=${process.env.PANEL_URL || "https://panel.ogtasis.com"}
+CORS_ALLOWED_ORIGINS=${process.env.CORS_ALLOWED_ORIGINS || "https://panel.ogtasis.com,http://panel.ogtasis.com,https://ogtasis.com,http://ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29"}
+`;
   await new Promise((resolve, reject) => {
     conn.sftp((err, sftp) => {
       if (err) return reject(err);
@@ -122,8 +127,13 @@ docker exec ots_postgres psql -U ots -d ots -c "SELECT name, (SELECT count(*) FR
   );
 
   conn.end();
-  console.log(`\nOK: http://${host}:3110/`);
+  console.log("\nOK:");
+  console.log("  Landing:  https://ogtasis.com/");
+  console.log("  Panel:    https://panel.ogtasis.com/");
+  console.log("  Yedek IP: http://" + host + ":3110/");
+  console.log("  SSL yoksa: node deploy/scripts/setup-ssl.mjs");
   console.log("Giris: mudur@priente.k12.tr / OtsMudur!2026");
+  console.log("\nDNS: ogtasis.com ve panel.ogtasis.com A kayitlari -> " + host);
 }
 
 main().catch((e) => {

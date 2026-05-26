@@ -1,61 +1,240 @@
-/* ── Rol renk varyantları ─────────────────────────────────────── */
-.sa-kpi--indigo {
-  background: linear-gradient(160deg, #f5f3ff 0%, #ede9fe 100%);
-}
-.sa-kpi--indigo::before {
-  background: linear-gradient(180deg, #a5b4fc, #6366f1);
-}
-.sa-kpi--indigo .sa-kpi-icon {
-  background: rgba(99, 102, 241, 0.14);
-  color: #4338ca;
+/* Kullanıcılar — müdür paneli tablo + pagination referans */
+
+.admin-shell.super-admin-app .sa-users-page .principal-stat-card,
+.admin-shell.super-admin-app .sa-users-page .principal-surface-card {
+  background: linear-gradient(155deg, var(--sa-surface) 0%, var(--sa-surface-tint) 100%);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
 }
 
-.sa-kpi--teal {
-  background: linear-gradient(160deg, #f0fdfa 0%, #e6f7f5 100%);
-}
-.sa-kpi--teal::before {
-  background: linear-gradient(180deg, #5eead4, #0d9488);
-}
-.sa-kpi--teal .sa-kpi-icon {
-  background: rgba(13, 148, 136, 0.14);
-  color: #0f766e;
+.sa-users-page {
+  gap: 12px;
 }
 
-.sa-kpi--amber {
-  background: linear-gradient(160deg, #fffbeb 0%, #fef3c7 100%);
-}
-.sa-kpi--amber::before {
-  background: linear-gradient(180deg, #fcd34d, #d97706);
-}
-.sa-kpi--amber .sa-kpi-icon {
-  background: rgba(217, 119, 6, 0.14);
-  color: #b45309;
+.sa-users-stats {
+  gap: 8px;
+  margin-bottom: 0;
 }
 
-.sa-kpi--coral {
-  background: linear-gradient(160deg, #fff7f5 0%, #fee2da 100%);
-}
-.sa-kpi--coral::before {
-  background: linear-gradient(180deg, #fca5a5, #e05252);
-}
-.sa-kpi--coral .sa-kpi-icon {
-  background: rgba(224, 82, 82, 0.14);
-  color: #c0392b;
+.sa-users-page .principal-stat-card {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  column-gap: 10px;
+  min-height: 82px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(22, 34, 53, 0.045);
 }
 
-/* ── Kullanıcılar — KPI şeridi tek satır (dar ekranda yatay kaydırma) */
-.users-page .users-page-kpis {
-  display: flex;
+.sa-users-page .principal-stat-card::before {
+  width: 3px;
+}
+
+.sa-users-page .principal-stat-icon {
+  grid-row: 1 / 4;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.sa-users-page .principal-stat-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sa-users-page .principal-stat-card small {
+  margin-top: 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.sa-users-page .principal-stat-card strong {
+  margin-top: 3px;
+  font-size: 1.18rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.sa-users-page .principal-stat-card em {
+  margin-top: 3px;
+  font-size: 10.5px;
+  line-height: 1.25;
+}
+
+.sa-users-page .guidance-data-card {
+  margin-top: 0;
+}
+
+.sa-users-table {
+  min-width: 980px;
+}
+
+.sa-users-page .guidance-data-badge--inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sa-users-page .guidance-data-badge--inline svg {
+  flex-shrink: 0;
+}
+
+.sa-users-row-actions {
   flex-wrap: nowrap;
-  align-items: stretch;
-  gap: 14px;
-  margin-bottom: 14px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  -webkit-overflow-scrolling: touch;
 }
 
-.users-page .users-page-kpis .sa-kpi {
-  flex: 1 1 0;
-  min-width: 132px;
+.sa-users-table tbody tr.sa-users-row-selected {
+  background: var(--sa-tint-warm);
+}
+
+.sa-users-table tbody tr.sa-users-row-selected:hover {
+  background: color-mix(in srgb, var(--sa-accent-mid) 10%, var(--sa-tint-warm));
+}
+
+/* ── Butonlar ── */
+.sa-users-page .sa-users-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 15px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease,
+    filter 0.15s ease;
+}
+
+.sa-users-page .sa-users-btn svg {
+  flex-shrink: 0;
+}
+
+.sa-users-page .sa-users-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.sa-users-page .sa-users-btn--ghost {
+  color: var(--sa-ink);
+  background: #fff;
+  border-color: var(--sa-border);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.sa-users-page .sa-users-btn--ghost:hover:not(:disabled) {
+  border-color: var(--sa-accent-mid);
+  background: var(--sa-tint-warm);
+  box-shadow: 0 4px 14px rgba(8, 145, 178, 0.14);
+  transform: translateY(-1px);
+}
+
+.sa-users-page .sa-users-btn--primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--sa-accent-mid) 0%, var(--sa-accent-deep) 100%);
+  border: none;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 4px 14px rgba(8, 145, 178, 0.28);
+}
+
+.sa-users-page .sa-users-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.04);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 6px 18px rgba(8, 145, 178, 0.34);
+  transform: translateY(-1px);
+}
+
+.sa-users-page .sa-users-btn--icon {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border-radius: 9px;
+}
+
+.sa-users-page .sa-users-btn--danger:hover:not(:disabled) {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.sa-users-page .guidance-data-card-head-actions .sa-users-btn--primary {
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
+/* ── Geçici şifre banner ── */
+.sa-users-credential-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 16px 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--sa-accent-mid) 35%, var(--sa-border));
+  background: linear-gradient(135deg, var(--sa-tint-warm), var(--sa-tint-cream));
+}
+
+.sa-users-credential-banner span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sa-muted);
+}
+
+.sa-users-credential-banner strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+.sa-users-credential-banner code {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--sa-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.sa-users-protected-note {
+  padding: 12px 0 0;
+  margin: 0;
+  text-align: left;
+}
+
+@media (max-width: 960px) {
+  .sa-users-page .guidance-data-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .sa-users-page .guidance-data-search {
+    flex: 1 1 100%;
+  }
+
+  .sa-users-credential-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

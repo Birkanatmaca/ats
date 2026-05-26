@@ -21,6 +21,7 @@ type Config struct {
 	AIMessagesPerMinute   int
 	AIDailyMessageLimit   int
 	AIRetentionDays       int
+	AIUseLLM              bool
 }
 
 func Load() Config {
@@ -29,7 +30,7 @@ func Load() Config {
 		HTTPAddr:           getEnv("HTTP_ADDR", ":8080"),
 		DatabaseURL:        getEnv("DATABASE_URL", "postgres://ots:ots@localhost:5432/ots?sslmode=disable"),
 		JWTSecret:          getEnv("JWT_SECRET", "ots-dev-jwt-secret-change-in-production"),
-		CORSAllowedOrigins: splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://188.132.234.29:3110")),
+		CORSAllowedOrigins: splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://panel.ogtasis.com,https://panel.ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29")),
 		LogLevel:           parseLogLevel(getEnv("LOG_LEVEL", "info")),
 		AIProvider:         getEnv("OGTA_AI_PROVIDER", "openai"),
 		AIModel:            getEnv("OGTA_AI_MODEL", "gpt-4o-mini"),
@@ -38,6 +39,7 @@ func Load() Config {
 		AIMessagesPerMinute: parseInt(getEnv("OGTA_AI_MESSAGES_PER_MINUTE", "20"), 20),
 		AIDailyMessageLimit: parseInt(getEnv("OGTA_AI_DAILY_MESSAGE_LIMIT", "200"), 200),
 		AIRetentionDays:     parseInt(getEnv("OGTA_AI_RETENTION_DAYS", "90"), 90),
+		AIUseLLM:            getEnv("OGTA_AI_USE_LLM", "true") == "true",
 	}
 }
 

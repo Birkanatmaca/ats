@@ -156,8 +156,27 @@ type RetentionResult struct {
 }
 
 type UsageSummary struct {
-	MessagesLast24h int `json:"messagesLast24h"`
-	MessagesToday   int `json:"messagesToday"`
-	DailyLimit      int `json:"dailyLimit"`
-	RemainingToday  int `json:"remainingToday"`
+	MessagesLast24h        int `json:"messagesLast24h"`
+	MessagesToday          int `json:"messagesToday"`
+	DailyLimit             int `json:"dailyLimit"`
+	RemainingToday         int `json:"remainingToday"`
+	TenantMessagesToday    int `json:"tenantMessagesToday"`
+	TenantDailyLimit       int `json:"tenantDailyLimit"`
+	TenantRemainingToday   int `json:"tenantRemainingToday"`
+	TenantTokensThisMonth  int `json:"tenantTokensThisMonth"`
+	TenantMonthlyTokenLimit int `json:"tenantMonthlyTokenLimit"`
+}
+
+type TenantQuota struct {
+	DailyMessageLimit  *int `json:"dailyMessageLimit,omitempty"`
+	MonthlyTokenLimit  *int `json:"monthlyTokenLimit,omitempty"`
+}
+
+type StreamEvent struct {
+	Type          string                 `json:"type"`
+	Delta         string                 `json:"delta,omitempty"`
+	Message       *Message               `json:"message,omitempty"`
+	Candidates    []Candidate            `json:"candidates,omitempty"`
+	PendingAction *PendingActionSummary  `json:"pendingAction,omitempty"`
+	Error         string                 `json:"error,omitempty"`
 }

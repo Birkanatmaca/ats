@@ -430,3 +430,64 @@ func parseSettingFloat(raw string, fallback float64) float64 {
 func formatSettingFloat(value float64) string {
 	return strconv.FormatFloat(value, 'f', -1, 64)
 }
+
+func (s *Store) GetTenantAIQuota(ctx context.Context, tenantID string) (aidomain.TenantQuota, error) {
+	const query = `
+SELECT ai_daily_message_limit, ai_monthly_token_limit
+FROM tenants
+WHERE id = $1::uuid`
+	var daily, monthly sql.NullInt64
+	err := s.db.QueryRowContext(ctx, query, tenantID).Scan(&daily, &monthly)
+	if err == sql.ErrNoRows {
+		return aidomain.TenantQuota{}, nil
+	}
+	if err != nil {
+		return aidomain.TenantQuota{}, err
+	}
+	out := aidomain.TenantQuota{}
+	if daily.Valid {
+		value := int(daily.Int64)
+		out.DailyMessageLimit = &value
+	}
+	if monthly.Valid {
+		value := int(monthly.Int64)
+		out.MonthlyTokenLimit = &value
+	}
+	return out, nil
+}
+
+func (s *Store) UpdateTenantAIQuota(ctx context.Context, tenantID string, quota aidomain.TenantQuota) (aidomain.TenantQuota, error) {
+	_, err := s.db.ExecContext(ctx, `
+UPDATE tenants
+SET ai_daily_message_limit = $2, ai_monthly_token_limit = $3, updated_at = now()
+WHERE id = $1::uuid`, tenantID, nullableInt(quota.DailyMessageLimit), nullableInt(quota.MonthlyTokenLimit))
+	if err != nil {
+		return aidomain.TenantQuota{}, err
+	}
+	return s.GetTenantAIQuota(ctx, tenantID)
+}
+
+func (s *Store) CountTenantUserMessagesSince(ctx context.Context, tenantID string, since time.Time) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM ai_messages
+WHERE tenant_id = $1::uuid AND role = 'user' AND created_at >= $2`, tenantID, since).Scan(&count)
+	return count, err
+}
+
+func (s *Store) SumTenantTokensSince(ctx context.Context, tenantID string, since time.Time) (int, int, error) {
+	var input, output int
+	err := s.db.QueryRowContext(ctx, `
+SELECT COALESCE(SUM(token_input), 0), COALESCE(SUM(token_output), 0)
+FROM ai_messages
+WHERE tenant_id = $1::uuid AND created_at >= $2`, tenantID, since).Scan(&input, &output)
+	return input, output, err
+}
+
+func nullableInt(value *int) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}

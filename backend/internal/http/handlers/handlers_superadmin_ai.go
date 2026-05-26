@@ -13,6 +13,7 @@ import (
 func (h *Handler) registerSuperAdminAIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/super-admin/ai/overview", h.superAdminAIOverview)
 	mux.HandleFunc("PATCH /api/v1/super-admin/ai/cost-settings", h.updateSuperAdminAICostSettings)
+	mux.HandleFunc("PATCH /api/v1/super-admin/institutions/{id}/ai-quota", h.updateSuperAdminInstitutionAIQuota)
 	mux.HandleFunc("POST /api/v1/super-admin/ai/retention/run", h.runSuperAdminAIRetention)
 }
 
@@ -61,6 +62,27 @@ func (h *Handler) updateSuperAdminAICostSettings(w http.ResponseWriter, r *http.
 	}
 	if err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "AI_COST_SETTINGS_FAILED", "Maliyet ayarları güncellenemedi.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, updated, nil)
+}
+
+func (h *Handler) updateSuperAdminInstitutionAIQuota(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireSuperAdmin(w, r); !ok {
+		return
+	}
+	if h.ai == nil {
+		httpx.WriteError(w, http.StatusServiceUnavailable, "AI_UNAVAILABLE", "ogta.ai servisi henüz etkin değil.", nil)
+		return
+	}
+	var input aidomain.TenantQuota
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Kota ayarları okunamadı.", nil)
+		return
+	}
+	updated, err := h.ai.UpdateTenantQuota(r.Context(), r.PathValue("id"), input)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "AI_TENANT_QUOTA_FAILED", "Kurum kotası güncellenemedi.", nil)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, updated, nil)

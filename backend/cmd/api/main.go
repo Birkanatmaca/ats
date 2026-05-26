@@ -17,6 +17,7 @@ import (
 	schedulingapp "ots/backend/internal/app/scheduling"
 	schoolapp "ots/backend/internal/app/school"
 	superadminapp "ots/backend/internal/app/superadmin"
+	billingapp "ots/backend/internal/app/billing"
 	httphandlers "ots/backend/internal/http/handlers"
 	"ots/backend/internal/http/middleware"
 	platformauth "ots/backend/internal/platform/auth"
@@ -43,6 +44,7 @@ func main() {
 	var guardianRepo guardianapp.Repository = memoryStore
 	var guidanceRepo guidanceapp.Repository = memoryStore
 	var aiRepo aiapp.Repository = memoryStore
+	var billingRepo billingapp.Repository = memoryStore
 
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {
@@ -67,6 +69,7 @@ func main() {
 		guardianRepo = postgresStore
 		guidanceRepo = postgresStore
 		aiRepo = postgresStore
+		billingRepo = postgresStore
 		logger.Info("postgres repository connected")
 	}
 
@@ -95,8 +98,11 @@ func main() {
 			StoreResponse:     cfg.AIStoreResponses,
 			DailyMessageLimit: cfg.AIDailyMessageLimit,
 			RetentionDays:     cfg.AIRetentionDays,
+			UseLLM:            cfg.AIUseLLM,
 		},
 	})
+
+	billingService := billingapp.NewService(billingRepo, time.Now)
 
 	handlers := httphandlers.New(httphandlers.Dependencies{
 		Identity:    identityapp.NewService(identityRepo, jwtIssuer, time.Now),
@@ -108,6 +114,7 @@ func main() {
 		Guidance:    guidanceapp.NewService(guidanceRepo),
 		Dashboard:   dashboardapp.NewService(dashboardRepo),
 		SuperAdmin:  superadminapp.NewService(superAdminRepo),
+		Billing:     billingService,
 		AI:          aiService,
 		Clock:       time.Now,
 	})
