@@ -1,9 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Button } from "@/components/animate-ui/components/buttons/button";
 import { APP_URL, navLinks } from "../lib/constants";
+import GooeyNav, { type GooeyNavItem } from "./GooeyNav";
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const activeIndex = Math.max(
+    0,
+    navLinks.findIndex((link) => link.href === location.pathname)
+  );
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -19,49 +29,53 @@ export function Header() {
     };
   }, [menuOpen]);
 
-  function scrollTo(href: string) {
-    const target = document.querySelector(href);
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  const gooeyItems = useMemo<GooeyNavItem[]>(
+    () => navLinks.map((link) => ({ label: link.label, href: link.href })),
+    []
+  );
+
+  function navigateTo(href: string) {
+    if (href === "/" && location.pathname === "/") {
+      window.scrollTo(0, 0);
+      window.history.replaceState(null, "", "/");
+    } else {
+      navigate(href);
     }
     setMenuOpen(false);
+  }
+
+  function goHome(event: MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    navigateTo("/");
   }
 
   return (
     <header className={`site-header${scrolled ? " scrolled" : ""}`} id="top">
       <div className="container header-inner">
-        <a className="brand" href="#top" onClick={(event) => { event.preventDefault(); scrollTo("#top"); }}>
+        <a className="brand" href="/" onClick={goHome}>
           <img src="/ogta-wordmark.png" alt="OGTA" width={120} height={32} />
         </a>
-        <nav className="site-nav" aria-label="Ana menü">
-          {navLinks.map((link) => (
-            <a
-              href={link.href}
-              key={link.href}
-              onClick={(event) => {
-                event.preventDefault();
-                scrollTo(link.href);
-              }}
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
-        <div className="header-actions">
-          <a className="btn btn-ghost" href={APP_URL}>
-            Giriş yap
-          </a>
-          <a
-            className="btn btn-primary"
-            href="#iletisim"
-            onClick={(event) => {
-              event.preventDefault();
-              scrollTo("#iletisim");
-            }}
-          >
-            Demo talep et
-          </a>
+
+        <div className="header-gooey">
+          <GooeyNav
+            items={gooeyItems}
+            initialActiveIndex={activeIndex}
+            key={location.pathname}
+            particleCount={0}
+            onItemClick={(item) => navigateTo(item.href)}
+          />
         </div>
+
+        <div className="header-actions">
+          <Button variant="gradient" size="default" asChild>
+            <a href={APP_URL}>Panel girişi</a>
+          </Button>
+        </div>
+
         <button
           aria-expanded={menuOpen}
           aria-label={menuOpen ? "Menüyü kapat" : "Menüyü aç"}
@@ -75,20 +89,13 @@ export function Header() {
       </div>
       <div className={`mobile-nav${menuOpen ? " open" : ""}`}>
         {navLinks.map((link) => (
-          <a
-            href={link.href}
-            key={link.href}
-            onClick={(event) => {
-              event.preventDefault();
-              scrollTo(link.href);
-            }}
-          >
+          <Link key={link.href} onClick={() => setMenuOpen(false)} to={link.href}>
             {link.label}
-          </a>
+          </Link>
         ))}
-        <a className="btn btn-primary" href={APP_URL}>
-          Giriş yap
-        </a>
+        <Button variant="gradient" size="default" asChild>
+          <a href={APP_URL}>Panel girişi</a>
+        </Button>
       </div>
     </header>
   );

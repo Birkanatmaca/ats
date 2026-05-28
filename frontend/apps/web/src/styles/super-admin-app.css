@@ -6,7 +6,7 @@
 .admin-shell.teacher-console,
 .admin-shell.guardian-console,
 .admin-shell.guidance-console {
-  font-family: var(--shell-font, "Inter", system-ui, sans-serif);
+  font-family: var(--shell-font, "Roboto", system-ui, sans-serif);
   font-size: 12px;
 
   --sa-bg: #eef4fb;

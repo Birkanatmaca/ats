@@ -1,30 +1,24 @@
-import { Header } from "./components/Header";
-import { Hero } from "./components/Hero";
-import { TrustStrip } from "./components/TrustStrip";
-import { Features } from "./components/Features";
-import { OgtaAiSection } from "./components/OgtaAiSection";
-import { Pricing } from "./components/Pricing";
-import { FaqSection } from "./components/FaqSection";
-import { CtaSection } from "./components/CtaSection";
-import { Footer } from "./components/Footer";
-import { SeoHead } from "./components/SeoHead";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { SiteLayout } from "./layouts/SiteLayout";
+import { AboutPage } from "./pages/AboutPage";
+import { ContactPage } from "./pages/ContactPage";
+import { FaqPage } from "./pages/FaqPage";
+import { HomePage } from "./pages/HomePage";
+import { LicensingPage } from "./pages/LicensingPage";
+
+const router = createBrowserRouter([
+  {
+    element: <SiteLayout />,
+    children: [
+      { index: true, element: <HomePage /> },
+      { path: "hakkimizda", element: <AboutPage /> },
+      { path: "lisanslama", element: <LicensingPage /> },
+      { path: "sss", element: <FaqPage /> },
+      { path: "iletisim", element: <ContactPage /> }
+    ]
+  }
+]);
 
 export function App() {
-  return (
-    <>
-      <SeoHead />
-      <div className="page-glow" aria-hidden />
-      <Header />
-      <main>
-        <Hero />
-        <TrustStrip />
-        <Features />
-        <OgtaAiSection />
-        <Pricing />
-        <FaqSection />
-        <CtaSection />
-      </main>
-      <Footer />
-    </>
-  );
+  return <RouterProvider router={router} />;
 }

@@ -1,13 +1,13 @@
 export const LANDING_URL = import.meta.env.VITE_LANDING_URL || "https://ogtasis.com";
 export const APP_URL = import.meta.env.VITE_APP_URL || "https://panel.ogtasis.com/";
-export const CONTACT_EMAIL = "billing@ogta.ai";
+export const CONTACT_EMAIL = "info@ogtasis.com";
 
 export const navLinks = [
-  { href: "#ozellikler", label: "Özellikler" },
-  { href: "#ogta-ai", label: "ogta.ai" },
-  { href: "#fiyatlandirma", label: "Fiyatlandırma" },
-  { href: "#sss", label: "SSS" },
-  { href: "#iletisim", label: "İletişim" }
+  { href: "/", label: "Anasayfa" },
+  { href: "/hakkimizda", label: "Hakkımızda" },
+  { href: "/lisanslama", label: "Lisanslama" },
+  { href: "/sss", label: "SSS" },
+  { href: "/iletisim", label: "İletişim" }
 ] as const;
 
 export const trustTags = ["Özel okul", "Kolej", "Kurs merkezi", "Etüt merkezi", "Rehberlik odaklı kurumlar"];

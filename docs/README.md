@@ -21,5 +21,7 @@ Okuma sırası:
 15. [Web MVP Durum Analizi ve Görev Listesi](14-web-mvp-durum-ve-gorevler.md)
 16. [ogta.ai Komut Asistanı Tasarımı](15-ogta-ai-komut-asistani.md)
 17. [Eksik Kalan Kısımlar Analizi](16-eksik-kalan-kisimlar-analizi.md)
+18. [ogta.ai Durum ve Eksikler](17-ogta-ai-durum-ve-eksikler.md)
+19. [Sistem Detaylı Analiz ve Modül Önerileri](15-sistem-detayli-analiz-ve-modul-onerileri.md)
 
 Bu sıra, önce çalışır bir MVP çıkarmayı, sonra ürünün premium modüllerini kontrollü şekilde büyütmeyi hedefler.

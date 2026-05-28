@@ -1,7 +1,7 @@
 /* OGTA — navbar & sidebar kabuğu (platform geneli) */
 
 .admin-shell {
-  --shell-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --shell-font: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
   --shell-nav-h: 64px;
   --shell-sidebar-w: 260px;
   --shell-sidebar-bg: linear-gradient(175deg, #0a1f38 0%, #0f2847 38%, #163b63 100%);

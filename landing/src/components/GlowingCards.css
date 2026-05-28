@@ -1,0 +1,188 @@
+.glowing-cards {
+  position: relative;
+  width: 100%;
+}
+
+.glowing-cards__container {
+  position: relative;
+  width: min(100%, var(--max-width, 1100px));
+  margin-inline: auto;
+  padding: var(--padding, 0);
+}
+
+.glowing-cards__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap, 0.9rem);
+}
+
+.glowing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: clamp(0.95rem, 1.5vw, 1.25rem);
+  border-radius: var(--border-radius, 18px);
+  text-align: center;
+  color: #f8fafc;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+.glowing-card:hover {
+  transform: translateY(-3px);
+}
+
+.glowing-card__icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 0.75rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--glow-color, #3b82f6) 18%, transparent);
+  color: var(--glow-color, #3b82f6);
+  flex-shrink: 0;
+}
+
+.glowing-card h3 {
+  margin: 0 0 0.45rem;
+  font-size: clamp(0.92rem, 1.05vw, 1rem);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.glowing-card p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: clamp(0.76rem, 0.92vw, 0.84rem);
+  line-height: 1.45;
+  max-width: 22rem;
+}
+
+.glowing-cards__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity var(--animation-duration, 400ms) ease;
+  -webkit-mask: radial-gradient(
+    var(--glow-radius, 25rem) var(--glow-radius, 25rem) at var(--x, 0) var(--y, 0),
+    #000 1%,
+    transparent 50%
+  );
+  mask: radial-gradient(
+    var(--glow-radius, 25rem) var(--glow-radius, 25rem) at var(--x, 0) var(--y, 0),
+    #000 1%,
+    transparent 50%
+  );
+}
+
+.glowing-cards__overlay.is-visible {
+  opacity: var(--opacity, 1);
+}
+
+.glowing-card--lit {
+  background: color-mix(in srgb, var(--glow-color, #3b82f6) 12%, rgba(255, 255, 255, 0.04));
+}
+
+@media (max-width: 980px) {
+  .glowing-cards__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .glowing-card p {
+    max-width: none;
+  }
+}
+
+@media (min-width: 981px) {
+  .modules-glowing-cards.glowing-cards {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .modules-glowing-cards .glowing-cards__container {
+    width: 100%;
+    height: 100%;
+  }
+
+  .modules-glowing-cards .glowing-cards__grid {
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    height: 100%;
+    max-height: min(72svh, 36rem);
+  }
+
+  .modules-glowing-cards .glowing-card {
+    min-height: 0;
+    padding: clamp(0.85rem, 1.25vw, 1.05rem);
+  }
+
+  .modules-glowing-cards .glowing-card__icon {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 0.55rem;
+  }
+
+  .modules-glowing-cards .glowing-card h3 {
+    font-size: clamp(0.88rem, 1vw, 0.96rem);
+    margin-bottom: 0.35rem;
+  }
+
+  .modules-glowing-cards .glowing-card p {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .about-glowing-cards.glowing-cards {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .about-glowing-cards .glowing-cards__container {
+    width: 100%;
+    height: 100%;
+  }
+
+  .about-glowing-cards .glowing-cards__grid {
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    height: 100%;
+    max-height: min(58svh, 30rem);
+  }
+
+  .about-glowing-cards .glowing-card {
+    min-height: 0;
+    padding: clamp(0.75rem, 1.1vw, 0.95rem);
+  }
+
+  .about-glowing-cards .glowing-card__icon {
+    width: 34px;
+    height: 34px;
+    margin-bottom: 0.45rem;
+  }
+
+  .about-glowing-cards .glowing-card h3 {
+    font-size: clamp(0.84rem, 0.98vw, 0.92rem);
+    margin-bottom: 0.3rem;
+  }
+
+  .about-glowing-cards .glowing-card p {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: clamp(0.74rem, 0.88vw, 0.82rem);
+    line-height: 1.4;
+  }
+}
