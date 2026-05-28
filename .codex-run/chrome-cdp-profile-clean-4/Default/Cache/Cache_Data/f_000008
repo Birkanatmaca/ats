@@ -1,0 +1,458 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/components/CookieConsent.tsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=8651b857"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=8651b857"; const useEffect = __vite__cjsImport3_react["useEffect"]; const useId = __vite__cjsImport3_react["useId"]; const useState = __vite__cjsImport3_react["useState"];
+import { ChevronDown, Cookie, Shield, X } from "/node_modules/.vite/deps/lucide-react.js?v=8651b857";
+import {
+  ALL_ACCEPTED_PREFERENCES,
+  COOKIE_CATEGORIES,
+  DEFAULT_PREFERENCES,
+  hasCookieConsent,
+  readCookiePreferences,
+  writeCookiePreferences
+} from "/src/lib/cookie-consent.ts";
+import "/src/components/CookieConsent.css";
+function toDraft(preferences) {
+  return {
+    necessary: true,
+    functional: preferences.functional,
+    analytics: preferences.analytics,
+    marketing: preferences.marketing
+  };
+}
+function fromDraft(draft) {
+  return {
+    version: 1,
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    necessary: true,
+    functional: draft.functional,
+    analytics: draft.analytics,
+    marketing: draft.marketing
+  };
+}
+function Toggle({
+  checked,
+  disabled,
+  label,
+  onChange
+}) {
+  return /* @__PURE__ */ jsxDEV(
+    "button",
+    {
+      "aria-checked": checked,
+      "aria-label": label,
+      className: `cookie-toggle${checked ? " is-on" : ""}${disabled ? " is-disabled" : ""}`,
+      disabled,
+      onClick: () => onChange(!checked),
+      role: "switch",
+      type: "button",
+      children: /* @__PURE__ */ jsxDEV("span", { "aria-hidden": "true", className: "cookie-toggle__thumb" }, void 0, false, {
+        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+        lineNumber: 79,
+        columnNumber: 7
+      }, this)
+    },
+    void 0,
+    false,
+    {
+      fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+      lineNumber: 70,
+      columnNumber: 5
+    },
+    this
+  );
+}
+_c = Toggle;
+export function CookieConsent() {
+  _s();
+  const panelId = useId();
+  const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState(null);
+  const [draft, setDraft] = useState(toDraft(DEFAULT_PREFERENCES));
+  const [expanded, setExpanded] = useState("necessary");
+  useEffect(() => {
+    const existing = readCookiePreferences();
+    if (existing) {
+      setSaved(existing);
+      setDraft(toDraft(existing));
+      return;
+    }
+    setOpen(true);
+  }, []);
+  function updateDraft(category, value) {
+    if (category === "necessary") return;
+    setDraft((current) => ({ ...current, [category]: value }));
+  }
+  function persist(preferences, closePanel = true) {
+    writeCookiePreferences(preferences);
+    setSaved(preferences);
+    setDraft(toDraft(preferences));
+    if (closePanel) setOpen(false);
+  }
+  function handleAcceptAll() {
+    persist(ALL_ACCEPTED_PREFERENCES);
+  }
+  function handleRejectOptional() {
+    persist({ ...DEFAULT_PREFERENCES, updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+  }
+  function handleSaveSelection() {
+    persist(fromDraft(draft));
+  }
+  function toggleExpanded(category) {
+    setExpanded((current) => current === category ? null : category);
+  }
+  const consentGiven = saved !== null || hasCookieConsent();
+  return /* @__PURE__ */ jsxDEV("div", { className: `cookie-widget${open ? " is-open" : ""}`, children: [
+    /* @__PURE__ */ jsxDEV(
+      "button",
+      {
+        "aria-controls": panelId,
+        "aria-expanded": open,
+        "aria-label": open ? "Çerez tercihlerini kapat" : "Çerez tercihlerini aç",
+        className: "cookie-widget__trigger",
+        onClick: () => setOpen((value) => !value),
+        type: "button",
+        children: [
+          /* @__PURE__ */ jsxDEV(Cookie, { "aria-hidden": "true", size: 22, strokeWidth: 2.1 }, void 0, false, {
+            fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+            lineNumber: 142,
+            columnNumber: 9
+          }, this),
+          !consentGiven ? /* @__PURE__ */ jsxDEV("span", { className: "cookie-widget__badge", "aria-hidden": "true" }, void 0, false, {
+            fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+            lineNumber: 143,
+            columnNumber: 26
+          }, this) : null
+        ]
+      },
+      void 0,
+      true,
+      {
+        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+        lineNumber: 134,
+        columnNumber: 7
+      },
+      this
+    ),
+    open ? /* @__PURE__ */ jsxDEV(
+      "section",
+      {
+        "aria-label": "Çerez tercih merkezi",
+        "aria-live": "polite",
+        className: "cookie-widget__panel",
+        id: panelId,
+        role: "dialog",
+        children: [
+          /* @__PURE__ */ jsxDEV("header", { className: "cookie-widget__header", children: [
+            /* @__PURE__ */ jsxDEV("div", { className: "cookie-widget__heading", children: [
+              /* @__PURE__ */ jsxDEV(Shield, { "aria-hidden": "true", size: 18 }, void 0, false, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                lineNumber: 156,
+                columnNumber: 15
+              }, this),
+              /* @__PURE__ */ jsxDEV("div", { children: [
+                /* @__PURE__ */ jsxDEV("h2", { children: "Çerez tercih merkezi" }, void 0, false, {
+                  fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                  lineNumber: 158,
+                  columnNumber: 17
+                }, this),
+                /* @__PURE__ */ jsxDEV("p", { children: "Gizliliğinizi kontrol edin, tercihlerinizi istediğiniz zaman güncelleyin." }, void 0, false, {
+                  fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                  lineNumber: 159,
+                  columnNumber: 17
+                }, this)
+              ] }, void 0, true, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                lineNumber: 157,
+                columnNumber: 15
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 155,
+              columnNumber: 13
+            }, this),
+            /* @__PURE__ */ jsxDEV(
+              "button",
+              {
+                "aria-label": "Paneli kapat",
+                className: "cookie-widget__close",
+                onClick: () => setOpen(false),
+                type: "button",
+                children: /* @__PURE__ */ jsxDEV(X, { size: 18 }, void 0, false, {
+                  fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                  lineNumber: 168,
+                  columnNumber: 15
+                }, this)
+              },
+              void 0,
+              false,
+              {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                lineNumber: 162,
+                columnNumber: 13
+              },
+              this
+            )
+          ] }, void 0, true, {
+            fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+            lineNumber: 154,
+            columnNumber: 11
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "cookie-widget__intro", children: [
+            /* @__PURE__ */ jsxDEV("p", { children: "OGTA, web sitesinin güvenli çalışması ve deneyiminizi iyileştirmek için çerezler ve benzeri teknolojiler kullanır. Zorunlu çerezler her zaman aktiftir; diğer kategorileri aşağıdan yönetebilirsiniz." }, void 0, false, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 173,
+              columnNumber: 13
+            }, this),
+            /* @__PURE__ */ jsxDEV("p", { className: "cookie-widget__legal", children: [
+              "Kişisel verileriniz 6698 sayılı KVKK kapsamında işlenir. Detaylı bilgi için",
+              " ",
+              /* @__PURE__ */ jsxDEV("a", { href: "mailto:billing@ogta.ai?subject=KVKK%20Ayd%C4%B1nlatma%20Metni", children: "aydınlatma metni" }, void 0, false, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                lineNumber: 180,
+                columnNumber: 15
+              }, this),
+              " ",
+              "talep edebilirsiniz."
+            ] }, void 0, true, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 178,
+              columnNumber: 13
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+            lineNumber: 172,
+            columnNumber: 11
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "cookie-widget__categories", children: COOKIE_CATEGORIES.map((category) => {
+            const enabled = category.required || draft[category.id];
+            const isExpanded = expanded === category.id;
+            return /* @__PURE__ */ jsxDEV("article", { className: "cookie-category", children: [
+              /* @__PURE__ */ jsxDEV("div", { className: "cookie-category__row", children: [
+                /* @__PURE__ */ jsxDEV(
+                  "button",
+                  {
+                    "aria-expanded": isExpanded,
+                    className: "cookie-category__toggle-details",
+                    onClick: () => toggleExpanded(category.id),
+                    type: "button",
+                    children: [
+                      /* @__PURE__ */ jsxDEV(
+                        ChevronDown,
+                        {
+                          "aria-hidden": "true",
+                          className: `cookie-category__chevron${isExpanded ? " is-open" : ""}`,
+                          size: 16
+                        },
+                        void 0,
+                        false,
+                        {
+                          fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                          lineNumber: 199,
+                          columnNumber: 23
+                        },
+                        this
+                      ),
+                      /* @__PURE__ */ jsxDEV("span", { className: "cookie-category__title", children: category.title }, void 0, false, {
+                        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                        lineNumber: 204,
+                        columnNumber: 23
+                      }, this),
+                      category.required ? /* @__PURE__ */ jsxDEV("span", { className: "cookie-category__tag", children: "Zorunlu" }, void 0, false, {
+                        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                        lineNumber: 205,
+                        columnNumber: 44
+                      }, this) : null
+                    ]
+                  },
+                  void 0,
+                  true,
+                  {
+                    fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                    lineNumber: 193,
+                    columnNumber: 21
+                  },
+                  this
+                ),
+                /* @__PURE__ */ jsxDEV(
+                  Toggle,
+                  {
+                    checked: enabled,
+                    disabled: category.required,
+                    label: `${category.title} ${enabled ? "açık" : "kapalı"}`,
+                    onChange: (value) => updateDraft(category.id, value)
+                  },
+                  void 0,
+                  false,
+                  {
+                    fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                    lineNumber: 207,
+                    columnNumber: 21
+                  },
+                  this
+                )
+              ] }, void 0, true, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                lineNumber: 192,
+                columnNumber: 19
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { className: "cookie-category__summary", children: category.description }, void 0, false, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                lineNumber: 215,
+                columnNumber: 19
+              }, this),
+              isExpanded ? /* @__PURE__ */ jsxDEV("div", { className: "cookie-category__details", children: [
+                /* @__PURE__ */ jsxDEV("div", { className: "cookie-category__meta", children: /* @__PURE__ */ jsxDEV("span", { children: [
+                  /* @__PURE__ */ jsxDEV("strong", { children: "Saklama süresi:" }, void 0, false, {
+                    fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                    lineNumber: 221,
+                    columnNumber: 27
+                  }, this),
+                  " ",
+                  category.retention
+                ] }, void 0, true, {
+                  fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                  lineNumber: 220,
+                  columnNumber: 25
+                }, this) }, void 0, false, {
+                  fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                  lineNumber: 219,
+                  columnNumber: 23
+                }, this),
+                /* @__PURE__ */ jsxDEV("div", { children: [
+                  /* @__PURE__ */ jsxDEV("strong", { children: "Örnek çerezler:" }, void 0, false, {
+                    fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                    lineNumber: 225,
+                    columnNumber: 25
+                  }, this),
+                  /* @__PURE__ */ jsxDEV("ul", { children: category.examples.map(
+                    (example) => /* @__PURE__ */ jsxDEV("li", { children: /* @__PURE__ */ jsxDEV("code", { children: example }, void 0, false, {
+                      fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                      lineNumber: 229,
+                      columnNumber: 31
+                    }, this) }, example, false, {
+                      fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                      lineNumber: 228,
+                      columnNumber: 23
+                    }, this)
+                  ) }, void 0, false, {
+                    fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                    lineNumber: 226,
+                    columnNumber: 25
+                  }, this)
+                ] }, void 0, true, {
+                  fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                  lineNumber: 224,
+                  columnNumber: 23
+                }, this)
+              ] }, void 0, true, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+                lineNumber: 218,
+                columnNumber: 17
+              }, this) : null
+            ] }, category.id, true, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 191,
+              columnNumber: 15
+            }, this);
+          }) }, void 0, false, {
+            fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+            lineNumber: 185,
+            columnNumber: 11
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "cookie-widget__summary", children: [
+            /* @__PURE__ */ jsxDEV("span", { children: [
+              "Seçiminiz:",
+              " ",
+              draft.functional || draft.analytics || draft.marketing ? "Zorunlu + seçili isteğe bağlı çerezler" : "Yalnızca zorunlu çerezler"
+            ] }, void 0, true, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 242,
+              columnNumber: 13
+            }, this),
+            saved ? /* @__PURE__ */ jsxDEV("span", { className: "cookie-widget__saved-at", children: [
+              "Son güncelleme: ",
+              new Date(saved.updatedAt).toLocaleString("tr-TR")
+            ] }, void 0, true, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 249,
+              columnNumber: 11
+            }, this) : null
+          ] }, void 0, true, {
+            fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+            lineNumber: 241,
+            columnNumber: 11
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "cookie-widget__actions", children: [
+            /* @__PURE__ */ jsxDEV("button", { className: "cookie-widget__btn cookie-widget__btn--primary", onClick: handleAcceptAll, type: "button", children: "Tümünü kabul et" }, void 0, false, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 256,
+              columnNumber: 13
+            }, this),
+            /* @__PURE__ */ jsxDEV("button", { className: "cookie-widget__btn cookie-widget__btn--ghost", onClick: handleRejectOptional, type: "button", children: "Yalnızca zorunlular" }, void 0, false, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 259,
+              columnNumber: 13
+            }, this),
+            /* @__PURE__ */ jsxDEV("button", { className: "cookie-widget__btn cookie-widget__btn--save", onClick: handleSaveSelection, type: "button", children: "Seçimi kaydet" }, void 0, false, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+              lineNumber: 262,
+              columnNumber: 13
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+            lineNumber: 255,
+            columnNumber: 11
+          }, this)
+        ]
+      },
+      void 0,
+      true,
+      {
+        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+        lineNumber: 147,
+        columnNumber: 7
+      },
+      this
+    ) : null
+  ] }, void 0, true, {
+    fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx",
+    lineNumber: 133,
+    columnNumber: 5
+  }, this);
+}
+_s(CookieConsent, "jOWPTaMDAaLyMIeUOqU2JLO8JNc=");
+_c2 = CookieConsent;
+var _c, _c2;
+$RefreshReg$(_c, "Toggle");
+$RefreshReg$(_c2, "CookieConsent");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CookieConsent.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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S0FBS2EsTUFBTWQsU0FBUyxFQUFFeUMsZUFBZSxPQUFPO0FBQUEsaUJBRG5FO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBRUEsSUFDRTtBQUFBLGVBWE47QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFZQTtBQUFBLFVBRUEsdUJBQUMsU0FBSSxXQUFVLDBCQUNiO0FBQUEsbUNBQUMsWUFBTyxXQUFVLGtEQUFpRCxTQUFTZixpQkFBaUIsTUFBSyxVQUFTLCtCQUEzRztBQUFBO0FBQUE7QUFBQTtBQUFBLG1CQUVBO0FBQUEsWUFDQSx1QkFBQyxZQUFPLFdBQVUsZ0RBQStDLFNBQVNDLHNCQUFzQixNQUFLLFVBQVMsbUNBQTlHO0FBQUE7QUFBQTtBQUFBO0FBQUEsbUJBRUE7QUFBQSxZQUNBLHVCQUFDLFlBQU8sV0FBVSwrQ0FBOEMsU0FBU0MscUJBQXFCLE1BQUssVUFBUyw2QkFBNUc7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFFQTtBQUFBLGVBVEY7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFVQTtBQUFBO0FBQUE7QUFBQSxNQXRIRjtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsSUF1SEEsSUFDRTtBQUFBLE9BdElOO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0F1SUE7QUFFSjtBQUFDbEIsR0ExTGVELGVBQWE7QUFBQSxNQUFiQTtBQUFhLElBQUFELElBQUFrQztBQUFBLGFBQUFsQyxJQUFBO0FBQUEsYUFBQWtDLEtBQUEiLCJuYW1lcyI6WyJ1c2VFZmZlY3QiLCJ1c2VJZCIsInVzZVN0YXRlIiwiQ2hldnJvbkRvd24iLCJDb29raWUiLCJTaGllbGQiLCJYIiwiQUxMX0FDQ0VQVEVEX1BSRUZFUkVOQ0VTIiwiQ09PS0lFX0NBVEVHT1JJRVMiLCJERUZBVUxUX1BSRUZFUkVOQ0VTIiwiaGFzQ29va2llQ29uc2VudCIsInJlYWRDb29raWVQcmVmZXJlbmNlcyIsIndyaXRlQ29va2llUHJlZmVyZW5jZXMiLCJ0b0RyYWZ0IiwicHJlZmVyZW5jZXMiLCJuZWNlc3NhcnkiLCJmdW5jdGlvbmFsIiwiYW5hbHl0aWNzIiwibWFya2V0aW5nIiwiZnJvbURyYWZ0IiwiZHJhZnQiLCJ2ZXJzaW9uIiwidXBkYXRlZEF0IiwiRGF0ZSIsInRvSVNPU3RyaW5nIiwiVG9nZ2xlIiwiY2hlY2tlZCIsImRpc2FibGVkIiwibGFiZWwiLCJvbkNoYW5nZSIsIl9jIiwiQ29va2llQ29uc2VudCIsIl9zIiwicGFuZWxJZCIsIm9wZW4iLCJzZXRPcGVuIiwic2F2ZWQiLCJzZXRTYXZlZCIsInNldERyYWZ0IiwiZXhwYW5kZWQiLCJzZXRFeHBhbmRlZCIsImV4aXN0aW5nIiwidXBkYXRlRHJhZnQiLCJjYXRlZ29yeSIsInZhbHVlIiwiY3VycmVudCIsInBlcnNpc3QiLCJjbG9zZVBhbmVsIiwiaGFuZGxlQWNjZXB0QWxsIiwiaGFuZGxlUmVqZWN0T3B0aW9uYWwiLCJoYW5kbGVTYXZlU2VsZWN0aW9uIiwidG9nZ2xlRXhwYW5kZWQiLCJjb25zZW50R2l2ZW4iLCJtYXAiLCJlbmFibGVkIiwicmVxdWlyZWQiLCJpZCIsImlzRXhwYW5kZWQiLCJ0aXRsZSIsImRlc2NyaXB0aW9uIiwicmV0ZW50aW9uIiwiZXhhbXBsZXMiLCJleGFtcGxlIiwidG9Mb2NhbGVTdHJpbmciLCJfYzIiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiQ29va2llQ29uc2VudC50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgdXNlRWZmZWN0LCB1c2VJZCwgdXNlU3RhdGUgfSBmcm9tIFwicmVhY3RcIjtcclxuaW1wb3J0IHsgQ2hldnJvbkRvd24sIENvb2tpZSwgU2hpZWxkLCBYIH0gZnJvbSBcImx1Y2lkZS1yZWFjdFwiO1xyXG5pbXBvcnQge1xyXG4gIEFMTF9BQ0NFUFRFRF9QUkVGRVJFTkNFUyxcclxuICBDT09LSUVfQ0FURUdPUklFUyxcclxuICBERUZBVUxUX1BSRUZFUkVOQ0VTLFxyXG4gIGhhc0Nvb2tpZUNvbnNlbnQsXHJcbiAgcmVhZENvb2tpZVByZWZlcmVuY2VzLFxyXG4gIHdyaXRlQ29va2llUHJlZmVyZW5jZXMsXHJcbiAgdHlwZSBDb29raWVDYXRlZ29yeUlkLFxyXG4gIHR5cGUgQ29va2llUHJlZmVyZW5jZXNcclxufSBmcm9tIFwiLi4vbGliL2Nvb2tpZS1jb25zZW50XCI7XHJcbmltcG9ydCBcIi4vQ29va2llQ29uc2VudC5jc3NcIjtcclxuXHJcbnR5cGUgRHJhZnRQcmVmZXJlbmNlcyA9IE9taXQ8Q29va2llUHJlZmVyZW5jZXMsIFwidmVyc2lvblwiIHwgXCJ1cGRhdGVkQXRcIiB8IFwibmVjZXNzYXJ5XCI+ICYge1xyXG4gIG5lY2Vzc2FyeTogdHJ1ZTtcclxufTtcclxuXHJcbmZ1bmN0aW9uIHRvRHJhZnQocHJlZmVyZW5jZXM6IENvb2tpZVByZWZlcmVuY2VzKTogRHJhZnRQcmVmZXJlbmNlcyB7XHJcbiAgcmV0dXJuIHtcclxuICAgIG5lY2Vzc2FyeTogdHJ1ZSxcclxuICAgIGZ1bmN0aW9uYWw6IHByZWZlcmVuY2VzLmZ1bmN0aW9uYWwsXHJcbiAgICBhbmFseXRpY3M6IHByZWZlcmVuY2VzLmFuYWx5dGljcyxcclxuICAgIG1hcmtldGluZzogcHJlZmVyZW5jZXMubWFya2V0aW5nXHJcbiAgfTtcclxufVxyXG5cclxuZnVuY3Rpb24gZnJvbURyYWZ0KGRyYWZ0OiBEcmFmdFByZWZlcmVuY2VzKTogQ29va2llUHJlZmVyZW5jZXMge1xyXG4gIHJldHVybiB7XHJcbiAgICB2ZXJzaW9uOiAxLFxyXG4gICAgdXBkYXRlZEF0OiBuZXcgRGF0ZSgpLnRvSVNPU3RyaW5nKCksXHJcbiAgICBuZWNlc3Nhcnk6IHRydWUsXHJcbiAgICBmdW5jdGlvbmFsOiBkcmFmdC5mdW5jdGlvbmFsLFxyXG4gICAgYW5hbHl0aWNzOiBkcmFmdC5hbmFseXRpY3MsXHJcbiAgICBtYXJrZXRpbmc6IGRyYWZ0Lm1hcmtldGluZ1xyXG4gIH07XHJcbn1cclxuXHJcbmZ1bmN0aW9uIFRvZ2dsZSh7XHJcbiAgY2hlY2tlZCxcclxuICBkaXNhYmxlZCxcclxuICBsYWJlbCxcclxuICBvbkNoYW5nZVxyXG59OiB7XHJcbiAgY2hlY2tlZDogYm9vbGVhbjtcclxuICBkaXNhYmxlZD86IGJvb2xlYW47XHJcbiAgbGFiZWw6IHN0cmluZztcclxuICBvbkNoYW5nZTogKHZhbHVlOiBib29sZWFuKSA9PiB2b2lkO1xyXG59KSB7XHJcbiAgcmV0dXJuIChcclxuICAgIDxidXR0b25cclxuICAgICAgYXJpYS1jaGVja2VkPXtjaGVja2VkfVxyXG4gICAgICBhcmlhLWxhYmVsPXtsYWJlbH1cclxuICAgICAgY2xhc3NOYW1lPXtgY29va2llLXRvZ2dsZSR7Y2hlY2tlZCA/IFwiIGlzLW9uXCIgOiBcIlwifSR7ZGlzYWJsZWQgPyBcIiBpcy1kaXNhYmxlZFwiIDogXCJcIn1gfVxyXG4gICAgICBkaXNhYmxlZD17ZGlzYWJsZWR9XHJcbiAgICAgIG9uQ2xpY2s9eygpID0+IG9uQ2hhbmdlKCFjaGVja2VkKX1cclxuICAgICAgcm9sZT1cInN3aXRjaFwiXHJcbiAgICAgIHR5cGU9XCJidXR0b25cIlxyXG4gICAgPlxyXG4gICAgICA8c3BhbiBhcmlhLWhpZGRlbj1cInRydWVcIiBjbGFzc05hbWU9XCJjb29raWUtdG9nZ2xlX190aHVtYlwiIC8+XHJcbiAgICA8L2J1dHRvbj5cclxuICApO1xyXG59XHJcblxyXG5leHBvcnQgZnVuY3Rpb24gQ29va2llQ29uc2VudCgpIHtcclxuICBjb25zdCBwYW5lbElkID0gdXNlSWQoKTtcclxuICBjb25zdCBbb3Blbiwgc2V0T3Blbl0gPSB1c2VTdGF0ZShmYWxzZSk7XHJcbiAgY29uc3QgW3NhdmVkLCBzZXRTYXZlZF0gPSB1c2VTdGF0ZTxDb29raWVQcmVmZXJlbmNlcyB8IG51bGw+KG51bGwpO1xyXG4gIGNvbnN0IFtkcmFmdCwgc2V0RHJhZnRdID0gdXNlU3RhdGU8RHJhZnRQcmVmZXJlbmNlcz4odG9EcmFmdChERUZBVUxUX1BSRUZFUkVOQ0VTKSk7XHJcbiAgY29uc3QgW2V4cGFuZGVkLCBzZXRFeHBhbmRlZF0gPSB1c2VTdGF0ZTxDb29raWVDYXRlZ29yeUlkIHwgbnVsbD4oXCJuZWNlc3NhcnlcIik7XHJcblxyXG4gIHVzZUVmZmVjdCgoKSA9PiB7XHJcbiAgICBjb25zdCBleGlzdGluZyA9IHJlYWRDb29raWVQcmVmZXJlbmNlcygpO1xyXG4gICAgaWYgKGV4aXN0aW5nKSB7XHJcbiAgICAgIHNldFNhdmVkKGV4aXN0aW5nKTtcclxuICAgICAgc2V0RHJhZnQodG9EcmFmdChleGlzdGluZykpO1xyXG4gICAgICByZXR1cm47XHJcbiAgICB9XHJcblxyXG4gICAgc2V0T3Blbih0cnVlKTtcclxuICB9LCBbXSk7XHJcblxyXG4gIGZ1bmN0aW9uIHVwZGF0ZURyYWZ0KGNhdGVnb3J5OiBDb29raWVDYXRlZ29yeUlkLCB2YWx1ZTogYm9vbGVhbikge1xyXG4gICAgaWYgKGNhdGVnb3J5ID09PSBcIm5lY2Vzc2FyeVwiKSByZXR1cm47XHJcbiAgICBzZXREcmFmdCgoY3VycmVudCkgPT4gKHsgLi4uY3VycmVudCwgW2NhdGVnb3J5XTogdmFsdWUgfSkpO1xyXG4gIH1cclxuXHJcbiAgZnVuY3Rpb24gcGVyc2lzdChwcmVmZXJlbmNlczogQ29va2llUHJlZmVyZW5jZXMsIGNsb3NlUGFuZWwgPSB0cnVlKSB7XHJcbiAgICB3cml0ZUNvb2tpZVByZWZlcmVuY2VzKHByZWZlcmVuY2VzKTtcclxuICAgIHNldFNhdmVkKHByZWZlcmVuY2VzKTtcclxuICAgIHNldERyYWZ0KHRvRHJhZnQocHJlZmVyZW5jZXMpKTtcclxuICAgIGlmIChjbG9zZVBhbmVsKSBzZXRPcGVuKGZhbHNlKTtcclxuICB9XHJcblxyXG4gIGZ1bmN0aW9uIGhhbmRsZUFjY2VwdEFsbCgpIHtcclxuICAgIHBlcnNpc3QoQUxMX0FDQ0VQVEVEX1BSRUZFUkVOQ0VTKTtcclxuICB9XHJcblxyXG4gIGZ1bmN0aW9uIGhhbmRsZVJlamVjdE9wdGlvbmFsKCkge1xyXG4gICAgcGVyc2lzdCh7IC4uLkRFRkFVTFRfUFJFRkVSRU5DRVMsIHVwZGF0ZWRBdDogbmV3IERhdGUoKS50b0lTT1N0cmluZygpIH0pO1xyXG4gIH1cclxuXHJcbiAgZnVuY3Rpb24gaGFuZGxlU2F2ZVNlbGVjdGlvbigpIHtcclxuICAgIHBlcnNpc3QoZnJvbURyYWZ0KGRyYWZ0KSk7XHJcbiAgfVxyXG5cclxuICBmdW5jdGlvbiB0b2dnbGVFeHBhbmRlZChjYXRlZ29yeTogQ29va2llQ2F0ZWdvcnlJZCkge1xyXG4gICAgc2V0RXhwYW5kZWQoKGN1cnJlbnQpID0+IChjdXJyZW50ID09PSBjYXRlZ29yeSA/IG51bGwgOiBjYXRlZ29yeSkpO1xyXG4gIH1cclxuXHJcbiAgY29uc3QgY29uc2VudEdpdmVuID0gc2F2ZWQgIT09IG51bGwgfHwgaGFzQ29va2llQ29uc2VudCgpO1xyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPGRpdiBjbGFzc05hbWU9e2Bjb29raWUtd2lkZ2V0JHtvcGVuID8gXCIgaXMtb3BlblwiIDogXCJcIn1gfT5cclxuICAgICAgPGJ1dHRvblxyXG4gICAgICAgIGFyaWEtY29udHJvbHM9e3BhbmVsSWR9XHJcbiAgICAgICAgYXJpYS1leHBhbmRlZD17b3Blbn1cclxuICAgICAgICBhcmlhLWxhYmVsPXtvcGVuID8gXCLDh2VyZXogdGVyY2lobGVyaW5pIGthcGF0XCIgOiBcIsOHZXJleiB0ZXJjaWhsZXJpbmkgYcOnXCJ9XHJcbiAgICAgICAgY2xhc3NOYW1lPVwiY29va2llLXdpZGdldF9fdHJpZ2dlclwiXHJcbiAgICAgICAgb25DbGljaz17KCkgPT4gc2V0T3BlbigodmFsdWUpID0+ICF2YWx1ZSl9XHJcbiAgICAgICAgdHlwZT1cImJ1dHRvblwiXHJcbiAgICAgID5cclxuICAgICAgICA8Q29va2llIGFyaWEtaGlkZGVuPVwidHJ1ZVwiIHNpemU9ezIyfSBzdHJva2VXaWR0aD17Mi4xfSAvPlxyXG4gICAgICAgIHshY29uc2VudEdpdmVuID8gPHNwYW4gY2xhc3NOYW1lPVwiY29va2llLXdpZGdldF9fYmFkZ2VcIiBhcmlhLWhpZGRlbj1cInRydWVcIiAvPiA6IG51bGx9XHJcbiAgICAgIDwvYnV0dG9uPlxyXG5cclxuICAgICAge29wZW4gPyAoXHJcbiAgICAgICAgPHNlY3Rpb25cclxuICAgICAgICAgIGFyaWEtbGFiZWw9XCLDh2VyZXogdGVyY2loIG1lcmtlemlcIlxyXG4gICAgICAgICAgYXJpYS1saXZlPVwicG9saXRlXCJcclxuICAgICAgICAgIGNsYXNzTmFtZT1cImNvb2tpZS13aWRnZXRfX3BhbmVsXCJcclxuICAgICAgICAgIGlkPXtwYW5lbElkfVxyXG4gICAgICAgICAgcm9sZT1cImRpYWxvZ1wiXHJcbiAgICAgICAgPlxyXG4gICAgICAgICAgPGhlYWRlciBjbGFzc05hbWU9XCJjb29raWUtd2lkZ2V0X19oZWFkZXJcIj5cclxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJjb29raWUtd2lkZ2V0X19oZWFkaW5nXCI+XHJcbiAgICAgICAgICAgICAgPFNoaWVsZCBhcmlhLWhpZGRlbj1cInRydWVcIiBzaXplPXsxOH0gLz5cclxuICAgICAgICAgICAgICA8ZGl2PlxyXG4gICAgICAgICAgICAgICAgPGgyPsOHZXJleiB0ZXJjaWggbWVya2V6aTwvaDI+XHJcbiAgICAgICAgICAgICAgICA8cD5HaXpsaWxpxJ9pbml6aSBrb250cm9sIGVkaW4sIHRlcmNpaGxlcmluaXppIGlzdGVkacSfaW5peiB6YW1hbiBnw7xuY2VsbGV5aW4uPC9wPlxyXG4gICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICAgIGFyaWEtbGFiZWw9XCJQYW5lbGkga2FwYXRcIlxyXG4gICAgICAgICAgICAgIGNsYXNzTmFtZT1cImNvb2tpZS13aWRnZXRfX2Nsb3NlXCJcclxuICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBzZXRPcGVuKGZhbHNlKX1cclxuICAgICAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcclxuICAgICAgICAgICAgPlxyXG4gICAgICAgICAgICAgIDxYIHNpemU9ezE4fSAvPlxyXG4gICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgIDwvaGVhZGVyPlxyXG5cclxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiY29va2llLXdpZGdldF9faW50cm9cIj5cclxuICAgICAgICAgICAgPHA+XHJcbiAgICAgICAgICAgICAgT0dUQSwgd2ViIHNpdGVzaW5pbiBnw7x2ZW5saSDDp2FsxLHFn21hc8SxIHZlIGRlbmV5aW1pbml6aSBpeWlsZcWfdGlybWVrIGnDp2luIMOnZXJlemxlciB2ZSBiZW56ZXJpXHJcbiAgICAgICAgICAgICAgdGVrbm9sb2ppbGVyIGt1bGxhbsSxci4gWm9ydW5sdSDDp2VyZXpsZXIgaGVyIHphbWFuIGFrdGlmdGlyOyBkacSfZXIga2F0ZWdvcmlsZXJpIGHFn2HEn8SxZGFuXHJcbiAgICAgICAgICAgICAgecO2bmV0ZWJpbGlyc2luaXouXHJcbiAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwiY29va2llLXdpZGdldF9fbGVnYWxcIj5cclxuICAgICAgICAgICAgICBLacWfaXNlbCB2ZXJpbGVyaW5peiA2Njk4IHNhecSxbMSxIEtWS0sga2Fwc2FtxLFuZGEgacWfbGVuaXIuIERldGF5bMSxIGJpbGdpIGnDp2lue1wiIFwifVxyXG4gICAgICAgICAgICAgIDxhIGhyZWY9XCJtYWlsdG86YmlsbGluZ0BvZ3RhLmFpP3N1YmplY3Q9S1ZLSyUyMEF5ZCVDNCVCMW5sYXRtYSUyME1ldG5pXCI+YXlkxLFubGF0bWEgbWV0bmk8L2E+e1wiIFwifVxyXG4gICAgICAgICAgICAgIHRhbGVwIGVkZWJpbGlyc2luaXouXHJcbiAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiY29va2llLXdpZGdldF9fY2F0ZWdvcmllc1wiPlxyXG4gICAgICAgICAgICB7Q09PS0lFX0NBVEVHT1JJRVMubWFwKChjYXRlZ29yeSkgPT4ge1xyXG4gICAgICAgICAgICAgIGNvbnN0IGVuYWJsZWQgPSBjYXRlZ29yeS5yZXF1aXJlZCB8fCBkcmFmdFtjYXRlZ29yeS5pZF07XHJcbiAgICAgICAgICAgICAgY29uc3QgaXNFeHBhbmRlZCA9IGV4cGFuZGVkID09PSBjYXRlZ29yeS5pZDtcclxuXHJcbiAgICAgICAgICAgICAgcmV0dXJuIChcclxuICAgICAgICAgICAgICAgIDxhcnRpY2xlIGNsYXNzTmFtZT1cImNvb2tpZS1jYXRlZ29yeVwiIGtleT17Y2F0ZWdvcnkuaWR9PlxyXG4gICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImNvb2tpZS1jYXRlZ29yeV9fcm93XCI+XHJcbiAgICAgICAgICAgICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICAgICAgICAgICAgYXJpYS1leHBhbmRlZD17aXNFeHBhbmRlZH1cclxuICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImNvb2tpZS1jYXRlZ29yeV9fdG9nZ2xlLWRldGFpbHNcIlxyXG4gICAgICAgICAgICAgICAgICAgICAgb25DbGljaz17KCkgPT4gdG9nZ2xlRXhwYW5kZWQoY2F0ZWdvcnkuaWQpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXHJcbiAgICAgICAgICAgICAgICAgICAgPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPENoZXZyb25Eb3duXHJcbiAgICAgICAgICAgICAgICAgICAgICAgIGFyaWEtaGlkZGVuPVwidHJ1ZVwiXHJcbiAgICAgICAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT17YGNvb2tpZS1jYXRlZ29yeV9fY2hldnJvbiR7aXNFeHBhbmRlZCA/IFwiIGlzLW9wZW5cIiA6IFwiXCJ9YH1cclxuICAgICAgICAgICAgICAgICAgICAgICAgc2l6ZT17MTZ9XHJcbiAgICAgICAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwiY29va2llLWNhdGVnb3J5X190aXRsZVwiPntjYXRlZ29yeS50aXRsZX08L3NwYW4+XHJcbiAgICAgICAgICAgICAgICAgICAgICB7Y2F0ZWdvcnkucmVxdWlyZWQgPyA8c3BhbiBjbGFzc05hbWU9XCJjb29raWUtY2F0ZWdvcnlfX3RhZ1wiPlpvcnVubHU8L3NwYW4+IDogbnVsbH1cclxuICAgICAgICAgICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICAgICAgICAgICA8VG9nZ2xlXHJcbiAgICAgICAgICAgICAgICAgICAgICBjaGVja2VkPXtlbmFibGVkfVxyXG4gICAgICAgICAgICAgICAgICAgICAgZGlzYWJsZWQ9e2NhdGVnb3J5LnJlcXVpcmVkfVxyXG4gICAgICAgICAgICAgICAgICAgICAgbGFiZWw9e2Ake2NhdGVnb3J5LnRpdGxlfSAke2VuYWJsZWQgPyBcImHDp8Sxa1wiIDogXCJrYXBhbMSxXCJ9YH1cclxuICAgICAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsodmFsdWUpID0+IHVwZGF0ZURyYWZ0KGNhdGVnb3J5LmlkLCB2YWx1ZSl9XHJcbiAgICAgICAgICAgICAgICAgICAgLz5cclxuICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJjb29raWUtY2F0ZWdvcnlfX3N1bW1hcnlcIj57Y2F0ZWdvcnkuZGVzY3JpcHRpb259PC9wPlxyXG5cclxuICAgICAgICAgICAgICAgICAge2lzRXhwYW5kZWQgPyAoXHJcbiAgICAgICAgICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJjb29raWUtY2F0ZWdvcnlfX2RldGFpbHNcIj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiY29va2llLWNhdGVnb3J5X19tZXRhXCI+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxzcGFuPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+U2FrbGFtYSBzw7xyZXNpOjwvc3Ryb25nPiB7Y2F0ZWdvcnkucmV0ZW50aW9ufVxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L3NwYW4+XHJcbiAgICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxkaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgIDxzdHJvbmc+w5ZybmVrIMOnZXJlemxlcjo8L3N0cm9uZz5cclxuICAgICAgICAgICAgICAgICAgICAgICAgPHVsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgIHtjYXRlZ29yeS5leGFtcGxlcy5tYXAoKGV4YW1wbGUpID0+IChcclxuICAgICAgICAgICAgICAgICAgICAgICAgICAgIDxsaSBrZXk9e2V4YW1wbGV9PlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICA8Y29kZT57ZXhhbXBsZX08L2NvZGU+XHJcbiAgICAgICAgICAgICAgICAgICAgICAgICAgICA8L2xpPlxyXG4gICAgICAgICAgICAgICAgICAgICAgICAgICkpfVxyXG4gICAgICAgICAgICAgICAgICAgICAgICA8L3VsPlxyXG4gICAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICAgICAgICAgICkgOiBudWxsfVxyXG4gICAgICAgICAgICAgICAgPC9hcnRpY2xlPlxyXG4gICAgICAgICAgICAgICk7XHJcbiAgICAgICAgICAgIH0pfVxyXG4gICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJjb29raWUtd2lkZ2V0X19zdW1tYXJ5XCI+XHJcbiAgICAgICAgICAgIDxzcGFuPlxyXG4gICAgICAgICAgICAgIFNlw6dpbWluaXo6e1wiIFwifVxyXG4gICAgICAgICAgICAgIHtkcmFmdC5mdW5jdGlvbmFsIHx8IGRyYWZ0LmFuYWx5dGljcyB8fCBkcmFmdC5tYXJrZXRpbmdcclxuICAgICAgICAgICAgICAgID8gXCJab3J1bmx1ICsgc2XDp2lsaSBpc3RlxJ9lIGJhxJ9sxLEgw6dlcmV6bGVyXCJcclxuICAgICAgICAgICAgICAgIDogXCJZYWxuxLF6Y2Egem9ydW5sdSDDp2VyZXpsZXJcIn1cclxuICAgICAgICAgICAgPC9zcGFuPlxyXG4gICAgICAgICAgICB7c2F2ZWQgPyAoXHJcbiAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwiY29va2llLXdpZGdldF9fc2F2ZWQtYXRcIj5cclxuICAgICAgICAgICAgICAgIFNvbiBnw7xuY2VsbGVtZToge25ldyBEYXRlKHNhdmVkLnVwZGF0ZWRBdCkudG9Mb2NhbGVTdHJpbmcoXCJ0ci1UUlwiKX1cclxuICAgICAgICAgICAgICA8L3NwYW4+XHJcbiAgICAgICAgICAgICkgOiBudWxsfVxyXG4gICAgICAgICAgPC9kaXY+XHJcblxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJjb29raWUtd2lkZ2V0X19hY3Rpb25zXCI+XHJcbiAgICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPVwiY29va2llLXdpZGdldF9fYnRuIGNvb2tpZS13aWRnZXRfX2J0bi0tcHJpbWFyeVwiIG9uQ2xpY2s9e2hhbmRsZUFjY2VwdEFsbH0gdHlwZT1cImJ1dHRvblwiPlxyXG4gICAgICAgICAgICAgIFTDvG3DvG7DvCBrYWJ1bCBldFxyXG4gICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICAgPGJ1dHRvbiBjbGFzc05hbWU9XCJjb29raWUtd2lkZ2V0X19idG4gY29va2llLXdpZGdldF9fYnRuLS1naG9zdFwiIG9uQ2xpY2s9e2hhbmRsZVJlamVjdE9wdGlvbmFsfSB0eXBlPVwiYnV0dG9uXCI+XHJcbiAgICAgICAgICAgICAgWWFsbsSxemNhIHpvcnVubHVsYXJcclxuICAgICAgICAgICAgPC9idXR0b24+XHJcbiAgICAgICAgICAgIDxidXR0b24gY2xhc3NOYW1lPVwiY29va2llLXdpZGdldF9fYnRuIGNvb2tpZS13aWRnZXRfX2J0bi0tc2F2ZVwiIG9uQ2xpY2s9e2hhbmRsZVNhdmVTZWxlY3Rpb259IHR5cGU9XCJidXR0b25cIj5cclxuICAgICAgICAgICAgICBTZcOnaW1pIGtheWRldFxyXG4gICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgIDwvc2VjdGlvbj5cclxuICAgICAgKSA6IG51bGx9XHJcbiAgICA8L2Rpdj5cclxuICApO1xyXG59XHJcbiJdLCJmaWxlIjoiQzovQmlya2FuLWlzL8OWxJ9yZW5jaVRha2lwU2lzdGVtaS9sYW5kaW5nL3NyYy9jb21wb25lbnRzL0Nvb2tpZUNvbnNlbnQudHN4In0=

@@ -1,0 +1,186 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/components/CardSwapSection.tsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=8651b857"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+import { BarChart3, CalendarDays, ClipboardCheck, Sparkles, Users } from "/node_modules/.vite/deps/lucide-react.js?v=8651b857";
+import CardSwap, { Card } from "/src/components/CardSwap.tsx";
+const showcaseCards = [
+  {
+    tone: "attendance",
+    icon: ClipboardCheck,
+    eyebrow: "Modül",
+    title: "Akıllı yoklama",
+    text: "Devamsızlık anında kayda geçer; müdür ve veli süreçleri otomatik tetiklenir."
+  },
+  {
+    tone: "schedule",
+    icon: CalendarDays,
+    eyebrow: "Modül",
+    title: "Ders programı",
+    text: "Çakışma kuralları ve öğretmen müsaitliğiyle programı üretin, düzenleyin, yayınlayın."
+  },
+  {
+    tone: "guardian",
+    icon: Users,
+    eyebrow: "Modül",
+    title: "Veli iletişimi",
+    text: "Devamsızlık, program ve duyurular veliye şeffaf kanallardan iletilir."
+  },
+  {
+    tone: "analytics",
+    icon: BarChart3,
+    eyebrow: "Modül",
+    title: "Operasyon dashboard",
+    text: "Devam oranı, sınıf yoğunluğu ve yoklama tamamlama metriklerini izleyin."
+  },
+  {
+    tone: "ai",
+    icon: Sparkles,
+    eyebrow: "ogta.ai",
+    title: "AI destekli analiz",
+    text: "Gözlem, risk sinyalleri ve rehberlik notları için yapılandırılmış içgörüler."
+  }
+];
+export function CardSwapSection() {
+  return /* @__PURE__ */ jsxDEV("section", { className: "card-swap-section", id: "platform-kartlari", "aria-labelledby": "platform-kartlari-heading", children: /* @__PURE__ */ jsxDEV("div", { className: "container card-swap-grid", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "card-swap-copy", children: [
+      /* @__PURE__ */ jsxDEV("p", { className: "eyebrow", children: "Platform önizleme" }, void 0, false, {
+        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+        lineNumber: 66,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("h2", { id: "platform-kartlari-heading", children: [
+        "OGTA modüllerini ",
+        /* @__PURE__ */ jsxDEV("span", { className: "gradient-text", children: "canlı kart akışında" }, void 0, false, {
+          fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+          lineNumber: 68,
+          columnNumber: 30
+        }, this),
+        " keşfedin"
+      ] }, void 0, true, {
+        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+        lineNumber: 67,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "section-lead", children: "Yoklamadan veli iletişimine, ders programından AI analizlerine — okulunuzun dijital yönetim modülleri tek akışta. Kartların üzerine gelince animasyon durur." }, void 0, false, {
+        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+        lineNumber: 70,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+      lineNumber: 65,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ jsxDEV("div", { className: "card-swap-stage", "aria-hidden": "false", children: /* @__PURE__ */ jsxDEV(
+      CardSwap,
+      {
+        width: 340,
+        height: 300,
+        cardDistance: 52,
+        verticalDistance: 210,
+        delay: 4500,
+        dropDistance: 250,
+        startImmediately: false,
+        pauseOnHover: true,
+        skewAmount: 6,
+        easing: "elastic",
+        children: showcaseCards.map((item) => {
+          const Icon = item.icon;
+          return /* @__PURE__ */ jsxDEV(Card, { customClass: `platform-card platform-card--${item.tone}`, children: [
+            /* @__PURE__ */ jsxDEV("div", { className: "platform-card__glow", "aria-hidden": "true" }, void 0, false, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+              lineNumber: 93,
+              columnNumber: 19
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { className: "platform-card__inner", children: [
+              /* @__PURE__ */ jsxDEV("div", { className: "platform-card__icon", children: /* @__PURE__ */ jsxDEV(Icon, { "aria-hidden": "true", size: 22, strokeWidth: 2 }, void 0, false, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+                lineNumber: 96,
+                columnNumber: 23
+              }, this) }, void 0, false, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+                lineNumber: 95,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { className: "platform-card__eyebrow", children: item.eyebrow }, void 0, false, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+                lineNumber: 98,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("h3", { children: item.title }, void 0, false, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+                lineNumber: 99,
+                columnNumber: 21
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { children: item.text }, void 0, false, {
+                fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+                lineNumber: 100,
+                columnNumber: 21
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+              lineNumber: 94,
+              columnNumber: 19
+            }, this)
+          ] }, item.title, true, {
+            fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+            lineNumber: 92,
+            columnNumber: 17
+          }, this);
+        })
+      },
+      void 0,
+      false,
+      {
+        fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+        lineNumber: 77,
+        columnNumber: 11
+      },
+      this
+    ) }, void 0, false, {
+      fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+      lineNumber: 76,
+      columnNumber: 9
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+    lineNumber: 64,
+    columnNumber: 7
+  }, this) }, void 0, false, {
+    fileName: "C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx",
+    lineNumber: 63,
+    columnNumber: 5
+  }, this);
+}
+_c = CardSwapSection;
+var _c;
+$RefreshReg$(_c, "CardSwapSection");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Birkan-is/ÖğrenciTakipSistemi/landing/src/components/CardSwapSection.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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O0FBQUE7QUFBQTtBQUFBO0FBQUEscUJBQWM7QUFBQSxpQkFOaEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxtQkFPQTtBQUFBLGVBVG1FRyxLQUFLSixPQUExRTtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQVVBO0FBQUEsUUFFSixDQUFDO0FBQUE7QUFBQSxNQTNCSDtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsSUE0QkEsS0E3QkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQThCQTtBQUFBLE9BMUNGO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0EyQ0EsS0E1Q0Y7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQTZDQTtBQUVKO0FBQUNNLEtBakRlSjtBQUFlLElBQUFJO0FBQUEsYUFBQUEsSUFBQSIsIm5hbWVzIjpbIkJhckNoYXJ0MyIsIkNhbGVuZGFyRGF5cyIsIkNsaXBib2FyZENoZWNrIiwiU3BhcmtsZXMiLCJVc2VycyIsIkNhcmRTd2FwIiwiQ2FyZCIsInNob3djYXNlQ2FyZHMiLCJ0b25lIiwiaWNvbiIsImV5ZWJyb3ciLCJ0aXRsZSIsInRleHQiLCJDYXJkU3dhcFNlY3Rpb24iLCJtYXAiLCJpdGVtIiwiSWNvbiIsIl9jIl0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIkNhcmRTd2FwU2VjdGlvbi50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgQmFyQ2hhcnQzLCBDYWxlbmRhckRheXMsIENsaXBib2FyZENoZWNrLCBTcGFya2xlcywgVXNlcnMgfSBmcm9tIFwibHVjaWRlLXJlYWN0XCI7XHJcbmltcG9ydCBDYXJkU3dhcCwgeyBDYXJkIH0gZnJvbSBcIi4vQ2FyZFN3YXBcIjtcclxuXHJcbmNvbnN0IHNob3djYXNlQ2FyZHMgPSBbXHJcbiAge1xyXG4gICAgdG9uZTogXCJhdHRlbmRhbmNlXCIsXHJcbiAgICBpY29uOiBDbGlwYm9hcmRDaGVjayxcclxuICAgIGV5ZWJyb3c6IFwiTW9kw7xsXCIsXHJcbiAgICB0aXRsZTogXCJBa8SxbGzEsSB5b2tsYW1hXCIsXHJcbiAgICB0ZXh0OiBcIkRldmFtc8SxemzEsWsgYW7EsW5kYSBrYXlkYSBnZcOnZXI7IG3DvGTDvHIgdmUgdmVsaSBzw7xyZcOnbGVyaSBvdG9tYXRpayB0ZXRpa2xlbmlyLlwiXHJcbiAgfSxcclxuICB7XHJcbiAgICB0b25lOiBcInNjaGVkdWxlXCIsXHJcbiAgICBpY29uOiBDYWxlbmRhckRheXMsXHJcbiAgICBleWVicm93OiBcIk1vZMO8bFwiLFxyXG4gICAgdGl0bGU6IFwiRGVycyBwcm9ncmFtxLFcIixcclxuICAgIHRleHQ6IFwiw4dha8SxxZ9tYSBrdXJhbGxhcsSxIHZlIMO2xJ9yZXRtZW4gbcO8c2FpdGxpxJ9peWxlIHByb2dyYW3EsSDDvHJldGluLCBkw7x6ZW5sZXlpbiwgeWF5xLFubGF5xLFuLlwiXHJcbiAgfSxcclxuICB7XHJcbiAgICB0b25lOiBcImd1YXJkaWFuXCIsXHJcbiAgICBpY29uOiBVc2VycyxcclxuICAgIGV5ZWJyb3c6IFwiTW9kw7xsXCIsXHJcbiAgICB0aXRsZTogXCJWZWxpIGlsZXRpxZ9pbWlcIixcclxuICAgIHRleHQ6IFwiRGV2YW1zxLF6bMSxaywgcHJvZ3JhbSB2ZSBkdXl1cnVsYXIgdmVsaXllIMWfZWZmYWYga2FuYWxsYXJkYW4gaWxldGlsaXIuXCJcclxuICB9LFxyXG4gIHtcclxuICAgIHRvbmU6IFwiYW5hbHl0aWNzXCIsXHJcbiAgICBpY29uOiBCYXJDaGFydDMsXHJcbiAgICBleWVicm93OiBcIk1vZMO8bFwiLFxyXG4gICAgdGl0bGU6IFwiT3BlcmFzeW9uIGRhc2hib2FyZFwiLFxyXG4gICAgdGV4dDogXCJEZXZhbSBvcmFuxLEsIHPEsW7EsWYgeW/En3VubHXEn3UgdmUgeW9rbGFtYSB0YW1hbWxhbWEgbWV0cmlrbGVyaW5pIGl6bGV5aW4uXCJcclxuICB9LFxyXG4gIHtcclxuICAgIHRvbmU6IFwiYWlcIixcclxuICAgIGljb246IFNwYXJrbGVzLFxyXG4gICAgZXllYnJvdzogXCJvZ3RhLmFpXCIsXHJcbiAgICB0aXRsZTogXCJBSSBkZXN0ZWtsaSBhbmFsaXpcIixcclxuICAgIHRleHQ6IFwiR8O2emxlbSwgcmlzayBzaW55YWxsZXJpIHZlIHJlaGJlcmxpayBub3RsYXLEsSBpw6dpbiB5YXDEsWxhbmTEsXLEsWxtxLHFnyBpw6dnw7Zyw7xsZXIuXCJcclxuICB9XHJcbl0gYXMgY29uc3Q7XHJcblxyXG5leHBvcnQgZnVuY3Rpb24gQ2FyZFN3YXBTZWN0aW9uKCkge1xuICByZXR1cm4gKFxuICAgIDxzZWN0aW9uIGNsYXNzTmFtZT1cImNhcmQtc3dhcC1zZWN0aW9uXCIgaWQ9XCJwbGF0Zm9ybS1rYXJ0bGFyaVwiIGFyaWEtbGFiZWxsZWRieT1cInBsYXRmb3JtLWthcnRsYXJpLWhlYWRpbmdcIj5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiY29udGFpbmVyIGNhcmQtc3dhcC1ncmlkXCI+XG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiY2FyZC1zd2FwLWNvcHlcIj5cbiAgICAgICAgICA8cCBjbGFzc05hbWU9XCJleWVicm93XCI+UGxhdGZvcm0gw7ZuaXpsZW1lPC9wPlxuICAgICAgICAgIDxoMiBpZD1cInBsYXRmb3JtLWthcnRsYXJpLWhlYWRpbmdcIj5cbiAgICAgICAgICAgIE9HVEEgbW9kw7xsbGVyaW5pIDxzcGFuIGNsYXNzTmFtZT1cImdyYWRpZW50LXRleHRcIj5jYW5sxLEga2FydCBha8SxxZ/EsW5kYTwvc3Bhbj4ga2XFn2ZlZGluXG4gICAgICAgICAgPC9oMj5cbiAgICAgICAgICA8cCBjbGFzc05hbWU9XCJzZWN0aW9uLWxlYWRcIj5cclxuICAgICAgICAgICAgWW9rbGFtYWRhbiB2ZWxpIGlsZXRpxZ9pbWluZSwgZGVycyBwcm9ncmFtxLFuZGFuIEFJIGFuYWxpemxlcmluZSDigJQgb2t1bHVudXp1biBkaWppdGFsIHnDtm5ldGltXHJcbiAgICAgICAgICAgIG1vZMO8bGxlcmkgdGVrIGFrxLHFn3RhLiBLYXJ0bGFyxLFuIMO8emVyaW5lIGdlbGluY2UgYW5pbWFzeW9uIGR1cnVyLlxyXG4gICAgICAgICAgPC9wPlxyXG4gICAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImNhcmQtc3dhcC1zdGFnZVwiIGFyaWEtaGlkZGVuPVwiZmFsc2VcIj5cclxuICAgICAgICAgIDxDYXJkU3dhcFxyXG4gICAgICAgICAgICB3aWR0aD17MzQwfVxyXG4gICAgICAgICAgICBoZWlnaHQ9ezMwMH1cbiAgICAgICAgICAgIGNhcmREaXN0YW5jZT17NTJ9XG4gICAgICAgICAgICB2ZXJ0aWNhbERpc3RhbmNlPXsyMTB9XG4gICAgICAgICAgICBkZWxheT17NDUwMH1cbiAgICAgICAgICAgIGRyb3BEaXN0YW5jZT17MjUwfVxuICAgICAgICAgICAgc3RhcnRJbW1lZGlhdGVseT17ZmFsc2V9XG4gICAgICAgICAgICBwYXVzZU9uSG92ZXJcbiAgICAgICAgICAgIHNrZXdBbW91bnQ9ezZ9XG4gICAgICAgICAgICBlYXNpbmc9XCJlbGFzdGljXCJcclxuICAgICAgICAgID5cclxuICAgICAgICAgICAge3Nob3djYXNlQ2FyZHMubWFwKChpdGVtKSA9PiB7XHJcbiAgICAgICAgICAgICAgY29uc3QgSWNvbiA9IGl0ZW0uaWNvbjtcclxuICAgICAgICAgICAgICByZXR1cm4gKFxyXG4gICAgICAgICAgICAgICAgPENhcmQgY3VzdG9tQ2xhc3M9e2BwbGF0Zm9ybS1jYXJkIHBsYXRmb3JtLWNhcmQtLSR7aXRlbS50b25lfWB9IGtleT17aXRlbS50aXRsZX0+XHJcbiAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicGxhdGZvcm0tY2FyZF9fZ2xvd1wiIGFyaWEtaGlkZGVuPVwidHJ1ZVwiIC8+XHJcbiAgICAgICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwicGxhdGZvcm0tY2FyZF9faW5uZXJcIj5cclxuICAgICAgICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cInBsYXRmb3JtLWNhcmRfX2ljb25cIj5cclxuICAgICAgICAgICAgICAgICAgICAgIDxJY29uIGFyaWEtaGlkZGVuPVwidHJ1ZVwiIHNpemU9ezIyfSBzdHJva2VXaWR0aD17Mn0gLz5cclxuICAgICAgICAgICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgICAgICAgICA8cCBjbGFzc05hbWU9XCJwbGF0Zm9ybS1jYXJkX19leWVicm93XCI+e2l0ZW0uZXllYnJvd308L3A+XHJcbiAgICAgICAgICAgICAgICAgICAgPGgzPntpdGVtLnRpdGxlfTwvaDM+XHJcbiAgICAgICAgICAgICAgICAgICAgPHA+e2l0ZW0udGV4dH08L3A+XHJcbiAgICAgICAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgICAgICAgPC9DYXJkPlxyXG4gICAgICAgICAgICAgICk7XHJcbiAgICAgICAgICAgIH0pfVxyXG4gICAgICAgICAgPC9DYXJkU3dhcD5cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgPC9kaXY+XHJcbiAgICA8L3NlY3Rpb24+XHJcbiAgKTtcclxufVxyXG4iXSwiZmlsZSI6IkM6L0Jpcmthbi1pcy/DlsSfcmVuY2lUYWtpcFNpc3RlbWkvbGFuZGluZy9zcmMvY29tcG9uZW50cy9DYXJkU3dhcFNlY3Rpb24udHN4In0=
