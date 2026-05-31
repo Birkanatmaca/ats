@@ -23,5 +23,6 @@ Okuma sırası:
 17. [Eksik Kalan Kısımlar Analizi](16-eksik-kalan-kisimlar-analizi.md)
 18. [ogta.ai Durum ve Eksikler](17-ogta-ai-durum-ve-eksikler.md)
 19. [Sistem Detaylı Analiz ve Modül Önerileri](15-sistem-detayli-analiz-ve-modul-onerileri.md)
+20. [Mobil Dashboard Analizi ve UI Planı](18-mobile-dashboard-analizi-ve-ui-plani.md)
 
 Bu sıra, önce çalışır bir MVP çıkarmayı, sonra ürünün premium modüllerini kontrollü şekilde büyütmeyi hedefler.

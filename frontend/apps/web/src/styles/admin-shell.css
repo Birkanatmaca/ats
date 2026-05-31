@@ -3,7 +3,7 @@
 .admin-shell {
   --shell-font: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
   --shell-nav-h: 64px;
-  --shell-sidebar-w: 260px;
+  --shell-sidebar-w: 272px;
   --shell-sidebar-bg: linear-gradient(175deg, #0a1f38 0%, #0f2847 38%, #163b63 100%);
   --shell-sidebar-border: rgba(103, 232, 249, 0.12);
   --shell-nav-text: rgba(255, 255, 255, 0.62);
@@ -569,7 +569,7 @@
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 768px) {
   .admin-sidebar {
     top: var(--shell-nav-h);
     right: 0;

@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import "./styles/app.css";
 import "./styles/super-admin.css";
+import "./styles/super-admin-app.css";
 import "./styles/admin-shell.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
