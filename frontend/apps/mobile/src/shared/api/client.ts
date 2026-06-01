@@ -8,8 +8,11 @@ import type {
   AttendanceRecord,
   AttendanceSession,
   AuthSession,
+  ClassAttendanceSheet,
   CurrentLesson,
   GuidanceNote,
+  GuidanceRiskTracking,
+  GuidanceSupportPlan,
   GuidanceStudent,
   GuardianAttendanceRecord,
   GuardianNotification,
@@ -17,12 +20,19 @@ import type {
   Lesson,
   Observation,
   Principal,
+  PrincipalRosterStudent,
   PrincipalSchoolRoster,
   PrincipalSummary,
   Schedule,
   ScheduleGenerationResult,
   ScheduleValidationResult,
+  SchedulingRequirement,
+  RequirementInput,
+  TeacherAvailability,
+  UpdateScheduleLessonInput,
   SchoolStudentRecord,
+  StudentAttendanceSummary,
+  StudentFormPayload,
   SupportTicket,
   Tenant,
   UserAccount,
@@ -32,6 +42,22 @@ import type {
 import { clearAuthSession, readAuthSession, storeAuthSession } from "@/shared/auth/session";
 
 type Envelope<T> = { data: T; meta?: unknown };
+
+function normalizeRosterStudent(student: PrincipalRosterStudent): PrincipalRosterStudent {
+  return {
+    ...student,
+    classId: student.classId ?? "",
+    sectionId: student.sectionId ?? "",
+    schoolNumber: student.schoolNumber ?? "",
+    firstName: student.firstName ?? "",
+    lastName: student.lastName ?? "",
+    gender: student.gender ?? "",
+    birthDate: student.birthDate ?? "",
+    guardianName: student.guardianName ?? "",
+    guardianPhone: student.guardianPhone ?? "",
+    status: student.status === "passive" ? "passive" : "active"
+  };
+}
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
 
@@ -163,7 +189,10 @@ export const api = {
     ),
 
   guidanceStudents: () => request<GuidanceStudent[] | null>("/api/v1/guidance/students").then(asArray),
-  guidanceNotes: () => request<GuidanceNote[] | null>("/api/v1/guidance/notes").then(asArray),
+  guidanceNotes: (studentId?: string) => {
+    const suffix = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
+    return request<GuidanceNote[] | null>(`/api/v1/guidance/notes${suffix}`).then(asArray);
+  },
   observationsFiltered: (params?: { category?: string; className?: string; date?: string }) => {
     const query = new URLSearchParams();
     if (params?.category) query.set("category", params.category);
@@ -174,17 +203,117 @@ export const api = {
   },
   createGuidanceNote: (payload: { studentId: string; noteType: string; title: string; body: string }) =>
     request<GuidanceNote>("/api/v1/guidance/notes", { method: "POST", body: JSON.stringify(payload) }),
+  updateGuidanceNote: (noteId: string, payload: { noteType?: string; title?: string; body?: string }) =>
+    request<GuidanceNote>(`/api/v1/guidance/notes/${noteId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  deleteGuidanceNote: (noteId: string) => request<void>(`/api/v1/guidance/notes/${noteId}`, { method: "DELETE" }),
+  guidanceSupportPlans: (studentId?: string) => {
+    const suffix = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
+    return request<GuidanceSupportPlan[] | null>(`/api/v1/guidance/support-plans${suffix}`).then(asArray);
+  },
+  createGuidanceSupportPlan: (payload: {
+    studentId: string;
+    title: string;
+    description?: string;
+    status?: string;
+    dueDate?: string;
+  }) =>
+    request<GuidanceSupportPlan>("/api/v1/guidance/support-plans", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateGuidanceSupportPlan: (
+    planId: string,
+    payload: { title?: string; description?: string; status?: string; dueDate?: string }
+  ) =>
+    request<GuidanceSupportPlan>(`/api/v1/guidance/support-plans/${planId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  deleteGuidanceSupportPlan: (planId: string) =>
+    request<void>(`/api/v1/guidance/support-plans/${planId}`, { method: "DELETE" }),
+  guidanceRiskTrackings: (studentId?: string) => {
+    const suffix = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
+    return request<GuidanceRiskTracking[] | null>(`/api/v1/guidance/risk-trackings${suffix}`).then(asArray);
+  },
+  createGuidanceRiskTracking: (payload: { studentId: string; reason?: string }) =>
+    request<GuidanceRiskTracking>("/api/v1/guidance/risk-trackings", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  deleteGuidanceRiskTracking: (trackingId: string) =>
+    request<void>(`/api/v1/guidance/risk-trackings/${trackingId}`, { method: "DELETE" }),
 
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
-  principalRoster: () =>
-    request<PrincipalSchoolRoster>("/api/v1/principal/school/roster").then((roster) => ({
+  listStudents: () => request<PrincipalRosterStudent[] | null>("/api/v1/students").then(asArray),
+  principalRoster: async () => {
+    const [rosterResult, studentsResult] = await Promise.allSettled([
+      request<PrincipalSchoolRoster>("/api/v1/principal/school/roster"),
+      request<PrincipalRosterStudent[] | null>("/api/v1/students").then(asArray)
+    ]);
+
+    const roster = rosterResult.status === "fulfilled" ? rosterResult.value : null;
+    const listedStudents = studentsResult.status === "fulfilled" ? studentsResult.value : [];
+    const rosterStudents = roster?.students ?? [];
+
+    if (!roster && studentsResult.status === "rejected") {
+      throw studentsResult.reason;
+    }
+    if (rosterResult.status === "rejected" && studentsResult.status === "rejected") {
+      throw rosterResult.reason;
+    }
+
+    const students = listedStudents.length > rosterStudents.length ? listedStudents : rosterStudents.length > 0 ? rosterStudents : listedStudents;
+
+    return {
       classes: roster?.classes ?? [],
       sections: roster?.sections ?? [],
-      students: roster?.students ?? []
-    })),
+      students: students.map(normalizeRosterStudent)
+    };
+  },
+  createStudent: (payload: StudentFormPayload) =>
+    request<PrincipalRosterStudent>("/api/v1/students", {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        schoolNumber: payload.schoolNumber,
+        classId: payload.classId,
+        birthDate: payload.birthDate,
+        gender: payload.gender,
+        status: payload.status,
+        guardianName: payload.guardianName,
+        guardianPhone: payload.guardianPhone
+      })
+    }),
+  patchStudent: (studentId: string, payload: Partial<StudentFormPayload>) =>
+    request<PrincipalRosterStudent>(`/api/v1/students/${studentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  studentAttendanceSummary: (studentId: string) =>
+    request<StudentAttendanceSummary>(`/api/v1/students/${studentId}/attendance-summary`),
   attendanceToday: (date?: string) =>
     request<AttendanceDayReport>(
       `/api/v1/dashboard/attendance/today${date ? `?date=${encodeURIComponent(date)}` : ""}`
+    ),
+  principalClassAttendance: (classId: string, date?: string) =>
+    request<ClassAttendanceSheet>(
+      `/api/v1/principal/attendance/classes/${encodeURIComponent(classId)}${date ? `?date=${encodeURIComponent(date)}` : ""}`
+    ),
+  savePrincipalClassAttendance: (
+    classId: string,
+    date: string,
+    records: { studentId: string; status: AttendanceRecord["status"] }[]
+  ) =>
+    request<ClassAttendanceSheet>(
+      `/api/v1/principal/attendance/classes/${encodeURIComponent(classId)}?date=${encodeURIComponent(date)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ records: records.map((r) => ({ studentId: r.studentId, status: r.status, note: "" })) })
+      }
     ),
 
   announcements: () => request<Announcement[] | null>("/api/v1/announcements").then(asArray),
@@ -215,12 +344,37 @@ export const api = {
       body: "{}"
     }),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
+  scheduleOptional: async () => {
+    try {
+      return await request<Schedule>("/api/v1/schedules/current");
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("Aktif ders programı bulunamadı")) {
+        return null;
+      }
+      throw error;
+    }
+  },
+  getSchedule: (scheduleId: string) => request<Schedule>(`/api/v1/schedules/${scheduleId}`),
   generateSchedule: () =>
     request<ScheduleGenerationResult>("/api/v1/schedules/generate", { method: "POST", body: "{}" }),
+  updateScheduleLesson: (scheduleId: string, lessonId: string, payload: UpdateScheduleLessonInput) =>
+    request<Lesson>(`/api/v1/schedules/${scheduleId}/lessons/${lessonId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
   validateSchedule: (scheduleId: string) =>
     request<ScheduleValidationResult>(`/api/v1/schedules/${scheduleId}/validate`, { method: "POST", body: "{}" }),
   publishSchedule: (scheduleId: string) =>
     request<Schedule>(`/api/v1/schedules/${scheduleId}/publish`, { method: "POST", body: "{}" }),
+  listSchedulingRequirements: () =>
+    request<SchedulingRequirement[] | null>("/api/v1/scheduling/requirements").then(asArray),
+  saveSchedulingRequirements: (items: RequirementInput[]) =>
+    request<SchedulingRequirement[]>("/api/v1/scheduling/requirements", {
+      method: "POST",
+      body: JSON.stringify(items)
+    }),
+  listTeacherAvailabilities: () =>
+    request<TeacherAvailability[] | null>("/api/v1/scheduling/teacher-availabilities").then(asArray),
   aiCapabilities: () => request<AiCapabilitiesResult>("/api/v1/ai/capabilities"),
   createAiConversation: (payload?: { title?: string }) =>
     request<AiConversation>("/api/v1/ai/conversations", { method: "POST", body: JSON.stringify(payload ?? {}) }),

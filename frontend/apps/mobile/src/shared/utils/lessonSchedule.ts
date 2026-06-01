@@ -43,3 +43,23 @@ export function attendanceWindowLabel(lesson: Lesson): string {
 export function lessonsForDay(lessons: Lesson[], dayOfWeek: number): Lesson[] {
   return sortLessons(lessons.filter((l) => l.dayOfWeek === dayOfWeek));
 }
+
+/** Backend greedy engine slotları (40 dk, 08:00–15:00) */
+export const SCHEDULE_TIME_SLOTS: Array<{ start: string; end: string; label: string }> = [
+  { start: "08:00", end: "08:40", label: "08:00" },
+  { start: "08:40", end: "09:20", label: "08:40" },
+  { start: "09:20", end: "10:00", label: "09:20" },
+  { start: "10:00", end: "10:40", label: "10:00" },
+  { start: "10:40", end: "11:20", label: "10:40" },
+  { start: "11:20", end: "12:00", label: "11:20" },
+  { start: "12:00", end: "12:40", label: "12:00" },
+  { start: "12:40", end: "13:20", label: "12:40" },
+  { start: "13:20", end: "14:00", label: "13:20" },
+  { start: "14:00", end: "14:40", label: "14:00" },
+  { start: "14:20", end: "15:00", label: "14:20" }
+];
+
+export function slotForTime(startTime: string): { start: string; end: string } | null {
+  const normalized = startTime.slice(0, 5);
+  return SCHEDULE_TIME_SLOTS.find((slot) => slot.start === normalized) ?? null;
+}

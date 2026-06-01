@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { View } from "react-native";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { PrincipalOgtaAiStrip } from "@/features/principal/PrincipalOgtaAiStrip";
+import { PrincipalOverviewStats } from "@/features/principal/PrincipalOverviewStats";
+import { PrincipalQuickActions } from "@/features/principal/PrincipalQuickActions";
+import { PrincipalWelcomeCard } from "@/features/principal/PrincipalWelcomeCard";
 import { ErrorState } from "@/shared/ui/ErrorState";
-import { ListCard } from "@/shared/ui/ListCard";
 import { LoadingBlock } from "@/shared/ui/LoadingBlock";
 import { Screen } from "@/shared/ui/Screen";
-import { StatCard } from "@/shared/ui/StatCard";
 
 export function PrincipalOverviewScreen() {
   const summaryQ = useQuery({ queryKey: queryKeys.principalSummary, queryFn: () => api.dashboard() });
@@ -20,37 +21,19 @@ export function PrincipalOverviewScreen() {
 
   if (summaryQ.isLoading) {
     return (
-      <Screen title="Genel">
+      <Screen>
         <LoadingBlock />
       </Screen>
     );
   }
 
   return (
-    <Screen
-      title="Genel"
-      subtitle={tenantQ.data?.name}
-      refreshing={summaryQ.isRefetching}
-      onRefresh={onRefresh}
-    >
+    <Screen refreshing={summaryQ.isRefetching} topInsetExtra={10} onRefresh={onRefresh}>
+      <PrincipalWelcomeCard />
       {summaryQ.isError ? <ErrorState message={summaryQ.error.message} onRetry={onRefresh} /> : null}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-        <StatCard label="Öğrenci" value={String(s?.activeStudents ?? 0)} />
-        <StatCard label="Öğretmen" value={String(s?.activeTeachers ?? 0)} />
-        <StatCard label="Yoklama %" value={`${s?.attendanceCompletionPct ?? 0}`} />
-        <StatCard label="Bugün gelmeyen" value={String(s?.absentToday ?? 0)} />
-      </View>
-      {(s?.classAttendance ?? []).slice(0, 5).map((c) => (
-        <ListCard
-          key={c.className}
-          meta={`${c.completed}/${c.total}`}
-          subtitle={c.attentionNeed}
-          title={c.className}
-        />
-      ))}
-      {(s?.operations ?? []).slice(0, 4).map((op) => (
-        <ListCard key={op.id} meta={op.priority} subtitle={op.status} title={op.title} />
-      ))}
+      <PrincipalOverviewStats summary={s} />
+      <PrincipalOgtaAiStrip />
+      <PrincipalQuickActions />
     </Screen>
   );
 }

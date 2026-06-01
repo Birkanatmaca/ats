@@ -1,11 +1,51 @@
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import type { AuthSession } from "@/shared/api/types";
 
 const AUTH_STORAGE_KEY = "ots.auth.session";
 
+async function readStoredValue(key: string): Promise<string | null> {
+  if (Platform.OS === "web") {
+    try {
+      return typeof localStorage !== "undefined" ? localStorage.getItem(key) : null;
+    } catch {
+      return null;
+    }
+  }
+  return SecureStore.getItemAsync(key);
+}
+
+async function writeStoredValue(key: string, value: string): Promise<void> {
+  if (Platform.OS === "web") {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(key, value);
+      }
+    } catch {
+      /* ignore quota / private mode */
+    }
+    return;
+  }
+  await SecureStore.setItemAsync(key, value);
+}
+
+async function removeStoredValue(key: string): Promise<void> {
+  if (Platform.OS === "web") {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+  await SecureStore.deleteItemAsync(key);
+}
+
 export async function readAuthSession(): Promise<AuthSession | null> {
   try {
-    const raw = await SecureStore.getItemAsync(AUTH_STORAGE_KEY);
+    const raw = await readStoredValue(AUTH_STORAGE_KEY);
     if (!raw) {
       return null;
     }
@@ -31,9 +71,9 @@ export async function readAuthSession(): Promise<AuthSession | null> {
 }
 
 export async function storeAuthSession(session: AuthSession): Promise<void> {
-  await SecureStore.setItemAsync(AUTH_STORAGE_KEY, JSON.stringify(session));
+  await writeStoredValue(AUTH_STORAGE_KEY, JSON.stringify(session));
 }
 
 export async function clearAuthSession(): Promise<void> {
-  await SecureStore.deleteItemAsync(AUTH_STORAGE_KEY);
+  await removeStoredValue(AUTH_STORAGE_KEY);
 }

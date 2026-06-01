@@ -84,6 +84,27 @@ export type AttendanceDayReport = {
   records: AttendanceDayRecord[];
 };
 
+export type ClassAttendanceStudent = {
+  studentId: string;
+  firstName: string;
+  lastName: string;
+  schoolNumber: string;
+  status: AttendanceRecord["status"];
+};
+
+export type ClassAttendanceSheet = {
+  date: string;
+  classId: string;
+  className: string;
+  sectionId?: string;
+  sessionId?: string;
+  lessonId?: string;
+  finalized: boolean;
+  canEdit: boolean;
+  message?: string;
+  students: ClassAttendanceStudent[];
+};
+
 export type Observation = {
   id: string;
   studentId: string;
@@ -161,20 +182,48 @@ export type PrincipalSchoolRoster = {
     capacity: number;
     createdAt: string;
   }>;
-  students: Array<{
-    id: string;
-    classId: string;
-    sectionId: string;
-    schoolNumber: string;
-    firstName: string;
-    lastName: string;
-    gender: string;
-    birthDate: string;
-    guardianName: string;
-    guardianPhone: string;
-    status: "active" | "passive";
-    createdAt: string;
+  students: PrincipalRosterStudent[];
+};
+
+export type PrincipalRosterStudent = {
+  id: string;
+  classId: string;
+  sectionId: string;
+  schoolNumber: string;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  birthDate: string;
+  guardianName: string;
+  guardianPhone: string;
+  status: "active" | "passive";
+  createdAt: string;
+};
+
+export type StudentFormPayload = {
+  schoolNumber: string;
+  firstName: string;
+  lastName: string;
+  classId: string;
+  gender: string;
+  birthDate: string;
+  guardianName: string;
+  guardianPhone: string;
+  status: "active" | "passive";
+};
+
+export type StudentAttendanceSummary = {
+  studentId: string;
+  records: Array<{
+    date: string;
+    subjectName: string;
+    className: string;
+    status: string;
   }>;
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
 };
 
 export type GuidanceStudent = {
@@ -200,6 +249,35 @@ export type GuidanceNote = {
   title: string;
   body: string;
   sensitivity: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GuidanceSupportPlan = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  ownerId: string;
+  ownerName: string;
+  title: string;
+  description: string;
+  status: "open" | "monitoring" | "closed";
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GuidanceRiskTracking = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  counselorId: string;
+  counselorName: string;
+  reason: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -273,6 +351,41 @@ export type ScheduleValidationResult = {
   valid: boolean;
   hardConflicts: string[];
   softWarnings: string[];
+};
+
+export type SchedulingRequirement = {
+  id: string;
+  classId: string;
+  className: string;
+  subjectId: string;
+  subjectName: string;
+  weeklyHours: number;
+};
+
+export type RequirementInput = {
+  classId: string;
+  subjectId: string;
+  weeklyHours: number;
+};
+
+export type TeacherAvailability = {
+  id: string;
+  teacherId: string;
+  teacherUserId: string;
+  teacherName: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  availabilityType: string;
+};
+
+export type UpdateScheduleLessonInput = {
+  teacherId?: string;
+  subjectId?: string;
+  dayOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+  room?: string;
 };
 
 export type AiMessage = {

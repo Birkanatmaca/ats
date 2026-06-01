@@ -74,3 +74,12 @@ export function formatDate(value: string) {
     return value;
   }
 }
+
+export function sensitivityLabel(value: string) {
+  const labels: Record<string, string> = {
+    guidance_confidential: "Rehberlik gizli",
+    sensitive_student: "Hassas öğrenci",
+    standard: "Standart"
+  };
+  return labels[value] ?? value;
+}

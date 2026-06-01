@@ -1,5 +1,6 @@
 import { RefreshControl, ScrollView, StyleSheet, Text, View, type ViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { tabBarClearance } from "@/shared/navigation/tabBarMetrics";
 import { colors } from "@/shared/theme/colors";
 
 type ScreenProps = ViewProps & {
@@ -7,15 +8,36 @@ type ScreenProps = ViewProps & {
   subtitle?: string;
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** Tab bar olan ekranlar vs stack detay ekranlari */
+  layout?: "tab" | "stack";
+  /** Safe area ustune ek bosluk (hero kartlar icin) */
+  topInsetExtra?: number;
   children: React.ReactNode;
 };
 
-export function Screen({ title, subtitle, refreshing, onRefresh, children, style, ...rest }: ScreenProps) {
+export function Screen({
+  title,
+  subtitle,
+  refreshing,
+  onRefresh,
+  layout = "tab",
+  topInsetExtra = 0,
+  children,
+  style,
+  ...rest
+}: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const bottomPadding = layout === "stack" ? insets.bottom + 20 : tabBarClearance(insets.bottom) + 8;
 
   return (
     <ScrollView
-      contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}
+      contentContainerStyle={[
+        styles.scroll,
+        {
+          paddingTop: insets.top + 12 + topInsetExtra,
+          paddingBottom: bottomPadding
+        }
+      ]}
       refreshControl={
         onRefresh ? <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} tintColor={colors.accent} /> : undefined
       }
