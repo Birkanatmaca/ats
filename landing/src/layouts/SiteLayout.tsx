@@ -25,6 +25,7 @@ export function SiteLayout() {
 
   return (
     <>
+      <div aria-hidden="true" className="page-glow" />
       {pathname !== "/" ? <ScrollRestoration /> : null}
       {isHome ? <SectionScrollController /> : null}
       <Header />

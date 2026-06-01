@@ -1,80 +1,76 @@
+import Orb from "./Orb";
+import BlurText from "./BlurText";
+import BlurGradientText from "./BlurGradientText";
+import { Button } from "@/components/animate-ui/components/buttons/button";
+
+const GRADIENT_COLORS = ["#5227FF", "#FF9FFC", "#B497CF"];
+
 export function Hero() {
   return (
-    <section className="hero" aria-labelledby="hero-heading">
-      <div className="container hero-grid">
-        <div className="hero-copy">
-          <p className="eyebrow">Türkiye&apos;nin modern okul yönetim platformu</p>
-          <h1 id="hero-heading">
-            Eğitim kurumunuz için uçtan uca okul yönetim yazılımı.
-            <span className="gradient-text"> ogta.ai</span> ile operasyonu hızlandırın.
-          </h1>
-          <p className="hero-lead">
-            OGTA; akıllı yoklama, ders programı, rehberlik, veli iletişimi ve müdür dashboard&apos;unu tek bulut
-            platformunda birleştirir. Sosyal ağ değil — günlük okul operasyonu için tasarlanmış kurumsal yazılımdır.
-          </p>
-          <div className="hero-actions">
-            <a className="btn btn-primary btn-lg" href="#iletisim">
-              Ücretsiz demo planla
-            </a>
-            <a className="btn btn-secondary btn-lg" href="#ozellikler">
-              Platformu keşfet
-            </a>
-          </div>
-          <ul className="hero-stats">
-            <li>
-              <strong>4 rol</strong>
-              <span>Müdür · Öğretmen · Rehberlik · Veli</span>
-            </li>
-            <li>
-              <strong>Multi-tenant</strong>
-              <span>Kurum bazlı izolasyon</span>
-            </li>
-            <li>
-              <strong>ogta.ai</strong>
-              <span>Onaylı komut asistanı</span>
-            </li>
-          </ul>
-        </div>
+    <section className="hero hero--centered snap-section snap-section--viewport" aria-label="OGTA okul yönetim platformu">
+      <div className="hero-orb" aria-hidden="true">
+        <Orb backgroundColor="#070b14" hoverIntensity={0.25} rotateOnHover />
+      </div>
+      <div className="hero-vignette" aria-hidden="true" />
 
-        <div className="hero-visual">
-          <div className="dashboard-card">
-            <div className="dashboard-top">
-              <img alt="" height={28} src="/ogta-mark.png" width={28} />
-              <span>Bugünkü özet</span>
-              <span className="pill pill-green">Canlı</span>
-            </div>
-            <div className="dashboard-metrics">
-              <div className="metric">
-                <label>Devam oranı</label>
-                <strong>%94</strong>
-                <small>+2.1% dün</small>
-              </div>
-              <div className="metric">
-                <label>Aktif sınıf</label>
-                <strong>18</strong>
-                <small>3 ders devam ediyor</small>
-              </div>
-              <div className="metric">
-                <label>Gözlem</label>
-                <strong>12</strong>
-                <small>Rehberlikte bekleyen</small>
-              </div>
-            </div>
-            <div className="dashboard-ai">
-              <div className="ai-bubble ai-bubble-user">10-A yoklamasını aç</div>
-              <div className="ai-bubble ai-bubble-bot">
-                Aktif dersiniz Matematik · 10-A. Yoklama ekranını hazırladım, onaylıyor musunuz?
-              </div>
-            </div>
-          </div>
-          <div className="floating-card floating-card--1">
-            <span className="dot dot-green" />
-            Yoklama oturumu kaydedildi
-          </div>
-          <div className="floating-card floating-card--2">
-            <span className="dot dot-blue" />
-            Veli bilgilendirme gönderildi
-          </div>
+      <div className="container hero-content">
+        <h1 className="hero-headline">
+          <BlurText
+            inline
+            tag="span"
+            className="hero-headline-part"
+            text="Okulunuzun"
+            animateBy="words"
+            delay={85}
+            direction="top"
+            stepDuration={0.38}
+            immediate
+          />
+          <BlurGradientText
+            className="hero-headline-accent"
+            text="Dijital Yönetim"
+            colors={GRADIENT_COLORS}
+            delay={120}
+            startDelay={220}
+            direction="top"
+            stepDuration={0.38}
+            animationSpeed={7}
+            immediate
+          />
+          <BlurText
+            inline
+            tag="span"
+            className="hero-headline-part"
+            text="Merkezi"
+            animateBy="words"
+            delay={85}
+            startDelay={520}
+            direction="top"
+            stepDuration={0.38}
+            immediate
+          />
+        </h1>
+
+        <BlurText
+          block
+          tag="p"
+          className="hero-subtitle"
+          text="Ders programı, yoklama, veli iletişimi, rehberlik süreçleri ve AI destekli analizleri OGTA ile tek platformda yönetin."
+          animateBy="words"
+          delay={35}
+          startDelay={750}
+          direction="top"
+          stepDuration={0.32}
+          immediate
+        />
+
+        <div className="hero-actions">
+          <Button variant="default" size="lg" asChild>
+            <a href="#iletisim">Demo İsteyin</a>
+          </Button>
+          <Button variant="secondary" size="lg" asChild>
+            <a href="#ozellikler">Platformu İnceleyin</a>
+          </Button>
         </div>
       </div>
     </section>
