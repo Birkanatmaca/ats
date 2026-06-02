@@ -32,7 +32,8 @@ const MENU_ICONS: Record<string, LucideIcon> = {
   announcements: Megaphone,
   notifications: Bell,
   support: HelpCircle,
-  profile: UserRound
+  profile: UserRound,
+  "student-imports": FileText
 };
 
 const MENU_ICON_TONES: Record<string, { bg: string; color: string }> = {
@@ -44,7 +45,8 @@ const MENU_ICON_TONES: Record<string, { bg: string; color: string }> = {
   announcements: { bg: "#fff7ed", color: "#d97706" },
   notifications: { bg: "#fdf2f8", color: "#db2777" },
   support: { bg: "#f0fdfa", color: "#0d9488" },
-  profile: { bg: "#f8fafc", color: colors.primaryLight }
+  profile: { bg: "#f8fafc", color: colors.primaryLight },
+  "student-imports": { bg: "#eff6ff", color: "#2563eb" }
 };
 
 export function MoreScreen() {

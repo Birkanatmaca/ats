@@ -90,3 +90,21 @@ type UpdatePlanInput struct {
 	Status      *PlanStatus `json:"status,omitempty"`
 	DueDate     *string     `json:"dueDate,omitempty"`
 }
+
+type RiskTracking struct {
+	ID            string    `json:"id"`
+	TenantID      string    `json:"tenantId"`
+	StudentID     string    `json:"studentId"`
+	StudentName   string    `json:"studentName"`
+	ClassName     string    `json:"className"`
+	CounselorID   string    `json:"counselorId"`
+	CounselorName string    `json:"counselorName"`
+	Reason        string    `json:"reason"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type CreateRiskTrackingInput struct {
+	StudentID string `json:"studentId"`
+	Reason    string `json:"reason"`
+}

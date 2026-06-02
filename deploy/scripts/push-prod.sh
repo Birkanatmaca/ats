@@ -14,6 +14,7 @@ rsync -az \
   --exclude '**/node_modules' \
   --exclude '.git' \
   --exclude 'frontend/apps/web/dist' \
+  --exclude 'frontend/apps/mobile/dist' \
   --exclude '**/.DS_Store' \
   --exclude 'backend/tmp' \
   ./ "${USER}@${HOST}:${TARGET}/"

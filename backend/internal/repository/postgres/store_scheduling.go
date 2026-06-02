@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	schedulingapp "ots/backend/internal/app/scheduling"
 	schedulingdomain "ots/backend/internal/domain/scheduling"
 )
 
@@ -128,6 +129,10 @@ func (s *Store) SaveTeacherAvailabilities(ctx context.Context, tenantID string, 
 		if item.TeacherID == "" || item.DayOfWeek < 1 || item.DayOfWeek > 7 {
 			continue
 		}
+		teacherID := s.resolveTeacherProfileID(ctx, tenantID, item.TeacherID)
+		if teacherID == "" {
+			continue
+		}
 		availabilityType := strings.TrimSpace(item.AvailabilityType)
 		if availabilityType == "" {
 			availabilityType = "available"
@@ -140,7 +145,7 @@ func (s *Store) SaveTeacherAvailabilities(ctx context.Context, tenantID string, 
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO teacher_availabilities (tenant_id, teacher_id, day_of_week, starts_at, ends_at, availability_type)
 VALUES ($1, $2, $3, $4::time, $5::time, $6)`,
-			tenantID, item.TeacherID, item.DayOfWeek, startTime, endTime, availabilityType)
+			tenantID, teacherID, item.DayOfWeek, startTime, endTime, availabilityType)
 		if err != nil {
 			return nil, err
 		}
@@ -305,7 +310,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8::time)`,
 	}
 }
 
-func (s *Store) UpdateScheduleLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, input schedulingdomain.UpdateLessonInput) (schedulingdomain.Lesson, bool, error) {
+func (s *Store) UpdateScheduleLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, actorUserID string, input schedulingdomain.UpdateLessonInput) (schedulingdomain.Lesson, bool, error) {
 	current, ok := s.GetSchedule(ctx, tenantID, scheduleID)
 	if !ok {
 		return schedulingdomain.Lesson{}, false, nil
@@ -373,6 +378,9 @@ WHERE tenant_id = $7 AND schedule_id = $8 AND id = $9`,
 	}
 	for _, lesson := range updated.Lessons {
 		if lesson.ID == lessonID {
+			if actorUserID != "" {
+				s.appendScheduleChangeLog(ctx, tenantID, scheduleID, actorUserID, lessonID, "lesson.update", lessonSnapshot(existing), lessonSnapshot(lesson))
+			}
 			return lesson, true, nil
 		}
 	}
@@ -387,7 +395,11 @@ func (s *Store) ValidateSchedule(ctx context.Context, tenantID string, scheduleI
 			HardConflicts: []string{"Program bulunamadı."},
 		}
 	}
-	return validateScheduleLessons(schedule.Lessons, s.ListRequirements(ctx, tenantID))
+	return schedulingapp.ValidateLessonsWithAvailabilities(
+		schedule.Lessons,
+		s.ListRequirements(ctx, tenantID),
+		s.ListTeacherAvailabilities(ctx, tenantID),
+	)
 }
 
 func (s *Store) PublishSchedule(ctx context.Context, tenantID string, scheduleID string, actorUserID string) (schedulingdomain.Schedule, bool, error) {
@@ -738,47 +750,6 @@ func markBusy(index map[string]map[int]map[string]bool, key string, day int, sta
 		index[key][day] = map[string]bool{}
 	}
 	index[key][day][start] = true
-}
-
-func validateScheduleLessons(lessons []schedulingdomain.Lesson, requirements []schedulingdomain.ClassSubjectRequirement) schedulingdomain.ValidationResult {
-	hard := []string{}
-	soft := []string{}
-
-	classSlot := map[string]map[int]map[string]bool{}
-	teacherSlot := map[string]map[int]map[string]bool{}
-	for _, lesson := range lessons {
-		if isBusy(classSlot, lesson.ClassID, lesson.DayOfWeek, lesson.StartTime) {
-			hard = append(hard, fmt.Sprintf("%s sınıfında %d. gün %s çakışması var.", lesson.ClassName, lesson.DayOfWeek, lesson.StartTime))
-		}
-		if isBusy(teacherSlot, lesson.TeacherID, lesson.DayOfWeek, lesson.StartTime) {
-			hard = append(hard, fmt.Sprintf("%s öğretmeninde %d. gün %s çakışması var.", lesson.TeacherName, lesson.DayOfWeek, lesson.StartTime))
-		}
-		markBusy(classSlot, lesson.ClassID, lesson.DayOfWeek, lesson.StartTime)
-		markBusy(teacherSlot, lesson.TeacherID, lesson.DayOfWeek, lesson.StartTime)
-	}
-
-	required := map[string]int{}
-	for _, requirement := range requirements {
-		key := requirement.ClassID + ":" + requirement.SubjectID
-		required[key] = requirement.WeeklyHours
-	}
-	actual := map[string]int{}
-	for _, lesson := range lessons {
-		key := lesson.ClassID + ":" + lesson.SubjectID
-		actual[key]++
-	}
-	for key, want := range required {
-		got := actual[key]
-		if got < want {
-			soft = append(soft, fmt.Sprintf("%s için %d saat bekleniyordu, %d saat atandı.", key, want, got))
-		}
-	}
-
-	return schedulingdomain.ValidationResult{
-		Valid:         len(hard) == 0,
-		HardConflicts: hard,
-		SoftWarnings:  soft,
-	}
 }
 
 func (s *Store) resolveTeacherProfileID(ctx context.Context, tenantID string, userOrTeacherID string) string {

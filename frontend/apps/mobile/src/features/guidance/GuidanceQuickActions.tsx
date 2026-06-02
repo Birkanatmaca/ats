@@ -1,15 +1,5 @@
 import { useRouter } from "expo-router";
-import {
-  AlertTriangle,
-  Bell,
-  BookOpen,
-  ChevronRight,
-  FileText,
-  HeartHandshake,
-  Megaphone,
-  Users,
-  type LucideIcon
-} from "lucide-react-native";
+import { FolderOpen, HeartHandshake, Megaphone, Bell, ChevronRight, Users, AlertTriangle, BookOpen, FileText, type LucideIcon } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "@/shared/theme/colors";
 
@@ -22,6 +12,7 @@ type QuickAction = {
     | "/(app)/guidance/(tabs)/notes"
     | "/(app)/guidance/(tabs)/observations"
     | "/(app)/guidance/(tabs)/plans"
+    | "/(app)/guidance/cases"
     | "/(app)/guidance/announcements"
     | "/(app)/guidance/notifications";
   icon: LucideIcon;
@@ -34,6 +25,7 @@ const actions: QuickAction[] = [
   { key: "notes", label: "Rehberlik notları", route: "/(app)/guidance/(tabs)/notes", icon: FileText, accent: "#7c3aed" },
   { key: "observations", label: "Gözlemler", route: "/(app)/guidance/(tabs)/observations", icon: BookOpen, accent: "#2563eb" },
   { key: "plans", label: "Takip planları", route: "/(app)/guidance/(tabs)/plans", icon: HeartHandshake, accent: "#0d9488" },
+  { key: "cases", label: "Vaka dosyaları", route: "/(app)/guidance/cases", icon: FolderOpen, accent: "#7c3aed" },
   { key: "announcements", label: "Duyurular", route: "/(app)/guidance/announcements", icon: Megaphone, accent: "#d97706" },
   { key: "notifications", label: "Bildirimler", route: "/(app)/guidance/notifications", icon: Bell, accent: "#db2777" }
 ];

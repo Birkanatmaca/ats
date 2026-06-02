@@ -43,8 +43,12 @@ function formatRelativeDate(value: string) {
 
 function computeStats(announcements: Announcement[]) {
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const recent = announcements.filter((item) => new Date(item.publishedAt).getTime() >= weekAgo).length;
-  return { total: announcements.length, recent };
+  const recent = announcements.filter((item) => {
+    const publishedAt = item.publishedAt ? new Date(item.publishedAt).getTime() : 0;
+    return publishedAt >= weekAgo;
+  }).length;
+  const drafts = announcements.filter((item) => item.status === "draft" || item.status === "scheduled").length;
+  return { total: announcements.length, recent, drafts };
 }
 
 export function AnnouncementsScreen({ mode }: { mode: "user" | "guardian" | "principal" }) {
@@ -59,12 +63,30 @@ export function AnnouncementsScreen({ mode }: { mode: "user" | "guardian" | "pri
   const isPrincipal = mode === "principal" || session?.principal.role === "principal" || session?.principal.role === "system_admin";
 
   const query = useQuery({
-    queryKey: queryKeys.announcements(mode),
-    queryFn: () => (mode === "guardian" ? api.guardianAnnouncements() : api.announcements())
+    queryKey: queryKeys.announcements(mode, isPrincipal),
+    queryFn: () =>
+      mode === "guardian"
+        ? api.guardianAnnouncements()
+        : api.announcements(isPrincipal ? { manage: true } : undefined)
+  });
+
+  const readMut = useMutation({
+    mutationFn: (announcementId: string) => api.markAnnouncementRead(announcementId)
   });
 
   const createMut = useMutation({
-    mutationFn: (payload: { title: string; body: string; audience: string }) => api.createAnnouncement(payload),
+    mutationFn: (payload: {
+      title: string;
+      body: string;
+      audiences: NonNullable<Announcement["audiences"]>;
+      publish: boolean;
+    }) =>
+      api.createAnnouncement({
+        title: payload.title,
+        body: payload.body,
+        audiences: payload.audiences,
+        publish: payload.publish
+      }),
     onSuccess: () => {
       setCreateError(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.announcements(mode) });
@@ -86,7 +108,7 @@ export function AnnouncementsScreen({ mode }: { mode: "user" | "guardian" | "pri
         (audienceFilter === "class" && item.audience.startsWith("class:"));
       if (!audienceMatch) return false;
       if (!q) return true;
-      return `${item.title} ${item.body} ${announcementAudienceLabel(item.audience)}`.toLowerCase().includes(q);
+      return `${item.title} ${item.body} ${announcementAudienceLabel(item.audience, item.audiences)}`.toLowerCase().includes(q);
     });
   }, [announcements, search, audienceFilter]);
 
@@ -96,7 +118,12 @@ export function AnnouncementsScreen({ mode }: { mode: "user" | "guardian" | "pri
     { key: "guardians", label: "Veliler" }
   ];
 
-  async function handleCreate(payload: { title: string; body: string; audience: string }) {
+  async function handleCreate(payload: {
+    title: string;
+    body: string;
+    audiences: NonNullable<Announcement["audiences"]>;
+    publish: boolean;
+  }) {
     setCreateError(null);
     await createMut.mutateAsync(payload);
   }
@@ -162,6 +189,15 @@ export function AnnouncementsScreen({ mode }: { mode: "user" | "guardian" | "pri
                 <Text style={styles.heroStatValue}>{stats.recent}</Text>
                 <Text style={styles.heroStatLabel}>son 7 gün</Text>
               </View>
+              {isPrincipal ? (
+                <>
+                  <View style={styles.heroStatDivider} />
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatValue}>{stats.drafts}</Text>
+                    <Text style={styles.heroStatLabel}>taslak</Text>
+                  </View>
+                </>
+              ) : null}
             </View>
 
             {isPrincipal ? (
@@ -208,7 +244,7 @@ export function AnnouncementsScreen({ mode }: { mode: "user" | "guardian" | "pri
         </View>
 
         <View style={styles.listHead}>
-          <Text style={styles.listTitle}>Yayınlanan duyurular</Text>
+          <Text style={styles.listTitle}>{isPrincipal ? "Duyuru yönetimi" : "Yayınlanan duyurular"}</Text>
           <Text style={styles.listCount}>{filtered.length} kayıt</Text>
         </View>
 
@@ -226,8 +262,15 @@ export function AnnouncementsScreen({ mode }: { mode: "user" | "guardian" | "pri
             <AnnouncementCard
               key={item.id}
               expanded={expandedId === item.id}
+              isPrincipal={isPrincipal}
               item={item}
-              onToggle={() => setExpandedId((current) => (current === item.id ? null : item.id))}
+              onToggle={() => {
+                const next = expandedId === item.id ? null : item.id;
+                setExpandedId(next);
+                if (next && item.status === "published" && !isPrincipal) {
+                  readMut.mutate(item.id);
+                }
+              }}
             />
           ))
         )}
@@ -249,18 +292,22 @@ export function AnnouncementsScreen({ mode }: { mode: "user" | "guardian" | "pri
 function AnnouncementCard({
   item,
   expanded,
+  isPrincipal,
   onToggle
 }: {
   item: Announcement;
   expanded: boolean;
+  isPrincipal: boolean;
   onToggle: () => void;
 }) {
   const tone = audienceTone(item.audience);
   const preview = item.body.length > 120 && !expanded ? `${item.body.slice(0, 120)}…` : item.body;
+  const isDraft = item.status === "draft" || item.status === "scheduled";
+  const publishedLabel = item.publishedAt ? formatRelativeDate(item.publishedAt) : item.status === "scheduled" ? "Planlandı" : "Taslak";
 
   return (
     <Pressable onPress={onToggle} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-      <View style={[styles.cardStripe, { backgroundColor: tone.text }]} />
+      <View style={[styles.cardStripe, { backgroundColor: isDraft ? "#94a3b8" : tone.text }]} />
 
       <View style={styles.cardBody}>
         <View style={styles.cardTop}>
@@ -272,13 +319,25 @@ function AnnouncementCard({
             <View style={styles.cardMetaRow}>
               <View style={[styles.audiencePill, { backgroundColor: tone.bg, borderColor: tone.border }]}>
                 <Users color={tone.text} size={11} strokeWidth={2.2} />
-                <Text style={[styles.audiencePillText, { color: tone.text }]}>{announcementAudienceLabel(item.audience)}</Text>
+                <Text style={[styles.audiencePillText, { color: tone.text }]}>
+                  {announcementAudienceLabel(item.audience, item.audiences)}
+                </Text>
               </View>
+              {isDraft ? (
+                <View style={styles.draftPill}>
+                  <Text style={styles.draftPillText}>{item.status === "scheduled" ? "Planlı" : "Taslak"}</Text>
+                </View>
+              ) : null}
               <View style={styles.datePill}>
                 <BellRing color={colors.textMuted} size={11} strokeWidth={2.2} />
-                <Text style={styles.datePillText}>{formatRelativeDate(item.publishedAt)}</Text>
+                <Text style={styles.datePillText}>{publishedLabel}</Text>
               </View>
             </View>
+            {isPrincipal && item.targetCount != null ? (
+              <Text style={styles.readStats}>
+                Okundu: {item.readCount ?? 0}/{item.targetCount}
+              </Text>
+            ) : null}
           </View>
           {expanded ? (
             <ChevronUp color={colors.textMuted} size={18} strokeWidth={2.2} />
@@ -290,7 +349,7 @@ function AnnouncementCard({
         <Text style={[styles.cardContent, expanded && styles.cardContentExpanded]}>{preview}</Text>
 
         {!expanded && item.body.length > 120 ? <Text style={styles.readMore}>Devamını oku</Text> : null}
-        {expanded ? <Text style={styles.fullDate}>{formatDate(item.publishedAt)}</Text> : null}
+        {expanded && item.publishedAt ? <Text style={styles.fullDate}>{formatDate(item.publishedAt)}</Text> : null}
       </View>
     </Pressable>
   );
@@ -423,5 +482,15 @@ const styles = StyleSheet.create({
   cardContent: { fontSize: 14, lineHeight: 21, color: colors.textMuted, fontWeight: "500" },
   cardContentExpanded: { color: colors.text },
   readMore: { fontSize: 12, fontWeight: "800", color: "#d97706" },
-  fullDate: { fontSize: 11, color: colors.textMuted, fontWeight: "600" }
+  fullDate: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+  draftPill: {
+    borderRadius: 999,
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    paddingHorizontal: 8,
+    paddingVertical: 4
+  },
+  draftPillText: { fontSize: 11, fontWeight: "800", color: "#475569" },
+  readStats: { fontSize: 11, fontWeight: "700", color: colors.textMuted }
 });

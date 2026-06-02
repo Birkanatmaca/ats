@@ -3,7 +3,7 @@ import { getClassTone } from "@/features/principal/classUtils";
 import { colors } from "@/shared/theme/colors";
 import { platformShadow } from "@/shared/ui/platformShadow";
 import { SCHEDULE_TIME_SLOTS, SCHOOL_WEEK_DAYS, weekdayLabel } from "@/shared/utils/lessonSchedule";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 const SUBJECT_TONES: Record<string, { bg: string; border: string; text: string }> = {
   matematik: { bg: "#eff6ff", border: "#93c5fd", text: "#1d4ed8" },
@@ -37,12 +37,21 @@ export type SectionOption = {
   sectionName: string;
 };
 
+export type TeacherOption = {
+  id: string;
+  name: string;
+};
+
 type Props = {
   lessons: Lesson[];
+  viewMode: "class" | "teacher";
   selectedSection: SectionOption | null;
   sectionOptions: SectionOption[];
+  selectedTeacher: TeacherOption | null;
+  teacherOptions: TeacherOption[];
   editable: boolean;
   onSelectSection: (section: SectionOption) => void;
+  onSelectTeacher: (teacher: TeacherOption) => void;
   onSelectLesson: (lesson: Lesson) => void;
 };
 
@@ -72,72 +81,129 @@ function visibleSlots(lessons: Lesson[]) {
 
 export function PrincipalScheduleCalendar({
   lessons,
+  viewMode,
   selectedSection,
   sectionOptions,
+  selectedTeacher,
+  teacherOptions,
   editable,
   onSelectSection,
+  onSelectTeacher,
   onSelectLesson
 }: Props) {
-  const classLessons = selectedSection ? lessons.filter((l) => l.classId === selectedSection.classId) : [];
-  const lessonMap = buildLessonMap(classLessons);
-  const days = visibleDays(classLessons);
-  const slots = visibleSlots(classLessons);
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const dayCol = isTablet ? 84 : 72;
+  const slotCol = isTablet ? 108 : 92;
+  const slotH = isTablet ? 88 : 78;
+
+  const filteredLessons =
+    viewMode === "teacher" && selectedTeacher
+      ? lessons.filter((l) => l.teacherId === selectedTeacher.id)
+      : selectedSection
+        ? lessons.filter((l) => l.classId === selectedSection.classId)
+        : [];
+
+  const lessonMap = buildLessonMap(filteredLessons);
+  const days = visibleDays(filteredLessons);
+  const slots = visibleSlots(filteredLessons);
   const tone = selectedSection ? getClassTone(selectedSection.className) : getClassTone("");
 
   return (
     <View style={styles.wrap}>
       <View style={styles.selectorHead}>
-        <Text style={styles.selectorTitle}>Sınıf / şube</Text>
-        <Text style={styles.selectorHint}>Takvimde görmek istediğiniz sınıfı seçin</Text>
+        <Text style={styles.selectorTitle}>{viewMode === "teacher" ? "Öğretmen programı" : "Sınıf / şube programı"}</Text>
+        <Text style={styles.selectorHint}>
+          {isTablet ? "Geniş görünüm — hücreye dokunarak düzenleyin" : "Hücreye dokunarak modal ile düzenleyin"}
+        </Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionRow}>
-        {sectionOptions.map((section) => {
-          const active = selectedSection?.id === section.id;
-          const sectionTone = getClassTone(section.className);
-          return (
-            <Pressable
-              key={section.id}
-              onPress={() => onSelectSection(section)}
-              style={({ pressed }) => [
-                styles.sectionChip,
-                { borderColor: active ? sectionTone.color : colors.border, backgroundColor: active ? sectionTone.bg : colors.surface },
-                pressed && styles.sectionChipPressed
-              ]}
-            >
-              <View style={[styles.sectionBadge, { backgroundColor: sectionTone.badge }]}>
-                <Text style={[styles.sectionBadgeText, { color: sectionTone.color }]}>{section.sectionName}</Text>
-              </View>
-              <Text style={[styles.sectionChipLabel, active && { color: sectionTone.color }]} numberOfLines={1}>
-                {section.className}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.viewToggle}>
+        <Text style={styles.viewToggleLabel}>Görünüm</Text>
+        <Text style={styles.viewToggleValue}>{viewMode === "teacher" ? "Öğretmen" : "Sınıf"}</Text>
+      </View>
 
-      {selectedSection ? (
+      {viewMode === "class" ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionRow}>
+          {sectionOptions.map((section) => {
+            const active = selectedSection?.id === section.id;
+            const sectionTone = getClassTone(section.className);
+            return (
+              <Pressable
+                key={section.id}
+                onPress={() => onSelectSection(section)}
+                style={({ pressed }) => [
+                  styles.sectionChip,
+                  { borderColor: active ? sectionTone.color : colors.border, backgroundColor: active ? sectionTone.bg : colors.surface },
+                  pressed && styles.sectionChipPressed
+                ]}
+              >
+                <View style={[styles.sectionBadge, { backgroundColor: sectionTone.badge }]}>
+                  <Text style={[styles.sectionBadgeText, { color: sectionTone.color }]}>{section.sectionName}</Text>
+                </View>
+                <Text style={[styles.sectionChipLabel, active && { color: sectionTone.color }]} numberOfLines={1}>
+                  {section.className}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionRow}>
+          {teacherOptions.map((teacher) => {
+            const active = selectedTeacher?.id === teacher.id;
+            return (
+              <Pressable
+                key={teacher.id}
+                onPress={() => onSelectTeacher(teacher)}
+                style={({ pressed }) => [
+                  styles.sectionChip,
+                  { borderColor: active ? colors.accent : colors.border, backgroundColor: active ? colors.accentLight : colors.surface },
+                  pressed && styles.sectionChipPressed
+                ]}
+              >
+                <Text style={[styles.sectionChipLabel, active && { color: colors.accent }]} numberOfLines={1}>
+                  {teacher.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {(viewMode === "class" ? selectedSection : selectedTeacher) ? (
         <View style={[styles.calendarCard, platformShadow("0 10px 24px rgba(28,53,87,0.08)", { elevation: 3 })]}>
           <View style={styles.calendarHead}>
-            <View style={[styles.calendarBadge, { backgroundColor: tone.badge }]}>
-              <Text style={[styles.calendarBadgeText, { color: tone.color }]}>{selectedSection.sectionName}</Text>
-            </View>
-            <View style={styles.calendarHeadCopy}>
-              <Text style={styles.calendarTitle}>{selectedSection.className}</Text>
-              <Text style={styles.calendarMeta}>
-                {classLessons.length} ders · {days.length} gün
-              </Text>
-            </View>
+            {viewMode === "class" && selectedSection ? (
+              <>
+                <View style={[styles.calendarBadge, { backgroundColor: tone.badge }]}>
+                  <Text style={[styles.calendarBadgeText, { color: tone.color }]}>{selectedSection.sectionName}</Text>
+                </View>
+                <View style={styles.calendarHeadCopy}>
+                  <Text style={styles.calendarTitle}>{selectedSection.className}</Text>
+                  <Text style={styles.calendarMeta}>
+                    {filteredLessons.length} ders · {days.length} gün
+                  </Text>
+                </View>
+              </>
+            ) : selectedTeacher ? (
+              <View style={styles.calendarHeadCopy}>
+                <Text style={styles.calendarTitle}>{selectedTeacher.name}</Text>
+                <Text style={styles.calendarMeta}>
+                  {filteredLessons.length} ders · {days.length} gün
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gridScroll}>
             <View style={styles.grid}>
               <View style={styles.gridRow}>
-                <View style={[styles.cornerCell, styles.headCell]}>
+                <View style={[styles.cornerCell, styles.headCell, { width: dayCol }]}>
                   <Text style={styles.cornerText}>Gün</Text>
                 </View>
                 {slots.map((slot) => (
-                  <View key={slot.start} style={[styles.headCell, styles.timeHeadCell]}>
+                  <View key={slot.start} style={[styles.headCell, styles.timeHeadCell, { width: slotCol }]}>
                     <Text style={styles.timeHeadLabel}>{slot.label}</Text>
                     <Text style={styles.timeHeadMeta}>{slot.end}</Text>
                   </View>
@@ -146,7 +212,7 @@ export function PrincipalScheduleCalendar({
 
               {days.map((day) => (
                 <View key={day} style={styles.gridRow}>
-                  <View style={[styles.dayCell, styles.stickyDay]}>
+                  <View style={[styles.dayCell, styles.stickyDay, { width: dayCol, minHeight: slotH }]}>
                     <Text style={styles.dayShort}>{weekdayLabel(day).slice(0, 3)}</Text>
                     <Text style={styles.dayFull}>{weekdayLabel(day)}</Text>
                   </View>
@@ -160,6 +226,7 @@ export function PrincipalScheduleCalendar({
                         onPress={() => lesson && onSelectLesson(lesson)}
                         style={({ pressed }) => [
                           styles.slotCell,
+                          { width: slotCol, minHeight: slotH },
                           lesson
                             ? {
                                 backgroundColor: cellTone?.bg,
@@ -176,7 +243,7 @@ export function PrincipalScheduleCalendar({
                               {lesson.subjectName}
                             </Text>
                             <Text style={styles.slotTeacher} numberOfLines={1}>
-                              {lesson.teacherName.split(" ")[0]}
+                              {viewMode === "teacher" ? lesson.className : lesson.teacherName.split(" ")[0]}
                             </Text>
                             {lesson.room ? (
                               <Text style={styles.slotRoom} numberOfLines={1}>
@@ -201,23 +268,22 @@ export function PrincipalScheduleCalendar({
         </View>
       ) : (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Sınıf seçin</Text>
-          <Text style={styles.emptyHint}>Haftalık ders programını görmek için yukarıdan bir sınıf/şube seçin.</Text>
+          <Text style={styles.emptyTitle}>{viewMode === "teacher" ? "Öğretmen seçin" : "Sınıf seçin"}</Text>
+          <Text style={styles.emptyHint}>Haftalık ders programını görmek için yukarıdan seçim yapın.</Text>
         </View>
       )}
     </View>
   );
 }
 
-const DAY_COL = 72;
-const SLOT_COL = 92;
-const SLOT_H = 78;
-
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
   selectorHead: { gap: 4 },
   selectorTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
   selectorHint: { fontSize: 12, color: colors.textMuted },
+  viewToggle: { flexDirection: "row", alignItems: "center", gap: 8 },
+  viewToggleLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted, textTransform: "uppercase" },
+  viewToggleValue: { fontSize: 12, fontWeight: "800", color: colors.accent },
   sectionRow: { gap: 8, paddingRight: 8 },
   sectionChip: {
     width: 108,
@@ -252,7 +318,7 @@ const styles = StyleSheet.create({
   gridScroll: { paddingBottom: 4 },
   grid: { gap: 6 },
   gridRow: { flexDirection: "row", gap: 6 },
-  cornerCell: { width: DAY_COL, minHeight: 44, justifyContent: "center" },
+  cornerCell: { minHeight: 44, justifyContent: "center" },
   headCell: {
     minHeight: 44,
     justifyContent: "center",
@@ -262,13 +328,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border
   },
-  timeHeadCell: { width: SLOT_COL },
+  timeHeadCell: {},
   cornerText: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
   timeHeadLabel: { fontSize: 12, fontWeight: "800", color: colors.text },
   timeHeadMeta: { fontSize: 10, color: colors.textMuted, fontWeight: "600" },
   dayCell: {
-    width: DAY_COL,
-    minHeight: SLOT_H,
     justifyContent: "center",
     paddingHorizontal: 6,
     backgroundColor: "#f8fafc",
@@ -280,8 +344,6 @@ const styles = StyleSheet.create({
   dayShort: { fontSize: 13, fontWeight: "800", color: colors.text },
   dayFull: { fontSize: 9, color: colors.textMuted, fontWeight: "600" },
   slotCell: {
-    width: SLOT_COL,
-    minHeight: SLOT_H,
     borderRadius: 12,
     borderWidth: 1.5,
     padding: 8,

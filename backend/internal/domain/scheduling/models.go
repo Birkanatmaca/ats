@@ -7,6 +7,7 @@ type ScheduleStatus string
 const (
 	ScheduleDraft     ScheduleStatus = "draft"
 	SchedulePublished ScheduleStatus = "published"
+	ScheduleArchived  ScheduleStatus = "archived"
 )
 
 type Schedule struct {
@@ -94,4 +95,41 @@ type ValidationResult struct {
 	Valid         bool     `json:"valid"`
 	HardConflicts []string `json:"hardConflicts"`
 	SoftWarnings  []string `json:"softWarnings"`
+}
+
+type ConflictSeverity string
+
+const (
+	ConflictHard ConflictSeverity = "hard"
+	ConflictSoft ConflictSeverity = "soft"
+)
+
+type ScheduleConflict struct {
+	Severity  ConflictSeverity `json:"severity"`
+	Type      string           `json:"type"`
+	Message   string           `json:"message"`
+	LessonIDs []string         `json:"lessonIds,omitempty"`
+}
+
+type ConflictsResult struct {
+	Valid         bool               `json:"valid"`
+	Conflicts     []ScheduleConflict `json:"conflicts"`
+	HardConflicts []string           `json:"hardConflicts"`
+	SoftWarnings  []string           `json:"softWarnings"`
+}
+
+type ScheduleChangeLog struct {
+	ID          string         `json:"id"`
+	TenantID    string         `json:"tenantId"`
+	ScheduleID  string         `json:"scheduleId"`
+	ActorUserID string         `json:"actorUserId,omitempty"`
+	LessonID    string         `json:"lessonId,omitempty"`
+	ChangeType  string         `json:"changeType"`
+	Before      map[string]any `json:"before"`
+	After       map[string]any `json:"after"`
+	CreatedAt   time.Time      `json:"createdAt"`
+}
+
+type BulkAvailabilityInput struct {
+	Items []AvailabilityInput `json:"items"`
 }

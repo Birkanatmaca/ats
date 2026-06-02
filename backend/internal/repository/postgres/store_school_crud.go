@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"ots/backend/internal/domain/identity"
-	superadmindomain "ots/backend/internal/domain/superadmin"
 	schooldomain "ots/backend/internal/domain/school"
+	superadmindomain "ots/backend/internal/domain/superadmin"
 )
 
 func (s *Store) ListClasses(ctx context.Context, tenantID string) ([]schooldomain.PrincipalRosterClass, error) {
@@ -917,6 +917,7 @@ ON CONFLICT (tenant_id, student_id, guardian_id) DO NOTHING`, tenantID, studentI
 		return schooldomain.ProvisionGuardianResult{}, err
 	}
 	return schooldomain.ProvisionGuardianResult{
+		UserID:            cred.User.ID,
 		Email:             email,
 		TemporaryPassword: cred.TemporaryPassword,
 		LinkedStudents:    linked,

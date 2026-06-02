@@ -36,13 +36,74 @@ export type GuidanceStudentSupport = {
 export function supportStatusLabel(status: string) {
   const labels: Record<string, string> = {
     review: "İncelemede",
-    monitoring: "Takipte",
+    monitoring: "İzleniyor",
     stable: "Stabil",
-    untracked: "Gözlemsiz",
     open: "Açık",
     closed: "Kapalı"
   };
   return labels[status] ?? status;
+}
+
+export function caseStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    open: "Açık",
+    monitoring: "İzleniyor",
+    closed: "Kapalı"
+  };
+  return labels[status] ?? status;
+}
+
+export function casePriorityLabel(priority: string) {
+  const labels: Record<string, string> = {
+    low: "Düşük",
+    medium: "Orta",
+    high: "Yüksek",
+    critical: "Kritik"
+  };
+  return labels[priority] ?? priority;
+}
+
+export function caseEventTypeLabel(eventType: string) {
+  const labels: Record<string, string> = {
+    note: "Not",
+    meeting: "Görüşme",
+    plan: "Plan",
+    risk: "Risk",
+    status_change: "Durum",
+    file: "Dosya",
+    follow_up: "Takip"
+  };
+  return labels[eventType] ?? eventType;
+}
+
+export function caseTimelineSourceLabel(source: string) {
+  const labels: Record<string, string> = {
+    case_event: "Vaka olayı",
+    guidance_note: "Rehberlik notu",
+    support_plan: "Destek planı",
+    risk_tracking: "Risk takibi"
+  };
+  return labels[source] ?? source;
+}
+
+export function caseTimelineTypeLabel(item: { source: string; eventType: string }) {
+  if (item.source === "case_event") {
+    return caseEventTypeLabel(item.eventType);
+  }
+  return caseTimelineSourceLabel(item.source);
+}
+
+export function casePriorityTone(priority: string): { bg: string; text: string; border: string } {
+  switch (priority) {
+    case "critical":
+      return { bg: "#fef2f2", text: "#b91c1c", border: "#fecaca" };
+    case "high":
+      return { bg: "#fff7ed", text: "#c2410c", border: "#fed7aa" };
+    case "low":
+      return { bg: "#f8fafc", text: "#475569", border: "#e2e8f0" };
+    default:
+      return { bg: "#eff6ff", text: "#1d4ed8", border: "#bfdbfe" };
+  }
 }
 
 export function buildGuidanceStudentSupports(observations: Observation[]): GuidanceStudentSupport[] {

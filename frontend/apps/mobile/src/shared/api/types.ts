@@ -6,6 +6,14 @@ export type Role =
   | "teacher"
   | "guardian";
 
+export type NotificationPreferences = {
+  attendance: boolean;
+  announcements: boolean;
+  support: boolean;
+  guidance: boolean;
+  schedule: boolean;
+};
+
 export type Principal = {
   userId: string;
   tenantId: string;
@@ -119,12 +127,31 @@ export type Observation = {
   createdAt: string;
 };
 
+export type AnnouncementAudienceTarget = {
+  type: "all" | "role" | "class" | "section" | "student" | "user";
+  id?: string;
+  role?: string;
+};
+
 export type Announcement = {
   id: string;
   title: string;
   body: string;
   audience: string;
-  publishedAt: string;
+  audiences?: AnnouncementAudienceTarget[];
+  status?: "draft" | "scheduled" | "published" | "archived";
+  publishedAt?: string;
+  scheduledAt?: string;
+  readCount?: number;
+  targetCount?: number;
+};
+
+export type AnnouncementTemplate = {
+  id: string;
+  name: string;
+  titleTemplate: string;
+  bodyTemplate: string;
+  category: string;
 };
 
 export type GuardianStudent = {
@@ -282,6 +309,90 @@ export type GuidanceRiskTracking = {
   updatedAt: string;
 };
 
+export type GuidanceCaseStatus = "open" | "monitoring" | "closed";
+export type GuidanceCasePriority = "low" | "medium" | "high" | "critical";
+export type GuidanceCaseEventType =
+  | "note"
+  | "meeting"
+  | "plan"
+  | "risk"
+  | "status_change"
+  | "file"
+  | "follow_up";
+export type GuidanceCaseEventVisibility = "guidance_only" | "principal_summary" | "shared_with_guardian";
+
+export type GuidanceCase = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  ownerUserId: string;
+  ownerName: string;
+  status: GuidanceCaseStatus;
+  priority: GuidanceCasePriority;
+  title: string;
+  summary: string;
+  sensitivity: string;
+  openedAt: string;
+  closedAt?: string;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  masked?: boolean;
+};
+
+export type GuidanceCaseEvent = {
+  id: string;
+  tenantId: string;
+  caseId: string;
+  eventType: GuidanceCaseEventType;
+  title: string;
+  body: string;
+  actorUserId: string;
+  actorName: string;
+  visibility: GuidanceCaseEventVisibility;
+  occurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+  masked?: boolean;
+};
+
+export type GuidanceCaseTimelineItem = {
+  id: string;
+  source: "case_event" | "guidance_note" | "support_plan" | "risk_tracking";
+  eventType: string;
+  title: string;
+  body: string;
+  actorName: string;
+  occurredAt: string;
+  visibility?: GuidanceCaseEventVisibility;
+  masked?: boolean;
+};
+
+export type GuidanceCaseCloseResult = {
+  case: GuidanceCase;
+  warnings?: string[];
+};
+
+export type GuidanceStudentCaseSummary = {
+  studentId: string;
+  studentName: string;
+  className: string;
+  activeCaseCount: number;
+  criticalCount: number;
+  openPlanCount: number;
+  cases: GuidanceCase[];
+};
+
+export type GuidanceCaseInboxStats = {
+  openCount: number;
+  monitoringCount: number;
+  criticalCount: number;
+  overduePlanCount: number;
+};
+
 export type UserNotification = {
   id: string;
   title: string;
@@ -333,7 +444,7 @@ export type UserAccount = {
 export type Schedule = {
   id: string;
   name: string;
-  status: "draft" | "published";
+  status: "draft" | "published" | "archived";
   version: number;
   score: number;
   lessons: Lesson[];
@@ -351,6 +462,145 @@ export type ScheduleValidationResult = {
   valid: boolean;
   hardConflicts: string[];
   softWarnings: string[];
+};
+
+export type ScheduleConflict = {
+  severity: "hard" | "soft";
+  type: string;
+  message: string;
+  lessonIds?: string[];
+};
+
+export type ScheduleConflictsResult = {
+  valid: boolean;
+  conflicts: ScheduleConflict[];
+  hardConflicts: string[];
+  softWarnings: string[];
+};
+
+export type ScheduleChangeLog = {
+  id: string;
+  scheduleId: string;
+  actorUserId?: string;
+  lessonId?: string;
+  changeType: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type AcademicAssessmentType = "exam" | "quiz" | "homework" | "project";
+
+export type AcademicAssessment = {
+  id: string;
+  name: string;
+  subjectId: string;
+  subjectName: string;
+  classId?: string;
+  className?: string;
+  assessmentType: AcademicAssessmentType;
+  maxScore: number;
+  assessmentDate: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AcademicResult = {
+  id: string;
+  assessmentId: string;
+  studentId: string;
+  studentName: string;
+  classId?: string;
+  className?: string;
+  score: number;
+  percentile?: number;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AcademicResultInput = {
+  studentId?: string;
+  schoolNumber?: string;
+  fullName?: string;
+  score: number;
+  percentile?: number;
+  note?: string;
+};
+
+export type AcademicImportResult = {
+  imported: number;
+  failed: number;
+  rows: Array<{ rowNumber: number; status: string; studentId?: string; errors?: string[] }>;
+  results: AcademicResult[];
+};
+
+export type StudentAcademicSummary = {
+  student: {
+    id: string;
+    fullName: string;
+    schoolNumber: string;
+    classId: string;
+    className: string;
+  };
+  averagePercent: number;
+  assessmentCount: number;
+  subjectSummaries: Array<{
+    subjectId: string;
+    subjectName: string;
+    averagePercent: number;
+    assessmentCount: number;
+    latestScore: number;
+    latestMaxScore: number;
+    trend: string;
+    needsSupport: boolean;
+  }>;
+  recentResults: Array<{
+    assessmentId: string;
+    assessmentName: string;
+    subjectId: string;
+    subjectName: string;
+    assessmentDate: string;
+    score: number;
+    maxScore: number;
+    percent: number;
+    note?: string;
+  }>;
+  outcomes: Array<{
+    id: string;
+    outcomeCode: string;
+    outcomeTitle: string;
+    subjectName: string;
+    status: string;
+    evidence?: string;
+    updatedAt: string;
+  }>;
+  supportSignals: string[];
+  aiWeeklySummary: string;
+};
+
+export type ClassAcademicSummary = {
+  class: { id: string; name: string };
+  averagePercent: number;
+  assessmentCount: number;
+  studentCount: number;
+  subjectSummaries: Array<{
+    subjectId: string;
+    subjectName: string;
+    averagePercent: number;
+    assessmentCount: number;
+    trend: string;
+    needsSupportCount: number;
+  }>;
+  supportStudents: Array<{
+    studentId: string;
+    studentName: string;
+    schoolNumber: string;
+    averagePercent: number;
+    signal: string;
+  }>;
+  aiWeeklySummary: string;
 };
 
 export type SchedulingRequirement = {
@@ -442,4 +692,78 @@ export type SchoolStudentRecord = {
   guardianPhone: string;
   status: string;
   createdAt: string;
+};
+
+export type StudentImportJobOptions = {
+  createMissingClasses: boolean;
+  inviteGuardians: boolean;
+};
+
+export type StudentImportJobStatus =
+  | "draft"
+  | "validating"
+  | "ready"
+  | "importing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type StudentImportRowStatus = "valid" | "warning" | "error" | "imported";
+
+export type StudentImportNormalizedRow = {
+  schoolNumber: string;
+  firstName: string;
+  lastName: string;
+  className: string;
+  sectionName: string;
+  classId?: string;
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
+  guardianRelation?: string;
+  gender?: string;
+  birthDate?: string;
+  studentStatus?: string;
+};
+
+export type StudentImportRow = {
+  id: string;
+  jobId: string;
+  rowNumber: number;
+  rawData: Record<string, unknown>;
+  normalizedData: StudentImportNormalizedRow;
+  status: StudentImportRowStatus;
+  errorMessages: string[];
+  createdStudentId?: string;
+  createdGuardianUserId?: string;
+};
+
+export type StudentImportJob = {
+  id: string;
+  tenantId: string;
+  status: StudentImportJobStatus;
+  fileName: string;
+  uploadedBy?: string;
+  totalRows: number;
+  validRows: number;
+  warningRows: number;
+  errorRows: number;
+  importedRows: number;
+  options: StudentImportJobOptions;
+  createdAt: string;
+  completedAt?: string | null;
+};
+
+export type StudentImportCommitPreview = {
+  studentsToCreate: number;
+  guardiansToInvite: number;
+  skippedRows: number;
+};
+
+export type StudentImportCommitResult = {
+  job: StudentImportJob;
+  createdStudents: number;
+  createdGuardians: number;
+  skippedRows: number;
+  failedRows: number;
 };

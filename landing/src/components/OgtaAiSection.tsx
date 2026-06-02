@@ -24,33 +24,18 @@ export function OgtaAiSection() {
   return (
     <section className="section section-tint ogta-section snap-section snap-section--viewport" id="ogta-ai">
       <div className="container ogta-section__wrap">
-        <div className="section-head center">
+        <div className="section-head center ogta-section__head">
+          <p className="ogta-section__eyebrow">Yapay zeka asistanı</p>
           <h2 id="ogta-ai-heading">
             OGTA<span className="ogta-section__brand-ai">.ai</span>
           </h2>
+          <p className="ogta-section__intro">
+            Okul operasyonlarını doğal dille hızlandırın; kritik işlemler yetki ve onay ile korunur.
+          </p>
         </div>
 
         <article className="ogta-section__card" aria-labelledby="ogta-ai-heading">
           <div className="ogta-section__body">
-            <div className="ogta-section__copy">
-              <h3 className="ogta-section__tagline">Doğal dille komut verin, onaylı aksiyon alın</h3>
-              <p className="section-lead">
-                OGTA.ai ayrı bir sohbet uygulaması değil — mevcut okul operasyonlarını hızlandıran komut
-                asistanıdır. Her kritik işlem yetki, kapsam ve açık onay ile çalışır.
-              </p>
-
-              <ul className="ogta-section__checks">
-                {ogtaChecks.map((item) => (
-                  <li key={item}>
-                    <span aria-hidden="true" className="ogta-section__check-icon">
-                      <Check size={13} strokeWidth={2.8} />
-                    </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
             <div className="ogta-section__demo" aria-label="OGTA.ai örnek oturum">
               <div className="ogta-demo">
                 <div className="ogta-demo__glow" aria-hidden="true" />
@@ -83,6 +68,25 @@ export function OgtaAiSection() {
                   <span>Gözlem kaydı oluşturuldu · audit log yazıldı</span>
                 </footer>
               </div>
+            </div>
+
+            <div className="ogta-section__copy">
+              <h3 className="ogta-section__tagline">Doğal dille komut verin, onaylı aksiyon alın</h3>
+              <p className="section-lead">
+                OGTA.ai ayrı bir sohbet uygulaması değil — mevcut okul operasyonlarını hızlandıran komut
+                asistanıdır. Her kritik işlem yetki, kapsam ve açık onay ile çalışır.
+              </p>
+
+              <ul className="ogta-section__checks">
+                {ogtaChecks.map((item) => (
+                  <li key={item}>
+                    <span aria-hidden="true" className="ogta-section__check-icon">
+                      <Check size={13} strokeWidth={2.8} />
+                    </span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </article>

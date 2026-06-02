@@ -15,8 +15,12 @@ type Repository interface {
 	CurrentSchedule(ctx context.Context, tenantID string) (domain.Schedule, bool)
 	GetSchedule(ctx context.Context, tenantID string, scheduleID string) (domain.Schedule, bool)
 	GenerateDraftSchedule(ctx context.Context, tenantID string) domain.GenerationResult
-	UpdateScheduleLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, input domain.UpdateLessonInput) (domain.Lesson, bool, error)
+	UpdateScheduleLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, actorUserID string, input domain.UpdateLessonInput) (domain.Lesson, bool, error)
 	ValidateSchedule(ctx context.Context, tenantID string, scheduleID string) domain.ValidationResult
+	ScheduleConflicts(ctx context.Context, tenantID, scheduleID string) domain.ConflictsResult
+	CloneSchedule(ctx context.Context, tenantID, scheduleID, actorUserID string) (domain.Schedule, bool, error)
+	ListScheduleChangeLogs(ctx context.Context, tenantID, scheduleID string, limit int) []domain.ScheduleChangeLog
+	SaveTeacherAvailabilitiesBulk(ctx context.Context, tenantID string, items []domain.AvailabilityInput) ([]domain.TeacherAvailability, error)
 	PublishSchedule(ctx context.Context, tenantID string, scheduleID string, actorUserID string) (domain.Schedule, bool, error)
 	TeacherCalendar(ctx context.Context, tenantID string, teacherID string) []domain.Lesson
 	ActiveLessonForTeacher(ctx context.Context, tenantID string, teacherID string, now time.Time) (domain.Lesson, bool)
@@ -58,12 +62,28 @@ func (s *Service) GenerateDraft(ctx context.Context, tenantID string) domain.Gen
 	return s.repo.GenerateDraftSchedule(ctx, tenantID)
 }
 
-func (s *Service) UpdateLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, input domain.UpdateLessonInput) (domain.Lesson, bool, error) {
-	return s.repo.UpdateScheduleLesson(ctx, tenantID, scheduleID, lessonID, input)
+func (s *Service) UpdateLesson(ctx context.Context, tenantID string, scheduleID string, lessonID string, actorUserID string, input domain.UpdateLessonInput) (domain.Lesson, bool, error) {
+	return s.repo.UpdateScheduleLesson(ctx, tenantID, scheduleID, lessonID, actorUserID, input)
 }
 
 func (s *Service) ValidateSchedule(ctx context.Context, tenantID string, scheduleID string) domain.ValidationResult {
 	return s.repo.ValidateSchedule(ctx, tenantID, scheduleID)
+}
+
+func (s *Service) ScheduleConflicts(ctx context.Context, tenantID, scheduleID string) domain.ConflictsResult {
+	return s.repo.ScheduleConflicts(ctx, tenantID, scheduleID)
+}
+
+func (s *Service) CloneSchedule(ctx context.Context, tenantID, scheduleID, actorUserID string) (domain.Schedule, bool, error) {
+	return s.repo.CloneSchedule(ctx, tenantID, scheduleID, actorUserID)
+}
+
+func (s *Service) ListScheduleChangeLogs(ctx context.Context, tenantID, scheduleID string, limit int) []domain.ScheduleChangeLog {
+	return s.repo.ListScheduleChangeLogs(ctx, tenantID, scheduleID, limit)
+}
+
+func (s *Service) SaveTeacherAvailabilitiesBulk(ctx context.Context, tenantID string, items []domain.AvailabilityInput) ([]domain.TeacherAvailability, error) {
+	return s.repo.SaveTeacherAvailabilitiesBulk(ctx, tenantID, items)
 }
 
 func (s *Service) PublishSchedule(ctx context.Context, tenantID string, scheduleID string, actorUserID string) (domain.Schedule, bool, error) {

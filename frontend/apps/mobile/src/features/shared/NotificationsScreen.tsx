@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, BellRing, CheckCheck, ChevronDown, ChevronUp, Search } from "lucide-react-native";
+import { Bell, BellRing, CheckCheck, ChevronDown, ChevronUp, Search, Trash2 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { colors } from "@/shared/theme/colors";
@@ -82,6 +82,26 @@ export function NotificationsScreen({ mode }: { mode: "user" | "guardian" }) {
       mode === "guardian" ? api.guardianNotificationMarkRead(id) : api.notificationMarkRead(id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.notifications(mode) })
   });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) =>
+      mode === "guardian" ? api.guardianNotificationDelete(id) : api.notificationDelete(id),
+    onSuccess: (_data, id) => {
+      setExpandedId((current) => (current === id ? null : current));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications(mode) });
+    }
+  });
+
+  function confirmDelete(item: NotificationItem) {
+    Alert.alert("Bildirimi sil", `"${item.title}" bildirimini silmek istediğinize emin misiniz?`, [
+      { text: "Vazgeç", style: "cancel" },
+      {
+        text: "Sil",
+        style: "destructive",
+        onPress: () => deleteMut.mutate(item.id)
+      }
+    ]);
+  }
 
   const notifications = query.data ?? [];
   const unreadCount = notifications.filter((n) => !n.readAt).length;
@@ -237,9 +257,11 @@ export function NotificationsScreen({ mode }: { mode: "user" | "guardian" }) {
         filtered.map((item) => (
           <NotificationCard
             key={item.id}
+            deleting={deleteMut.isPending && deleteMut.variables === item.id}
             expanded={expandedId === item.id}
             item={item}
             marking={markMut.isPending && markMut.variables === item.id}
+            onDelete={() => confirmDelete(item)}
             onMarkRead={() => {
               if (!item.readAt) markMut.mutate(item.id);
             }}
@@ -255,30 +277,34 @@ function NotificationCard({
   item,
   expanded,
   marking,
+  deleting,
   onToggle,
-  onMarkRead
+  onMarkRead,
+  onDelete
 }: {
   item: NotificationItem;
   expanded: boolean;
   marking: boolean;
+  deleting: boolean;
   onToggle: () => void;
   onMarkRead: () => void;
+  onDelete: () => void;
 }) {
   const tone = kindTone(item.kind);
   const unread = !item.readAt;
   const preview = item.body.length > 120 && !expanded ? `${item.body.slice(0, 120)}…` : item.body;
 
   return (
-    <Pressable
-      onPress={() => {
-        onToggle();
-        if (unread) onMarkRead();
-      }}
-      style={({ pressed }) => [styles.card, unread && styles.cardUnread, pressed && styles.cardPressed]}
-    >
+    <View style={[styles.card, unread && styles.cardUnread]}>
       <View style={[styles.cardStripe, { backgroundColor: unread ? tone.text : colors.border }]} />
 
-      <View style={styles.cardBody}>
+      <Pressable
+        onPress={() => {
+          onToggle();
+          if (unread) onMarkRead();
+        }}
+        style={({ pressed }) => [styles.cardBody, pressed && styles.cardPressed]}
+      >
         <View style={styles.cardTop}>
           <View style={[styles.cardIcon, { backgroundColor: tone.bg, borderColor: tone.border }]}>
             <Bell color={tone.text} size={16} strokeWidth={2.2} />
@@ -297,20 +323,54 @@ function NotificationCard({
               <Text style={styles.dateText}>{formatRelativeDate(item.createdAt)}</Text>
             </View>
           </View>
-          {expanded ? (
-            <ChevronUp color={colors.textMuted} size={18} strokeWidth={2.2} />
-          ) : (
-            <ChevronDown color={colors.textMuted} size={18} strokeWidth={2.2} />
-          )}
+          <View style={styles.cardActions}>
+            <Pressable
+              accessibilityLabel="Bildirimi sil"
+              accessibilityRole="button"
+              disabled={deleting}
+              hitSlop={8}
+              onPress={(event) => {
+                event.stopPropagation?.();
+                onDelete();
+              }}
+              style={({ pressed }) => [styles.deleteBtn, pressed && styles.deleteBtnPressed, deleting && styles.deleteBtnDisabled]}
+            >
+              {deleting ? (
+                <ActivityIndicator color="#dc2626" size="small" />
+              ) : (
+                <Trash2 color="#dc2626" size={16} strokeWidth={2.2} />
+              )}
+            </Pressable>
+            {expanded ? (
+              <ChevronUp color={colors.textMuted} size={18} strokeWidth={2.2} />
+            ) : (
+              <ChevronDown color={colors.textMuted} size={18} strokeWidth={2.2} />
+            )}
+          </View>
         </View>
 
         <Text style={[styles.cardContent, expanded && styles.cardContentExpanded]}>{preview}</Text>
 
         {!expanded && item.body.length > 120 ? <Text style={styles.readMore}>Devamını oku</Text> : null}
-        {expanded ? <Text style={styles.fullDate}>{formatDate(item.createdAt)} · {item.readAt ? "Okundu" : "Yeni"}</Text> : null}
+        {expanded ? (
+          <View style={styles.expandedFooter}>
+            <Text style={styles.fullDate}>{formatDate(item.createdAt)} · {item.readAt ? "Okundu" : "Yeni"}</Text>
+            <Pressable
+              disabled={deleting}
+              onPress={(event) => {
+                event.stopPropagation?.();
+                onDelete();
+              }}
+              style={({ pressed }) => [styles.deleteTextBtn, pressed && styles.deleteBtnPressed, deleting && styles.deleteBtnDisabled]}
+            >
+              <Trash2 color="#dc2626" size={14} strokeWidth={2.2} />
+              <Text style={styles.deleteTextBtnLabel}>Sil</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {marking ? <ActivityIndicator color={colors.accent} style={styles.marking} /> : null}
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
@@ -427,6 +487,37 @@ const styles = StyleSheet.create({
   cardStripe: { width: 4 },
   cardBody: { flex: 1, padding: 14, gap: 10 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  cardActions: { alignItems: "center", gap: 8 },
+  deleteBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    backgroundColor: "#fef2f2",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  deleteBtnPressed: { opacity: 0.82 },
+  deleteBtnDisabled: { opacity: 0.55 },
+  deleteTextBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    backgroundColor: "#fef2f2"
+  },
+  deleteTextBtnLabel: { fontSize: 12, fontWeight: "800", color: "#dc2626" },
+  expandedFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10
+  },
   cardIcon: {
     width: 36,
     height: 36,

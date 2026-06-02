@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { PrincipalAcademicOverviewCard } from "@/features/principal/PrincipalAcademicOverviewCard";
+import { PrincipalGuidanceCasesCard } from "@/features/principal/PrincipalGuidanceCasesCard";
 import { PrincipalOgtaAiStrip } from "@/features/principal/PrincipalOgtaAiStrip";
 import { PrincipalOverviewStats } from "@/features/principal/PrincipalOverviewStats";
 import { PrincipalQuickActions } from "@/features/principal/PrincipalQuickActions";
@@ -32,6 +34,8 @@ export function PrincipalOverviewScreen() {
       <PrincipalWelcomeCard />
       {summaryQ.isError ? <ErrorState message={summaryQ.error.message} onRetry={onRefresh} /> : null}
       <PrincipalOverviewStats summary={s} />
+      <PrincipalAcademicOverviewCard />
+      <PrincipalGuidanceCasesCard />
       <PrincipalOgtaAiStrip />
       <PrincipalQuickActions />
     </Screen>

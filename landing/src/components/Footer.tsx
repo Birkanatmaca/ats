@@ -1,23 +1,59 @@
-import { navLinks } from "../lib/constants";
+import { Link } from "react-router-dom";
+import { ArrowUpRight, Mail } from "lucide-react";
+import { APP_URL, CONTACT_EMAIL, navLinks } from "../lib/constants";
 
 export function Footer() {
   const year = new Date().getFullYear();
+  const pageLinks = navLinks.filter((link) => link.href !== "/");
 
   return (
     <footer className="site-footer">
-      <div className="container footer-inner">
-        <div className="footer-brand">
-          <img alt="OGTA" height={28} src="/ogta-wordmark.png" width={100} />
-          <p>Özel okul, kolej ve eğitim kurumları için bulut tabanlı okul yönetim yazılımı. Yoklama, ders programı, rehberlik ve ogta.ai — tek platformda.</p>
+      <div className="container footer-shell">
+        <div className="footer-top">
+          <div className="footer-brand-block">
+            <Link aria-label="OGTA anasayfa" className="footer-logo" to="/">
+              <img alt="OGTA" height={30} src="/ogta-wordmark.png" width={108} />
+            </Link>
+            <p className="footer-brand-text">
+              Özel okul ve kolejler için bulut tabanlı okul yönetim yazılımı. Yoklama, ders programı,
+              rehberlik ve ogta.ai — tek platformda.
+            </p>
+          </div>
+
+          <div className="footer-block">
+            <h3 className="footer-block__title">Sayfalar</h3>
+            <nav aria-label="Site sayfaları" className="footer-nav">
+              {pageLinks.map((link) => (
+                <Link key={link.href} to={link.href}>
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <div className="footer-block">
+            <h3 className="footer-block__title">Erişim</h3>
+            <div className="footer-actions">
+              <a className="footer-action footer-action--panel" href={APP_URL}>
+                <span>Panel girişi</span>
+                <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.2} />
+              </a>
+              <a className="footer-action footer-action--muted" href={`mailto:${CONTACT_EMAIL}`}>
+                <Mail aria-hidden="true" size={16} strokeWidth={2.2} />
+                <span>{CONTACT_EMAIL}</span>
+              </a>
+            </div>
+          </div>
         </div>
-        <div className="footer-links">
-          {navLinks.map((link) => (
-            <a href={link.href} key={link.href}>
-              {link.label}
-            </a>
-          ))}
+
+        <div className="footer-bottom">
+          <p className="footer-copy">© {year} OGTA Platform. Tüm hakları saklıdır.</p>
+          <div className="footer-bottom-links">
+            <Link to="/iletisim">İletişim</Link>
+            <Link to="/sss">SSS</Link>
+            <Link to="/lisanslama">Lisanslama</Link>
+          </div>
         </div>
-        <p className="footer-copy">© {year} OGTA Platform. Tüm hakları saklıdır.</p>
       </div>
     </footer>
   );

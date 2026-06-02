@@ -18,6 +18,9 @@ export default function PrincipalRootLayout() {
         <Stack.Screen name="notifications" options={swipeDetailScreenOptions} />
         <Stack.Screen name="support" options={swipeDetailScreenOptions} />
         <Stack.Screen name="profile" options={swipeDetailScreenOptions} />
+        <Stack.Screen name="guidance-cases" options={swipeDetailScreenOptions} />
+        <Stack.Screen name="student-imports" options={swipeDetailScreenOptions} />
+        <Stack.Screen name="student-imports/[jobId]" options={swipeDetailScreenOptions} />
       </Stack>
     </OgtaAiProvider>
   );

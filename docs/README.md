@@ -23,5 +23,19 @@ Okuma sırası:
 17. [Eksik Kalan Kısımlar Analizi](16-eksik-kalan-kisimlar-analizi.md)
 18. [ogta.ai Durum ve Eksikler](17-ogta-ai-durum-ve-eksikler.md)
 19. [Sistem Detaylı Analiz ve Modül Önerileri](15-sistem-detayli-analiz-ve-modul-onerileri.md)
+20. [Mobil Frontend Devam Analizi ve Future Yol Haritası](19-mobile-frontend-devam-analizi.md)
+
+Modül önerileri detay dokümanları:
+
+1. [Mobil Bildirim Modülü](modul-onerileri/01-mobil-bildirim-modulu.md)
+2. [Offline Yoklama Modülü](modul-onerileri/02-offline-yoklama-modulu.md)
+3. [Rehberlik Vaka Dosyası Modülü](modul-onerileri/03-rehberlik-vaka-dosyasi-modulu.md)
+4. [Hedefli Duyuru ve İletişim Modülü](modul-onerileri/04-hedefli-duyuru-iletisim-modulu.md)
+5. [Öğrenci Import ve Veri Operasyon Modülü](modul-onerileri/05-ogrenci-import-veri-operasyon-modulu.md)
+6. [Tablet Ders Programı Builder Modülü](modul-onerileri/06-tablet-ders-programi-builder-modulu.md)
+7. [Akademik Gelişim Modülü](modul-onerileri/07-akademik-gelisim-modulu.md)
+8. [Tahsilat Modülü](modul-onerileri/08-tahsilat-modulu.md)
+9. [Servis Modülü](modul-onerileri/09-servis-modulu.md)
+10. [Yemek, Etüt ve Kulüp Modülü](modul-onerileri/10-yemek-etut-kulup-modulu.md)
 
 Bu sıra, önce çalışır bir MVP çıkarmayı, sonra ürünün premium modüllerini kontrollü şekilde büyütmeyi hedefler.

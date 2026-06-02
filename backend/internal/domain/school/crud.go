@@ -107,8 +107,8 @@ type ProvisionTeacherInput struct {
 
 type ProvisionTeacherResult struct {
 	Teacher           Teacher `json:"teacher"`
-	Email             string `json:"email"`
-	TemporaryPassword string `json:"temporaryPassword"`
+	Email             string  `json:"email"`
+	TemporaryPassword string  `json:"temporaryPassword"`
 }
 
 type ProvisionGuardianInput struct {
@@ -120,6 +120,7 @@ type ProvisionGuardianInput struct {
 }
 
 type ProvisionGuardianResult struct {
+	UserID            string `json:"userId"`
 	Email             string `json:"email"`
 	TemporaryPassword string `json:"temporaryPassword"`
 	LinkedStudents    int    `json:"linkedStudents"`

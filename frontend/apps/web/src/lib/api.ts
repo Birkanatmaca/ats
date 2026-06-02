@@ -53,6 +53,80 @@ export type SchoolStudentRecord = {
   createdAt: string;
 };
 
+export type StudentImportJobOptions = {
+  createMissingClasses: boolean;
+  inviteGuardians: boolean;
+};
+
+export type StudentImportJobStatus =
+  | "draft"
+  | "validating"
+  | "ready"
+  | "importing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type StudentImportRowStatus = "valid" | "warning" | "error" | "imported";
+
+export type StudentImportNormalizedRow = {
+  schoolNumber: string;
+  firstName: string;
+  lastName: string;
+  className: string;
+  sectionName: string;
+  classId?: string;
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
+  guardianRelation?: string;
+  gender?: string;
+  birthDate?: string;
+  studentStatus?: string;
+};
+
+export type StudentImportRow = {
+  id: string;
+  jobId: string;
+  rowNumber: number;
+  rawData: Record<string, unknown>;
+  normalizedData: StudentImportNormalizedRow;
+  status: StudentImportRowStatus;
+  errorMessages: string[];
+  createdStudentId?: string;
+  createdGuardianUserId?: string;
+};
+
+export type StudentImportJob = {
+  id: string;
+  tenantId: string;
+  status: StudentImportJobStatus;
+  fileName: string;
+  uploadedBy?: string;
+  totalRows: number;
+  validRows: number;
+  warningRows: number;
+  errorRows: number;
+  importedRows: number;
+  options: StudentImportJobOptions;
+  createdAt: string;
+  completedAt?: string | null;
+};
+
+export type StudentImportCommitPreview = {
+  studentsToCreate: number;
+  guardiansToInvite: number;
+  skippedRows: number;
+};
+
+export type StudentImportCommitResult = {
+  job: StudentImportJob;
+  createdStudents: number;
+  createdGuardians: number;
+  skippedRows: number;
+  failedRows: number;
+};
+
 export type SchoolTeacherRecord = {
   id: string;
   userId: string;
@@ -148,6 +222,139 @@ export type ScheduleValidationResult = {
   softWarnings: string[];
 };
 
+export type ScheduleConflict = {
+  severity: "hard" | "soft";
+  type: string;
+  message: string;
+  lessonIds?: string[];
+};
+
+export type ScheduleConflictsResult = {
+  valid: boolean;
+  conflicts: ScheduleConflict[];
+  hardConflicts: string[];
+  softWarnings: string[];
+};
+
+export type ScheduleChangeLog = {
+  id: string;
+  scheduleId: string;
+  actorUserId?: string;
+  lessonId?: string;
+  changeType: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type AcademicAssessmentType = "exam" | "quiz" | "homework" | "project";
+
+export type AcademicAssessment = {
+  id: string;
+  name: string;
+  subjectId: string;
+  subjectName: string;
+  classId?: string;
+  className?: string;
+  assessmentType: AcademicAssessmentType;
+  maxScore: number;
+  assessmentDate: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AcademicResult = {
+  id: string;
+  assessmentId: string;
+  studentId: string;
+  studentName: string;
+  classId?: string;
+  className?: string;
+  score: number;
+  percentile?: number;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AcademicResultInput = {
+  studentId?: string;
+  schoolNumber?: string;
+  fullName?: string;
+  score: number;
+  percentile?: number;
+  note?: string;
+};
+
+export type AcademicImportResult = {
+  imported: number;
+  failed: number;
+  rows: Array<{ rowNumber: number; status: string; studentId?: string; errors?: string[] }>;
+  results: AcademicResult[];
+};
+
+export type StudentAcademicSummary = {
+  student: { id: string; fullName: string; schoolNumber: string; classId: string; className: string };
+  averagePercent: number;
+  assessmentCount: number;
+  subjectSummaries: Array<{
+    subjectId: string;
+    subjectName: string;
+    averagePercent: number;
+    assessmentCount: number;
+    latestScore: number;
+    latestMaxScore: number;
+    trend: string;
+    needsSupport: boolean;
+  }>;
+  recentResults: Array<{
+    assessmentId: string;
+    assessmentName: string;
+    subjectId: string;
+    subjectName: string;
+    assessmentDate: string;
+    score: number;
+    maxScore: number;
+    percent: number;
+    note?: string;
+  }>;
+  outcomes: Array<{
+    id: string;
+    outcomeCode: string;
+    outcomeTitle: string;
+    subjectName: string;
+    status: string;
+    evidence?: string;
+    updatedAt: string;
+  }>;
+  supportSignals: string[];
+  aiWeeklySummary: string;
+};
+
+export type ClassAcademicSummary = {
+  class: { id: string; name: string };
+  averagePercent: number;
+  assessmentCount: number;
+  studentCount: number;
+  subjectSummaries: Array<{
+    subjectId: string;
+    subjectName: string;
+    averagePercent: number;
+    assessmentCount: number;
+    trend: string;
+    needsSupportCount: number;
+  }>;
+  supportStudents: Array<{
+    studentId: string;
+    studentName: string;
+    schoolNumber: string;
+    averagePercent: number;
+    signal: string;
+  }>;
+  aiWeeklySummary: string;
+};
+
 export type PageResult<T> = {
   items: T[];
   total: number;
@@ -221,7 +428,7 @@ export type Lesson = {
 export type Schedule = {
   id: string;
   name: string;
-  status: "draft" | "published";
+  status: "draft" | "published" | "archived";
   version: number;
   score: number;
   lessons: Lesson[];
@@ -841,6 +1048,10 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
     throw new Error(message);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   const envelope = (await response.json()) as Envelope<T>;
   return (envelope.data ?? null) as T;
 }
@@ -1061,11 +1272,51 @@ export const api = {
       method: "POST",
       body: "{}"
     }),
+  scheduleConflicts: (scheduleId: string) =>
+    request<ScheduleConflictsResult>(`/api/v1/schedules/${scheduleId}/conflicts`),
+  scheduleChangeLog: (scheduleId: string) =>
+    request<ScheduleChangeLog[] | null>(`/api/v1/schedules/${scheduleId}/change-log`).then(asArray),
+  cloneSchedule: (scheduleId: string) =>
+    request<Schedule>(`/api/v1/schedules/${scheduleId}/clone`, {
+      method: "POST",
+      body: "{}"
+    }),
   publishSchedule: (scheduleId: string) =>
     request<Schedule>(`/api/v1/schedules/${scheduleId}/publish`, {
       method: "POST",
       body: "{}"
     }),
+  academicAssessments: () => request<AcademicAssessment[] | null>("/api/v1/academic/assessments").then(asArray),
+  createAcademicAssessment: (payload: {
+    name: string;
+    subjectId: string;
+    classId?: string;
+    assessmentType: AcademicAssessmentType;
+    maxScore: number;
+    assessmentDate: string;
+  }) =>
+    request<AcademicAssessment>("/api/v1/academic/assessments", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  academicResults: (assessmentId: string) =>
+    request<AcademicResult[] | null>(`/api/v1/academic/assessments/${assessmentId}/results`).then(asArray),
+  saveAcademicResults: (assessmentId: string, results: AcademicResultInput[]) =>
+    request<AcademicResult[]>(`/api/v1/academic/assessments/${assessmentId}/results`, {
+      method: "POST",
+      body: JSON.stringify({ results })
+    }),
+  importAcademicResults: (assessmentId: string, rows: AcademicResultInput[]) =>
+    request<AcademicImportResult>("/api/v1/academic/results/import", {
+      method: "POST",
+      body: JSON.stringify({ assessmentId, rows })
+    }),
+  studentAcademicSummary: (studentId: string) =>
+    request<StudentAcademicSummary>(`/api/v1/students/${studentId}/academic-summary`),
+  classAcademicSummary: (classId: string) =>
+    request<ClassAcademicSummary>(`/api/v1/classes/${classId}/academic-summary`),
+  guardianAcademicReport: (studentId: string) =>
+    request<StudentAcademicSummary>(`/api/v1/guardian/students/${studentId}/academic-report`),
   listSchedulingRequirements: () =>
     request<SchedulingRequirement[] | null>("/api/v1/scheduling/requirements").then(asArray),
   saveSchedulingRequirements: (items: Array<{ classId: string; subjectId: string; weeklyHours: number }>) =>
@@ -1086,6 +1337,19 @@ export const api = {
   ) =>
     request<TeacherAvailability[]>("/api/v1/scheduling/teacher-availabilities", {
       method: "POST",
+      body: JSON.stringify({ items })
+    }),
+  saveTeacherAvailabilitiesBulk: (
+    items: Array<{
+      teacherId: string;
+      dayOfWeek: number;
+      startTime: string;
+      endTime: string;
+      availabilityType?: string;
+    }>
+  ) =>
+    request<TeacherAvailability[]>("/api/v1/scheduling/teacher-availabilities/bulk", {
+      method: "PATCH",
       body: JSON.stringify({ items })
     }),
   listClasses: () => request<SchoolClassRecord[] | null>("/api/v1/classes").then(asArray),
@@ -1201,12 +1465,16 @@ export const api = {
       method: "PATCH",
       body: "{}"
     }),
+  guardianNotificationDelete: (notificationId: string) =>
+    request<void>(`/api/v1/guardian/notifications/${notificationId}`, { method: "DELETE" }),
   notifications: () => request<UserNotification[] | null>("/api/v1/notifications").then(asArray),
   notificationMarkRead: (notificationId: string) =>
     request<UserNotification>(`/api/v1/notifications/${notificationId}/read`, {
       method: "PATCH",
       body: "{}"
     }),
+  notificationDelete: (notificationId: string) =>
+    request<void>(`/api/v1/notifications/${notificationId}`, { method: "DELETE" }),
   passwordForgot: (payload: { email: string }) =>
     request<{ message: string; resetToken?: string }>("/api/v1/auth/password/forgot", {
       method: "POST",
@@ -1235,6 +1503,29 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  listStudentImportJobs: () => request<StudentImportJob[] | null>("/api/v1/imports/students").then(asArray),
+  createStudentImportJob: (payload: {
+    fileName: string;
+    rows: Array<Record<string, unknown>>;
+    options: StudentImportJobOptions;
+  }) =>
+    request<StudentImportJob>("/api/v1/imports/students", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  getStudentImportJob: (jobId: string) => request<StudentImportJob>(`/api/v1/imports/students/${jobId}`),
+  listStudentImportRows: (jobId: string) =>
+    request<StudentImportRow[] | null>(`/api/v1/imports/students/${jobId}/rows`).then(asArray),
+  validateStudentImportJob: (jobId: string) =>
+    request<StudentImportJob>(`/api/v1/imports/students/${jobId}/validate`, { method: "POST", body: "{}" }),
+  previewStudentImportJob: (jobId: string) =>
+    request<StudentImportCommitPreview>(`/api/v1/imports/students/${jobId}/preview`),
+  commitStudentImportJob: (jobId: string) =>
+    request<StudentImportCommitResult>(`/api/v1/imports/students/${jobId}/commit`, { method: "POST", body: "{}" }),
+  cancelStudentImportJob: (jobId: string) =>
+    request<StudentImportJob>(`/api/v1/imports/students/${jobId}/cancel`, { method: "POST", body: "{}" }),
+  rollbackStudentImportJob: (jobId: string) =>
+    request<StudentImportJob>(`/api/v1/imports/students/${jobId}/rollback`, { method: "POST", body: "{}" }),
   observationsFiltered: (params?: { category?: string; className?: string; date?: string }) => {
     const query = new URLSearchParams();
     if (params?.category) {

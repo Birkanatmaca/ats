@@ -22,6 +22,8 @@ type Repository interface {
 	ReopenAttendanceSession(ctx context.Context, tenantID string, sessionID string, actorUserID string) (domain.Session, bool)
 	StudentAttendanceSummary(ctx context.Context, tenantID string, studentID string) (domain.StudentSummary, bool)
 	AttendanceDayReport(ctx context.Context, tenantID string, date time.Time) domain.DayReport
+	ClassAttendanceSheet(ctx context.Context, tenantID string, classID string, date time.Time) (domain.ClassAttendanceSheet, bool)
+	SaveClassAttendance(ctx context.Context, tenantID string, classID string, date time.Time, actorUserID string, updates []domain.RecordUpdate) (domain.ClassAttendanceSheet, bool)
 }
 
 type Service struct {
@@ -93,4 +95,20 @@ func (s *Service) StudentSummary(ctx context.Context, tenantID string, studentID
 		return domain.StudentSummary{}, ErrStudentNotFound
 	}
 	return summary, nil
+}
+
+func (s *Service) ClassAttendanceSheet(ctx context.Context, tenantID string, classID string, date time.Time) (domain.ClassAttendanceSheet, error) {
+	sheet, ok := s.repo.ClassAttendanceSheet(ctx, tenantID, classID, date)
+	if !ok {
+		return domain.ClassAttendanceSheet{}, ErrStudentNotFound
+	}
+	return sheet, nil
+}
+
+func (s *Service) SaveClassAttendance(ctx context.Context, tenantID string, classID string, date time.Time, actorUserID string, updates []domain.RecordUpdate) (domain.ClassAttendanceSheet, error) {
+	sheet, ok := s.repo.SaveClassAttendance(ctx, tenantID, classID, date, actorUserID, updates)
+	if !ok {
+		return domain.ClassAttendanceSheet{}, ErrAttendanceWindowClosed
+	}
+	return sheet, nil
 }

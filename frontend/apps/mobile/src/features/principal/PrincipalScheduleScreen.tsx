@@ -1,23 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  BookOpen,
-  CalendarDays,
-  CheckCircle2,
-  Minus,
-  Plus,
-  Sparkles,
-  Wand2
-} from "lucide-react-native";
+import { BookOpen, CalendarDays, History, Minus, Plus, Sparkles, Wand2 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { sortClasses, sortSections } from "@/features/principal/classUtils";
-import { PrincipalScheduleCalendar, type SectionOption } from "@/features/principal/PrincipalScheduleCalendar";
+import {
+  PrincipalScheduleCalendar,
+  type SectionOption,
+  type TeacherOption
+} from "@/features/principal/PrincipalScheduleCalendar";
+import { PrincipalScheduleConflictsPanel } from "@/features/principal/PrincipalScheduleConflictsPanel";
 import { PrincipalScheduleLessonModal } from "@/features/principal/PrincipalScheduleLessonModal";
+import { PrincipalTeacherAvailabilityPanel } from "@/features/principal/PrincipalTeacherAvailabilityPanel";
 import { usePrincipalRoster } from "@/features/principal/usePrincipalRoster";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
-import type { Lesson, RequirementInput, Schedule, ScheduleValidationResult, SchedulingRequirement } from "@/shared/api/types";
+import type {
+  Lesson,
+  RequirementInput,
+  Schedule,
+  ScheduleChangeLog,
+  ScheduleConflictsResult,
+  ScheduleValidationResult,
+  SchedulingRequirement
+} from "@/shared/api/types";
 import { colors } from "@/shared/theme/colors";
 import { DetailBackBar } from "@/shared/ui/DetailBackBar";
 import { ErrorState } from "@/shared/ui/ErrorState";
@@ -26,7 +31,8 @@ import { Screen } from "@/shared/ui/Screen";
 import { platformShadow } from "@/shared/ui/platformShadow";
 import { sortLessons } from "@/shared/utils/lessonSchedule";
 
-type TabMode = "program" | "planlama";
+type TabMode = "program" | "planlama" | "musaitlik";
+type ViewMode = "class" | "teacher";
 
 function computeStats(lessons: Lesson[]) {
   const classIds = new Set(lessons.map((l) => l.classId));
@@ -57,12 +63,15 @@ function groupRequirementsByClass(requirements: SchedulingRequirement[]) {
 export function PrincipalScheduleScreen() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabMode>("program");
+  const [viewMode, setViewMode] = useState<ViewMode>("class");
   const [draftId, setDraftId] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<SectionOption | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<TeacherOption | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [requirementDraft, setRequirementDraft] = useState<RequirementInput[]>([]);
   const [requirementsDirty, setRequirementsDirty] = useState(false);
   const [validation, setValidation] = useState<ScheduleValidationResult | null>(null);
+  const [conflicts, setConflicts] = useState<ScheduleConflictsResult | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
 
   const rosterQ = usePrincipalRoster();
@@ -86,6 +95,11 @@ export function PrincipalScheduleScreen() {
   const isDraft = workingSchedule?.status === "draft";
   const editable = Boolean(workingSchedule && isDraft);
   const scheduleId = workingSchedule?.id ?? draftId ?? publishedQ.data?.id ?? null;
+  const changeLogQ = useQuery({
+    queryKey: queryKeys.scheduleChangeLog(scheduleId ?? ""),
+    queryFn: () => api.scheduleChangeLog(scheduleId!),
+    enabled: Boolean(scheduleId)
+  });
 
   const lessons = useMemo(() => sortLessons(workingSchedule?.lessons ?? []), [workingSchedule?.lessons]);
   const stats = useMemo(() => computeStats(lessons), [lessons]);
@@ -129,6 +143,31 @@ export function PrincipalScheduleScreen() {
     }
   }, [sectionOptions, selectedSection]);
 
+  const teacherOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const teacher of teachersQ.data ?? []) {
+      map.set(teacher.id, teacher.fullName);
+    }
+    for (const lesson of lessons) {
+      if (!map.has(lesson.teacherId)) {
+        map.set(lesson.teacherId, lesson.teacherName);
+      }
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  }, [teachersQ.data, lessons]);
+
+  useEffect(() => {
+    if (teacherOptions.length === 0) {
+      setSelectedTeacher(null);
+      return;
+    }
+    if (!selectedTeacher || !teacherOptions.some((item) => item.id === selectedTeacher.id)) {
+      setSelectedTeacher(teacherOptions[0]);
+    }
+  }, [teacherOptions, selectedTeacher]);
+
   const requirementGroups = useMemo(() => groupRequirementsByClass(requirementsQ.data ?? []), [requirementsQ.data]);
 
   useEffect(() => {
@@ -146,6 +185,7 @@ export function PrincipalScheduleScreen() {
   const invalidateSchedule = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.schedule });
     if (draftId) void queryClient.invalidateQueries({ queryKey: queryKeys.scheduleById(draftId) });
+    if (scheduleId) void queryClient.invalidateQueries({ queryKey: queryKeys.scheduleChangeLog(scheduleId) });
   };
 
   const saveRequirementsMut = useMutation({
@@ -180,13 +220,32 @@ export function PrincipalScheduleScreen() {
     mutationFn: async () => {
       const id = scheduleId;
       if (!id) throw new Error("Doğrulanacak program yok.");
-      return api.validateSchedule(id);
+      const [result, conflictResult] = await Promise.all([api.validateSchedule(id), api.scheduleConflicts(id)]);
+      return { result, conflictResult };
     },
-    onSuccess: (result) => {
+    onSuccess: ({ result, conflictResult }) => {
       setValidation(result);
+      setConflicts(conflictResult);
       setBanner(result.valid ? "Program doğrulandı, yayına hazır." : "Doğrulama sorunları bulundu.");
     },
     onError: (e) => setBanner(e instanceof Error ? e.message : "Doğrulama başarısız.")
+  });
+
+  const cloneMut = useMutation({
+    mutationFn: async () => {
+      const id = scheduleId;
+      if (!id) throw new Error("Kopyalanacak program yok.");
+      return api.cloneSchedule(id);
+    },
+    onSuccess: (schedule) => {
+      setDraftId(schedule.id);
+      setValidation(null);
+      setConflicts(null);
+      setTab("program");
+      setBanner("Program taslağa kopyalandı.");
+      invalidateSchedule();
+    },
+    onError: (e) => setBanner(e instanceof Error ? e.message : "Kopyalama başarısız.")
   });
 
   const publishMut = useMutation({
@@ -224,10 +283,17 @@ export function PrincipalScheduleScreen() {
       if (!scheduleId) throw new Error("Program bulunamadı.");
       return api.updateScheduleLesson(scheduleId, payload.lessonId, payload.data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setBanner("Ders güncellendi.");
       setValidation(null);
       invalidateSchedule();
+      if (scheduleId) {
+        try {
+          setConflicts(await api.scheduleConflicts(scheduleId));
+        } catch {
+          setConflicts(null);
+        }
+      }
     }
   });
 
@@ -242,13 +308,18 @@ export function PrincipalScheduleScreen() {
   }
 
   const refreshing =
-    publishedQ.isRefetching || draftQ.isRefetching || requirementsQ.isRefetching || teachersQ.isRefetching;
+    publishedQ.isRefetching ||
+    draftQ.isRefetching ||
+    requirementsQ.isRefetching ||
+    teachersQ.isRefetching ||
+    changeLogQ.isRefetching;
 
   const onRefresh = () => {
     void publishedQ.refetch();
     if (draftId) void draftQ.refetch();
     void requirementsQ.refetch();
     void teachersQ.refetch();
+    if (scheduleId) void changeLogQ.refetch();
   };
 
   const loading = publishedQ.isLoading || requirementsQ.isLoading;
@@ -383,23 +454,8 @@ export function PrincipalScheduleScreen() {
           </View>
         ) : null}
 
-        {validation ? (
-          <View style={[styles.validationCard, validation.valid ? styles.validationOk : styles.validationBad]}>
-            <View style={styles.validationHead}>
-              {validation.valid ? (
-                <CheckCircle2 color="#15803d" size={18} strokeWidth={2.2} />
-              ) : (
-                <AlertTriangle color="#b91c1c" size={18} strokeWidth={2.2} />
-              )}
-              <Text style={styles.validationTitle}>{validation.valid ? "Doğrulama başarılı" : "Sorunlar bulundu"}</Text>
-            </View>
-            {[...validation.hardConflicts, ...validation.softWarnings].slice(0, 4).map((item) => (
-              <Text key={item} style={styles.validationItem}>
-                · {item}
-              </Text>
-            ))}
-          </View>
-        ) : null}
+        <PrincipalScheduleConflictsPanel result={conflicts} />
+        {scheduleId ? <PrincipalScheduleChangeLogPanel items={changeLogQ.data ?? []} loading={changeLogQ.isLoading} /> : null}
 
         <View style={styles.tabs}>
           <Pressable onPress={() => setTab("program")} style={[styles.tab, tab === "program" && styles.tabActive]}>
@@ -407,6 +463,9 @@ export function PrincipalScheduleScreen() {
           </Pressable>
           <Pressable onPress={() => setTab("planlama")} style={[styles.tab, tab === "planlama" && styles.tabActive]}>
             <Text style={[styles.tabText, tab === "planlama" && styles.tabTextActive]}>Planlama</Text>
+          </Pressable>
+          <Pressable onPress={() => setTab("musaitlik")} style={[styles.tab, tab === "musaitlik" && styles.tabActive]}>
+            <Text style={[styles.tabText, tab === "musaitlik" && styles.tabTextActive]}>Müsaitlik</Text>
           </Pressable>
         </View>
 
@@ -419,16 +478,47 @@ export function PrincipalScheduleScreen() {
                 <Text style={styles.emptyHint}>Planlama sekmesinden ihtiyaçları kontrol edin, ardından otomatik oluşturun.</Text>
               </View>
             ) : (
-              <PrincipalScheduleCalendar
-                editable={editable}
-                lessons={lessons}
-                onSelectLesson={setSelectedLesson}
-                onSelectSection={setSelectedSection}
-                sectionOptions={sectionOptions}
-                selectedSection={selectedSection}
-              />
+              <>
+                <View style={styles.viewModeRow}>
+                  <Pressable
+                    onPress={() => setViewMode("class")}
+                    style={[styles.viewModeBtn, viewMode === "class" && styles.viewModeBtnActive]}
+                  >
+                    <Text style={[styles.viewModeBtnText, viewMode === "class" && styles.viewModeBtnTextActive]}>Sınıf</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setViewMode("teacher")}
+                    style={[styles.viewModeBtn, viewMode === "teacher" && styles.viewModeBtnActive]}
+                  >
+                    <Text style={[styles.viewModeBtnText, viewMode === "teacher" && styles.viewModeBtnTextActive]}>Öğretmen</Text>
+                  </Pressable>
+                  {scheduleId && !isDraft ? (
+                    <Pressable
+                      disabled={cloneMut.isPending}
+                      onPress={() => cloneMut.mutate()}
+                      style={styles.cloneBtn}
+                    >
+                      <Text style={styles.cloneBtnText}>{cloneMut.isPending ? "..." : "Taslak oluştur"}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <PrincipalScheduleCalendar
+                  editable={editable}
+                  lessons={lessons}
+                  onSelectLesson={setSelectedLesson}
+                  onSelectSection={setSelectedSection}
+                  onSelectTeacher={setSelectedTeacher}
+                  sectionOptions={sectionOptions}
+                  selectedSection={selectedSection}
+                  selectedTeacher={selectedTeacher}
+                  teacherOptions={teacherOptions}
+                  viewMode={viewMode}
+                />
+              </>
             )}
           </>
+        ) : tab === "musaitlik" ? (
+          <PrincipalTeacherAvailabilityPanel teachers={teachersQ.data ?? []} />
         ) : (
           <>
             <View style={styles.planIntro}>
@@ -530,6 +620,65 @@ export function PrincipalScheduleScreen() {
   );
 }
 
+function PrincipalScheduleChangeLogPanel({ items, loading }: { items: ScheduleChangeLog[]; loading: boolean }) {
+  const visible = items.slice(0, 4);
+  return (
+    <View style={styles.changeLogCard}>
+      <View style={styles.changeLogHead}>
+        <History color={colors.primaryLight} size={16} strokeWidth={2.2} />
+        <Text style={styles.changeLogTitle}>Değişiklik geçmişi</Text>
+        <Text style={styles.changeLogMeta}>{loading ? "Yükleniyor" : `${items.length} kayıt`}</Text>
+      </View>
+
+      {visible.length === 0 ? (
+        <Text style={styles.changeLogEmpty}>Bu programda henüz ders düzenleme kaydı yok.</Text>
+      ) : (
+        visible.map((item) => (
+          <View key={item.id} style={styles.changeLogRow}>
+            <View style={styles.changeLogDot} />
+            <View style={styles.changeLogCopy}>
+              <Text style={styles.changeLogAction}>{scheduleChangeLabel(item.changeType)}</Text>
+              <Text style={styles.changeLogDetail}>{scheduleChangeSummary(item)}</Text>
+              <Text style={styles.changeLogDate}>{formatScheduleChangeDate(item.createdAt)}</Text>
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+}
+
+function scheduleChangeLabel(changeType: string) {
+  switch (changeType) {
+    case "lesson.update":
+      return "Ders güncellendi";
+    default:
+      return changeType;
+  }
+}
+
+function scheduleChangeSummary(item: ScheduleChangeLog) {
+  const before = item.before ?? {};
+  const after = item.after ?? {};
+  const parts: string[] = [];
+  if (before.dayOfWeek !== after.dayOfWeek || before.startTime !== after.startTime || before.endTime !== after.endTime) {
+    parts.push(`${after.dayOfWeek ?? "-"}. gün ${after.startTime ?? "-"}-${after.endTime ?? "-"}`);
+  }
+  if (before.teacherId !== after.teacherId) {
+    parts.push("öğretmen değişti");
+  }
+  if (before.room !== after.room) {
+    parts.push(`oda: ${String(after.room ?? "belirtilmedi")}`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : "Ders bilgileri güncellendi.";
+}
+
+function formatScheduleChangeDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 const styles = StyleSheet.create({
   heroShell: { marginBottom: 12 },
   hero: {
@@ -613,6 +762,53 @@ const styles = StyleSheet.create({
   validationHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   validationTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
   validationItem: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  viewModeRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  viewModeBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface
+  },
+  viewModeBtnActive: { backgroundColor: colors.accentLight, borderColor: colors.accent },
+  viewModeBtnText: { fontSize: 13, fontWeight: "700", color: colors.textMuted },
+  viewModeBtnTextActive: { color: colors.accent },
+  cloneBtn: {
+    marginLeft: "auto",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  cloneBtnText: { fontSize: 12, fontWeight: "800", color: colors.primaryLight },
+  changeLogCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    gap: 9,
+    marginBottom: 10
+  },
+  changeLogHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  changeLogTitle: { flex: 1, fontSize: 14, fontWeight: "800", color: colors.text },
+  changeLogMeta: { fontSize: 11, fontWeight: "700", color: colors.textMuted },
+  changeLogEmpty: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  changeLogRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  changeLogDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 99,
+    backgroundColor: colors.accent,
+    marginTop: 6
+  },
+  changeLogCopy: { flex: 1, gap: 2 },
+  changeLogAction: { fontSize: 12, fontWeight: "800", color: colors.text },
+  changeLogDetail: { fontSize: 12, color: colors.textMuted, lineHeight: 16 },
+  changeLogDate: { fontSize: 10, fontWeight: "700", color: colors.primaryLight },
   tabs: {
     flexDirection: "row",
     backgroundColor: colors.surface,

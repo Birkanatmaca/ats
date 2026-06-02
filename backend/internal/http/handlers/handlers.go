@@ -1,21 +1,26 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
 
-	attendanceapp "ots/backend/internal/app/attendance"
+	academicapp "ots/backend/internal/app/academic"
 	aiapp "ots/backend/internal/app/ai"
+	announcementapp "ots/backend/internal/app/announcement"
+	attendanceapp "ots/backend/internal/app/attendance"
 	billingapp "ots/backend/internal/app/billing"
 	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
 	identityapp "ots/backend/internal/app/identity"
 	observationapp "ots/backend/internal/app/observation"
+	pushapp "ots/backend/internal/app/push"
 	schedulingapp "ots/backend/internal/app/scheduling"
 	schoolapp "ots/backend/internal/app/school"
+	studentimportapp "ots/backend/internal/app/studentimport"
 	superadminapp "ots/backend/internal/app/superadmin"
 	attendanceDomain "ots/backend/internal/domain/attendance"
 	"ots/backend/internal/domain/identity"
@@ -27,49 +32,61 @@ import (
 )
 
 type Dependencies struct {
-	Identity    *identityapp.Service
-	School      *schoolapp.Service
-	Scheduling  *schedulingapp.Service
-	Attendance  *attendanceapp.Service
-	Observation *observationapp.Service
-	Guardian    *guardianapp.Service
-	Guidance    *guidanceapp.Service
-	Dashboard   *dashboardapp.Service
-	SuperAdmin  *superadminapp.Service
-	Billing     *billingapp.Service
-	AI          *aiapp.Service
-	Clock       func() time.Time
+	Identity      *identityapp.Service
+	School        *schoolapp.Service
+	Scheduling    *schedulingapp.Service
+	Academic      *academicapp.Service
+	Attendance    *attendanceapp.Service
+	Observation   *observationapp.Service
+	Guardian      *guardianapp.Service
+	Guidance      *guidanceapp.Service
+	Dashboard     *dashboardapp.Service
+	SuperAdmin    *superadminapp.Service
+	Billing       *billingapp.Service
+	AI            *aiapp.Service
+	Push          *pushapp.Service
+	Announcements *announcementapp.Service
+	StudentImport *studentimportapp.Service
+	Clock         func() time.Time
 }
 
 type Handler struct {
-	identity    *identityapp.Service
-	school      *schoolapp.Service
-	scheduling  *schedulingapp.Service
-	attendance  *attendanceapp.Service
-	observation *observationapp.Service
-	guardian    *guardianapp.Service
-	guidance    *guidanceapp.Service
-	dashboard   *dashboardapp.Service
-	superAdmin  *superadminapp.Service
-	billing     *billingapp.Service
-	ai          *aiapp.Service
-	clock       func() time.Time
+	identity      *identityapp.Service
+	school        *schoolapp.Service
+	scheduling    *schedulingapp.Service
+	academic      *academicapp.Service
+	attendance    *attendanceapp.Service
+	observation   *observationapp.Service
+	guardian      *guardianapp.Service
+	guidance      *guidanceapp.Service
+	dashboard     *dashboardapp.Service
+	superAdmin    *superadminapp.Service
+	billing       *billingapp.Service
+	ai            *aiapp.Service
+	push          *pushapp.Service
+	announcements *announcementapp.Service
+	studentImport *studentimportapp.Service
+	clock         func() time.Time
 }
 
 func New(deps Dependencies) *Handler {
 	return &Handler{
-		identity:    deps.Identity,
-		school:      deps.School,
-		scheduling:  deps.Scheduling,
-		attendance:  deps.Attendance,
-		observation: deps.Observation,
-		guardian:    deps.Guardian,
-		guidance:    deps.Guidance,
-		dashboard:   deps.Dashboard,
-		superAdmin:  deps.SuperAdmin,
-		billing:     deps.Billing,
-		ai:          deps.AI,
-		clock:       deps.Clock,
+		identity:      deps.Identity,
+		school:        deps.School,
+		scheduling:    deps.Scheduling,
+		academic:      deps.Academic,
+		attendance:    deps.Attendance,
+		observation:   deps.Observation,
+		guardian:      deps.Guardian,
+		guidance:      deps.Guidance,
+		dashboard:     deps.Dashboard,
+		superAdmin:    deps.SuperAdmin,
+		billing:       deps.Billing,
+		ai:            deps.AI,
+		push:          deps.Push,
+		announcements: deps.Announcements,
+		studentImport: deps.StudentImport,
+		clock:         deps.Clock,
 	}
 }
 
@@ -85,17 +102,18 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/me", h.me)
 	h.registerProfileRoutes(mux)
 	mux.HandleFunc("GET /api/v1/tenants/current", h.currentTenant)
-	mux.HandleFunc("GET /api/v1/announcements", h.announcements)
-	mux.HandleFunc("POST /api/v1/announcements", h.createAnnouncement)
-	mux.HandleFunc("PATCH /api/v1/announcements/{id}", h.updateAnnouncement)
+	h.registerAnnouncementRoutes(mux)
 	mux.HandleFunc("GET /api/v1/guardian/me/students", h.guardianStudents)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/schedule", h.guardianStudentSchedule)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/attendance", h.guardianStudentAttendance)
 	mux.HandleFunc("GET /api/v1/guardian/announcements", h.guardianAnnouncements)
 	mux.HandleFunc("GET /api/v1/guardian/notifications", h.guardianNotifications)
 	mux.HandleFunc("PATCH /api/v1/guardian/notifications/{id}/read", h.guardianNotificationRead)
+	mux.HandleFunc("DELETE /api/v1/guardian/notifications/{id}", h.guardianNotificationDelete)
 	mux.HandleFunc("GET /api/v1/notifications", h.userNotifications)
 	mux.HandleFunc("PATCH /api/v1/notifications/{id}/read", h.userNotificationRead)
+	mux.HandleFunc("DELETE /api/v1/notifications/{id}", h.userNotificationDelete)
+	h.registerPushRoutes(mux)
 	mux.HandleFunc("GET /api/v1/support/tickets", h.mySupportTickets)
 	mux.HandleFunc("POST /api/v1/support/tickets", h.createSupportTicket)
 	mux.HandleFunc("GET /api/v1/dashboard/principal/summary", h.principalSummary)
@@ -132,17 +150,24 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/schedules/{id}/lessons/{lessonId}", h.updateScheduleLesson)
 	mux.HandleFunc("POST /api/v1/schedules/{id}/validate", h.validateSchedule)
 	mux.HandleFunc("POST /api/v1/schedules/{id}/publish", h.publishSchedule)
+	mux.HandleFunc("POST /api/v1/schedules/{id}/clone", h.cloneSchedule)
+	mux.HandleFunc("GET /api/v1/schedules/{id}/conflicts", h.scheduleConflicts)
+	mux.HandleFunc("GET /api/v1/schedules/{id}/change-log", h.scheduleChangeLog)
+	mux.HandleFunc("PATCH /api/v1/scheduling/teacher-availabilities/bulk", h.saveTeacherAvailabilitiesBulk)
 	mux.HandleFunc("GET /api/v1/teachers/me/calendar", h.teacherCalendar)
 	mux.HandleFunc("GET /api/v1/teachers/me/students", h.teacherStudents)
 	mux.HandleFunc("GET /api/v1/attendance/current-lesson", h.currentLesson)
 	mux.HandleFunc("POST /api/v1/attendance/sessions", h.createAttendanceSession)
 	mux.HandleFunc("GET /api/v1/attendance/sessions/by-lesson/{lessonId}", h.getAttendanceSessionByLesson)
 	mux.HandleFunc("GET /api/v1/attendance/sessions/{id}", h.getAttendanceSession)
+	mux.HandleFunc("GET /api/v1/attendance/sessions/{id}/version", h.getAttendanceSessionVersion)
 	mux.HandleFunc("PATCH /api/v1/attendance/sessions/{id}/records", h.updateAttendanceRecords)
 	mux.HandleFunc("POST /api/v1/attendance/sessions/{id}/finalize", h.finalizeAttendanceSession)
 	mux.HandleFunc("POST /api/v1/attendance/sessions/{id}/reopen", h.reopenAttendanceSession)
 	mux.HandleFunc("GET /api/v1/dashboard/attendance/today", h.attendanceToday)
 	mux.HandleFunc("GET /api/v1/students/{id}/attendance-summary", h.studentAttendanceSummary)
+	h.registerAcademicRoutes(mux)
+	h.registerPrincipalAttendanceRoutes(mux)
 	mux.HandleFunc("GET /api/v1/observations", h.listObservations)
 	mux.HandleFunc("POST /api/v1/observations", h.createObservation)
 	mux.HandleFunc("GET /api/v1/observations/{id}", h.getObservation)
@@ -166,6 +191,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/classes/{id}/students", h.assignClassStudent)
 	mux.HandleFunc("POST /api/v1/students/import", h.importStudents)
 	mux.HandleFunc("POST /api/v1/teachers/{id}/reset-password", h.resetTeacherPassword)
+	h.registerStudentImportRoutes(mux)
 	h.RegisterGuidanceRoutes(mux)
 	h.registerAIRoutes(mux)
 }
@@ -281,62 +307,6 @@ func (h *Handler) currentTenant(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, tenant, nil)
 }
 
-func (h *Handler) announcements(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
-	if !ok {
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, h.school.ListAnnouncements(r.Context(), principal.TenantID), nil)
-}
-
-func (h *Handler) createAnnouncement(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin, identity.RoleSuperAdmin)
-	if !ok {
-		return
-	}
-	var input schoolDomain.CreateAnnouncementInput
-	if err := httpx.DecodeJSON(r, &input); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Duyuru bilgileri okunamadı.", nil)
-		return
-	}
-	created, err := h.school.CreateAnnouncement(r.Context(), principal.TenantID, principal.UserID, input)
-	if errors.Is(err, schoolapp.ErrInvalidAnnouncement) {
-		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Başlık, içerik ve hedef kitle zorunludur.", nil)
-		return
-	}
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "ANNOUNCEMENT_CREATE_FAILED", "Duyuru oluşturulamadı.", nil)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusCreated, created, nil)
-}
-
-func (h *Handler) updateAnnouncement(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin, identity.RoleSuperAdmin)
-	if !ok {
-		return
-	}
-	var input schoolDomain.UpdateAnnouncementInput
-	if err := httpx.DecodeJSON(r, &input); err != nil {
-		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Duyuru güncellemesi okunamadı.", nil)
-		return
-	}
-	updated, err := h.school.UpdateAnnouncement(r.Context(), principal.TenantID, r.PathValue("id"), input)
-	if errors.Is(err, schoolapp.ErrInvalidAnnouncement) {
-		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Güncellenecek duyuru alanları geçerli olmalıdır.", nil)
-		return
-	}
-	if errors.Is(err, schoolapp.ErrAnnouncementNotFound) {
-		httpx.WriteError(w, http.StatusNotFound, "ANNOUNCEMENT_NOT_FOUND", "Duyuru bulunamadı.", nil)
-		return
-	}
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, "ANNOUNCEMENT_UPDATE_FAILED", "Duyuru güncellenemedi.", nil)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, updated, nil)
-}
-
 func (h *Handler) guardianStudents(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireGuardian(w, r)
 	if !ok {
@@ -379,14 +349,6 @@ func (h *Handler) guardianStudentAttendance(w http.ResponseWriter, r *http.Reque
 	httpx.WriteJSON(w, http.StatusOK, attendance, nil)
 }
 
-func (h *Handler) guardianAnnouncements(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireGuardian(w, r)
-	if !ok {
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, h.guardian.ListAnnouncements(r.Context(), principal.TenantID), nil)
-}
-
 func (h *Handler) guardianNotifications(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireGuardian(w, r)
 	if !ok {
@@ -410,6 +372,23 @@ func (h *Handler) guardianNotificationRead(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, notification, nil)
+}
+
+func (h *Handler) guardianNotificationDelete(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireGuardian(w, r)
+	if !ok {
+		return
+	}
+	err := h.guardian.DeleteNotification(r.Context(), principal.TenantID, principal.UserID, r.PathValue("id"))
+	if errors.Is(err, guardianapp.ErrNotificationNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "NOTIFICATION_NOT_FOUND", "Bildirim bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "NOTIFICATION_DELETE_FAILED", "Bildirim silinemedi.", nil)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) principalSummary(w http.ResponseWriter, r *http.Request) {
@@ -827,6 +806,9 @@ func (h *Handler) updateSuperAdminSupportTicket(w http.ResponseWriter, r *http.R
 		httpx.WriteError(w, http.StatusNotFound, "SUPPORT_TICKET_NOT_FOUND", "Destek talebi bulunamadı.", nil)
 		return
 	}
+	h.dispatchPush(func(ctx context.Context) {
+		h.pushSupportTicketUpdate(ctx, ticket)
+	})
 	httpx.WriteJSON(w, http.StatusOK, ticket, nil)
 }
 
@@ -844,7 +826,7 @@ func (h *Handler) currentSchedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listSchedulingRequirements(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
 	if !ok {
 		return
 	}
@@ -852,7 +834,7 @@ func (h *Handler) listSchedulingRequirements(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) saveSchedulingRequirements(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
 	if !ok {
 		return
 	}
@@ -870,7 +852,7 @@ func (h *Handler) saveSchedulingRequirements(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) listTeacherAvailabilities(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
 	if !ok {
 		return
 	}
@@ -878,7 +860,7 @@ func (h *Handler) listTeacherAvailabilities(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Handler) saveTeacherAvailabilities(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
 	if !ok {
 		return
 	}
@@ -909,7 +891,7 @@ func (h *Handler) getSchedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) generateSchedule(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
 	if !ok {
 		return
 	}
@@ -918,7 +900,7 @@ func (h *Handler) generateSchedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) updateScheduleLesson(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
 	if !ok {
 		return
 	}
@@ -927,7 +909,7 @@ func (h *Handler) updateScheduleLesson(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Ders güncellemesi okunamadı.", nil)
 		return
 	}
-	lesson, found, err := h.scheduling.UpdateLesson(r.Context(), principal.TenantID, r.PathValue("id"), r.PathValue("lessonId"), input)
+	lesson, found, err := h.scheduling.UpdateLesson(r.Context(), principal.TenantID, r.PathValue("id"), r.PathValue("lessonId"), principal.UserID, input)
 	if err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "LESSON_UPDATE_FAILED", "Ders güncellenemedi.", nil)
 		return
@@ -940,7 +922,7 @@ func (h *Handler) updateScheduleLesson(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) validateSchedule(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
 	if !ok {
 		return
 	}
@@ -948,7 +930,7 @@ func (h *Handler) validateSchedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) publishSchedule(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requirePrincipal(w, r)
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
 	if !ok {
 		return
 	}
@@ -961,6 +943,9 @@ func (h *Handler) publishSchedule(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusNotFound, "SCHEDULE_NOT_FOUND", "Ders programı bulunamadı.", nil)
 		return
 	}
+	h.dispatchPush(func(ctx context.Context) {
+		h.pushSchedulePublished(ctx, principal.TenantID)
+	})
 	httpx.WriteJSON(w, http.StatusOK, schedule, nil)
 }
 
@@ -1065,6 +1050,27 @@ func (h *Handler) getAttendanceSession(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, session, nil)
 }
 
+func (h *Handler) getAttendanceSessionVersion(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipal(w, r)
+	if !ok {
+		return
+	}
+	session, err := h.attendance.GetSession(r.Context(), principal.TenantID, r.PathValue("id"))
+	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Yoklama oturumu bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_SESSION_LOOKUP_FAILED", "Yoklama oturumu okunamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"sessionId":   session.ID,
+		"version":     attendanceSessionVersion(session),
+		"finalizedAt": session.FinalizedAt,
+	}, nil)
+}
+
 func (h *Handler) attendanceToday(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requirePrincipal(w, r)
 	if !ok {
@@ -1110,6 +1116,14 @@ func (h *Handler) updateAttendanceRecords(w http.ResponseWriter, r *http.Request
 	if !h.attendanceSessionInWindow(w, r, principal, current) {
 		return
 	}
+	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if idempotencyKey != "" {
+		cacheKey := idempotencyCacheKey(principal.TenantID, r.PathValue("id"), idempotencyKey)
+		if cached, ok := lookupIdempotentSession(cacheKey); ok {
+			httpx.WriteJSON(w, http.StatusOK, cached, nil)
+			return
+		}
+	}
 	session, err := h.attendance.UpdateRecords(r.Context(), principal.TenantID, r.PathValue("id"), principal.UserID, request.Records)
 	if errors.Is(err, attendanceapp.ErrSessionNotFound) {
 		httpx.WriteError(w, http.StatusNotFound, "ATTENDANCE_SESSION_NOT_FOUND", "Yoklama oturumu bulunamadı.", nil)
@@ -1122,6 +1136,10 @@ func (h *Handler) updateAttendanceRecords(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_UPDATE_FAILED", "Yoklama kaydı güncellenemedi.", nil)
 		return
+	}
+	if idempotencyKey != "" {
+		cacheKey := idempotencyCacheKey(principal.TenantID, r.PathValue("id"), idempotencyKey)
+		rememberIdempotentSession(cacheKey, session)
 	}
 	httpx.WriteJSON(w, http.StatusOK, session, nil)
 }
@@ -1152,6 +1170,9 @@ func (h *Handler) finalizeAttendanceSession(w http.ResponseWriter, r *http.Reque
 		httpx.WriteError(w, http.StatusBadRequest, "ATTENDANCE_FINALIZE_FAILED", "Yoklama oturumu kesinleştirilemedi.", nil)
 		return
 	}
+	h.dispatchPush(func(ctx context.Context) {
+		h.pushAttendanceSession(ctx, principal.TenantID, session)
+	})
 	httpx.WriteJSON(w, http.StatusOK, session, nil)
 }
 
@@ -1440,6 +1461,23 @@ func (h *Handler) userNotificationRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, notification, nil)
+}
+
+func (h *Handler) userNotificationDelete(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipal(w, r)
+	if !ok {
+		return
+	}
+	err := h.guardian.DeleteNotification(r.Context(), principal.TenantID, principal.UserID, r.PathValue("id"))
+	if errors.Is(err, guardianapp.ErrNotificationNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, "NOTIFICATION_NOT_FOUND", "Bildirim bulunamadı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "NOTIFICATION_DELETE_FAILED", "Bildirim silinemedi.", nil)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) provisionPrincipalTeacher(w http.ResponseWriter, r *http.Request) {

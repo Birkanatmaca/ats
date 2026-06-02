@@ -1,16 +1,29 @@
 import type {
   AiCapabilitiesResult,
   AiConversation,
+  AcademicAssessment,
+  AcademicAssessmentType,
+  AcademicImportResult,
+  AcademicResult,
+  AcademicResultInput,
   AiMessage,
   AiSendMessageResult,
   Announcement,
+  AnnouncementTemplate,
   AttendanceDayReport,
   AttendanceRecord,
   AttendanceSession,
   AuthSession,
   ClassAttendanceSheet,
+  ClassAcademicSummary,
   CurrentLesson,
   GuidanceNote,
+  GuidanceCase,
+  GuidanceCaseCloseResult,
+  GuidanceCaseEvent,
+  GuidanceCaseTimelineItem,
+  GuidanceCaseInboxStats,
+  GuidanceStudentCaseSummary,
   GuidanceRiskTracking,
   GuidanceSupportPlan,
   GuidanceStudent,
@@ -18,6 +31,7 @@ import type {
   GuardianNotification,
   GuardianStudent,
   Lesson,
+  NotificationPreferences,
   Observation,
   Principal,
   PrincipalRosterStudent,
@@ -26,13 +40,20 @@ import type {
   Schedule,
   ScheduleGenerationResult,
   ScheduleValidationResult,
+  ScheduleConflictsResult,
+  ScheduleChangeLog,
   SchedulingRequirement,
   RequirementInput,
   TeacherAvailability,
   UpdateScheduleLessonInput,
   SchoolStudentRecord,
   StudentAttendanceSummary,
+  StudentAcademicSummary,
   StudentFormPayload,
+  StudentImportCommitPreview,
+  StudentImportCommitResult,
+  StudentImportJob,
+  StudentImportRow,
   SupportTicket,
   Tenant,
   UserAccount,
@@ -111,6 +132,18 @@ async function refreshSession(): Promise<AuthSession | null> {
   return refreshInFlight;
 }
 
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 export async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
   const headers = new Headers(init?.headers);
   if (!headers.has("Content-Type") && init?.body) {
@@ -130,7 +163,12 @@ export async function request<T>(path: string, init?: RequestInit, retried = fal
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
     const message = payload?.error?.message ?? `API isteği başarısız: ${response.status}`;
-    throw new Error(message);
+    const code = payload?.error?.code as string | undefined;
+    throw new ApiError(message, response.status, code);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   const envelope = (await response.json()) as Envelope<T>;
@@ -144,6 +182,34 @@ export const api = {
     request<AuthSession>("/api/v1/auth/password/first-login", {
       method: "POST",
       body: JSON.stringify(payload)
+    }),
+  passwordForgot: (payload: { email: string }) =>
+    request<{ message: string; resetToken?: string }>("/api/v1/auth/password/forgot", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  passwordReset: (payload: { token: string; newPassword: string }) =>
+    request<{ message: string }>("/api/v1/auth/password/reset", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  registerDeviceToken: (payload: { token: string; platform: string }) =>
+    request<{ id: string; token: string; platform: string; preferences: NotificationPreferences }>(
+      "/api/v1/me/device-tokens",
+      { method: "POST", body: JSON.stringify(payload) }
+    ),
+  unregisterDeviceToken: (token: string) =>
+    request<void>(`/api/v1/me/device-tokens?token=${encodeURIComponent(token)}`, { method: "DELETE" }),
+  notificationPreferences: () => request<NotificationPreferences>("/api/v1/me/notification-preferences"),
+  updateNotificationPreferences: (payload: Partial<NotificationPreferences>) =>
+    request<NotificationPreferences>("/api/v1/me/notification-preferences", {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  pushTest: (payload?: { title?: string; body?: string }) =>
+    request<{ message: string }>("/api/v1/push/test", {
+      method: "POST",
+      body: JSON.stringify(payload ?? {})
     }),
   logout: () => request<{ ok: boolean }>("/api/v1/auth/logout", { method: "POST", body: "{}" }),
   me: () => request<Principal>("/api/v1/me"),
@@ -160,9 +226,20 @@ export const api = {
     }),
   getAttendanceSessionByLesson: (lessonId: string) =>
     request<AttendanceSession>(`/api/v1/attendance/sessions/by-lesson/${lessonId}`),
-  updateAttendanceRecords: (sessionId: string, records: AttendanceRecord[]) =>
+  getAttendanceSession: (sessionId: string) =>
+    request<AttendanceSession>(`/api/v1/attendance/sessions/${sessionId}`),
+  getAttendanceSessionVersion: (sessionId: string) =>
+    request<{ sessionId: string; version: string; finalizedAt?: string | null }>(
+      `/api/v1/attendance/sessions/${sessionId}/version`
+    ),
+  updateAttendanceRecords: (
+    sessionId: string,
+    records: AttendanceRecord[],
+    options?: { idempotencyKey?: string }
+  ) =>
     request<AttendanceSession>(`/api/v1/attendance/sessions/${sessionId}/records`, {
       method: "PATCH",
+      headers: options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : undefined,
       body: JSON.stringify({
         records: records.map((r) => ({ studentId: r.studentId, status: r.status, note: r.note ?? "" }))
       })
@@ -246,6 +323,63 @@ export const api = {
   deleteGuidanceRiskTracking: (trackingId: string) =>
     request<void>(`/api/v1/guidance/risk-trackings/${trackingId}`, { method: "DELETE" }),
 
+  guidanceCases: (params?: { studentId?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.studentId) query.set("studentId", params.studentId);
+    if (params?.status) query.set("status", params.status);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<GuidanceCase[] | null>(`/api/v1/guidance/cases${suffix}`).then(asArray);
+  },
+  guidanceCaseStats: () => request<GuidanceCaseInboxStats>("/api/v1/guidance/cases/stats"),
+  guidanceCase: (caseId: string) => request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}`),
+  createGuidanceCase: (payload: {
+    studentId: string;
+    title: string;
+    summary?: string;
+    priority?: GuidanceCase["priority"];
+    sensitivity?: string;
+  }) =>
+    request<GuidanceCase>("/api/v1/guidance/cases", { method: "POST", body: JSON.stringify(payload) }),
+  updateGuidanceCase: (
+    caseId: string,
+    payload: Partial<{
+      title: string;
+      summary: string;
+      status: GuidanceCase["status"];
+      priority: GuidanceCase["priority"];
+      sensitivity: string;
+    }>
+  ) =>
+    request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  closeGuidanceCase: (caseId: string) =>
+    request<GuidanceCaseCloseResult>(`/api/v1/guidance/cases/${caseId}/close`, { method: "POST", body: "{}" }),
+  reopenGuidanceCase: (caseId: string) =>
+    request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}/reopen`, { method: "POST", body: "{}" }),
+  guidanceCaseEvents: (caseId: string) =>
+    request<GuidanceCaseEvent[] | null>(`/api/v1/guidance/cases/${caseId}/events`).then(asArray),
+  guidanceCaseTimeline: (caseId: string) =>
+    request<GuidanceCaseTimelineItem[] | null>(`/api/v1/guidance/cases/${caseId}/timeline`).then(asArray),
+  createGuidanceCaseEvent: (
+    caseId: string,
+    payload: {
+      eventType?: GuidanceCaseEvent["eventType"];
+      title: string;
+      body: string;
+      visibility?: GuidanceCaseEvent["visibility"];
+    }
+  ) =>
+    request<GuidanceCaseEvent>(`/api/v1/guidance/cases/${caseId}/events`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  deleteGuidanceCaseEvent: (caseId: string, eventId: string) =>
+    request<void>(`/api/v1/guidance/cases/${caseId}/events/${eventId}`, { method: "DELETE" }),
+  guidanceStudentCaseSummary: (studentId: string) =>
+    request<GuidanceStudentCaseSummary>(`/api/v1/guidance/students/${studentId}/case-summary`),
+
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
   listStudents: () => request<PrincipalRosterStudent[] | null>("/api/v1/students").then(asArray),
   principalRoster: async () => {
@@ -316,16 +450,34 @@ export const api = {
       }
     ),
 
-  announcements: () => request<Announcement[] | null>("/api/v1/announcements").then(asArray),
+  announcements: (params?: { manage?: boolean }) => {
+    const suffix = params?.manage ? "?manage=true" : "";
+    return request<Announcement[] | null>(`/api/v1/announcements${suffix}`).then(asArray);
+  },
   guardianAnnouncements: () => request<Announcement[] | null>("/api/v1/guardian/announcements").then(asArray),
-  createAnnouncement: (payload: { title: string; body: string; audience: string }) =>
-    request<Announcement>("/api/v1/announcements", { method: "POST", body: JSON.stringify(payload) }),
+  createAnnouncement: (payload: {
+    title: string;
+    body: string;
+    audience?: string;
+    audiences?: Announcement["audiences"];
+    publish?: boolean;
+    scheduledAt?: string | null;
+  }) => request<Announcement>("/api/v1/announcements", { method: "POST", body: JSON.stringify(payload) }),
+  publishAnnouncement: (announcementId: string) =>
+    request<Announcement>(`/api/v1/announcements/${announcementId}/publish`, { method: "POST", body: "{}" }),
+  markAnnouncementRead: (announcementId: string) =>
+    request<void>(`/api/v1/announcements/${announcementId}/read`, { method: "PATCH", body: "{}" }),
+  announcementTemplates: () => request<AnnouncementTemplate[] | null>("/api/v1/announcement-templates").then(asArray),
   notifications: () => request<UserNotification[] | null>("/api/v1/notifications").then(asArray),
   notificationMarkRead: (id: string) =>
     request<UserNotification>(`/api/v1/notifications/${id}/read`, { method: "PATCH", body: "{}" }),
+  notificationDelete: (id: string) =>
+    request<void>(`/api/v1/notifications/${id}`, { method: "DELETE" }),
   guardianNotifications: () => request<GuardianNotification[] | null>("/api/v1/guardian/notifications").then(asArray),
   guardianNotificationMarkRead: (id: string) =>
     request<GuardianNotification>(`/api/v1/guardian/notifications/${id}/read`, { method: "PATCH", body: "{}" }),
+  guardianNotificationDelete: (id: string) =>
+    request<void>(`/api/v1/guardian/notifications/${id}`, { method: "DELETE" }),
   supportTickets: () => request<SupportTicket[] | null>("/api/v1/support/tickets").then(asArray),
   createSupportTicket: (payload: { type: string; subject: string; message: string }) =>
     request<SupportTicket>("/api/v1/support/tickets", { method: "POST", body: JSON.stringify(payload) }),
@@ -343,6 +495,16 @@ export const api = {
       method: "POST",
       body: "{}"
     }),
+  listStudentImportJobs: () => request<StudentImportJob[] | null>("/api/v1/imports/students").then(asArray),
+  getStudentImportJob: (jobId: string) => request<StudentImportJob>(`/api/v1/imports/students/${jobId}`),
+  listStudentImportRows: (jobId: string) =>
+    request<StudentImportRow[] | null>(`/api/v1/imports/students/${jobId}/rows`).then(asArray),
+  previewStudentImportJob: (jobId: string) =>
+    request<StudentImportCommitPreview>(`/api/v1/imports/students/${jobId}/preview`),
+  commitStudentImportJob: (jobId: string) =>
+    request<StudentImportCommitResult>(`/api/v1/imports/students/${jobId}/commit`, { method: "POST", body: "{}" }),
+  rollbackStudentImportJob: (jobId: string) =>
+    request<StudentImportJob>(`/api/v1/imports/students/${jobId}/rollback`, { method: "POST", body: "{}" }),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
   scheduleOptional: async () => {
     try {
@@ -364,8 +526,58 @@ export const api = {
     }),
   validateSchedule: (scheduleId: string) =>
     request<ScheduleValidationResult>(`/api/v1/schedules/${scheduleId}/validate`, { method: "POST", body: "{}" }),
+  scheduleConflicts: (scheduleId: string) =>
+    request<ScheduleConflictsResult>(`/api/v1/schedules/${scheduleId}/conflicts`),
+  scheduleChangeLog: (scheduleId: string) =>
+    request<ScheduleChangeLog[] | null>(`/api/v1/schedules/${scheduleId}/change-log`).then(asArray),
+  cloneSchedule: (scheduleId: string) =>
+    request<Schedule>(`/api/v1/schedules/${scheduleId}/clone`, { method: "POST", body: "{}" }),
   publishSchedule: (scheduleId: string) =>
     request<Schedule>(`/api/v1/schedules/${scheduleId}/publish`, { method: "POST", body: "{}" }),
+  academicAssessments: () => request<AcademicAssessment[] | null>("/api/v1/academic/assessments").then(asArray),
+  createAcademicAssessment: (payload: {
+    name: string;
+    subjectId: string;
+    classId?: string;
+    assessmentType: AcademicAssessmentType;
+    maxScore: number;
+    assessmentDate: string;
+  }) =>
+    request<AcademicAssessment>("/api/v1/academic/assessments", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  academicResults: (assessmentId: string) =>
+    request<AcademicResult[] | null>(`/api/v1/academic/assessments/${assessmentId}/results`).then(asArray),
+  saveAcademicResults: (assessmentId: string, results: AcademicResultInput[]) =>
+    request<AcademicResult[]>(`/api/v1/academic/assessments/${assessmentId}/results`, {
+      method: "POST",
+      body: JSON.stringify({ results })
+    }),
+  importAcademicResults: (assessmentId: string, rows: AcademicResultInput[]) =>
+    request<AcademicImportResult>("/api/v1/academic/results/import", {
+      method: "POST",
+      body: JSON.stringify({ assessmentId, rows })
+    }),
+  studentAcademicSummary: (studentId: string) =>
+    request<StudentAcademicSummary>(`/api/v1/students/${studentId}/academic-summary`),
+  classAcademicSummary: (classId: string) =>
+    request<ClassAcademicSummary>(`/api/v1/classes/${classId}/academic-summary`),
+  guardianAcademicReport: (studentId: string) =>
+    request<StudentAcademicSummary>(`/api/v1/guardian/students/${studentId}/academic-report`),
+  listTeacherAvailabilities: () =>
+    request<TeacherAvailability[] | null>("/api/v1/scheduling/teacher-availabilities").then(asArray),
+  saveTeacherAvailabilitiesBulk: (items: Array<{
+    teacherId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    availabilityType?: string;
+  }>) =>
+    request<TeacherAvailability[]>("/api/v1/scheduling/teacher-availabilities/bulk", {
+      method: "PATCH",
+      body: JSON.stringify({ items })
+    }),
   listSchedulingRequirements: () =>
     request<SchedulingRequirement[] | null>("/api/v1/scheduling/requirements").then(asArray),
   saveSchedulingRequirements: (items: RequirementInput[]) =>
@@ -373,8 +585,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(items)
     }),
-  listTeacherAvailabilities: () =>
-    request<TeacherAvailability[] | null>("/api/v1/scheduling/teacher-availabilities").then(asArray),
   aiCapabilities: () => request<AiCapabilitiesResult>("/api/v1/ai/capabilities"),
   createAiConversation: (payload?: { title?: string }) =>
     request<AiConversation>("/api/v1/ai/conversations", { method: "POST", body: JSON.stringify(payload ?? {}) }),

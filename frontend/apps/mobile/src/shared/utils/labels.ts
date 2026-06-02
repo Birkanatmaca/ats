@@ -34,8 +34,21 @@ export const announcementAudienceOptions = [
   { value: "guardians", label: "Veliler" }
 ] as const;
 
-export function announcementAudienceLabel(value: string) {
+export function announcementAudienceLabel(value: string, audiences?: Array<{ type: string; id?: string; role?: string }>) {
+  if (audiences?.length) {
+    if (audiences.length > 1) return "Karma hedef";
+    const target = audiences[0];
+    if (target.type === "all") return "Tüm kurum";
+    if (target.type === "role") {
+      if (target.role === "teacher") return "Öğretmenler";
+      if (target.role === "guardian") return "Veliler";
+      return target.role ?? "Rol";
+    }
+    if (target.type === "class" || target.type === "section") return "Sınıf / şube";
+    if (target.type === "student") return "Belirli öğrenci velileri";
+  }
   if (value.startsWith("class:")) return "Sınıf hedefli";
+  if (value === "mixed") return "Karma hedef";
   return announcementAudienceOptions.find((item) => item.value === value)?.label ?? value;
 }
 

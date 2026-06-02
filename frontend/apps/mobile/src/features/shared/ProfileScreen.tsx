@@ -1,42 +1,52 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import {
+  Bell,
   Building2,
-  Check,
+  Camera,
+  ImageIcon,
   LogOut,
   Mail,
-  Palette,
   Phone,
   Shield,
+  Trash2,
   UserRound
 } from "lucide-react-native";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
+import type { NotificationPreferences } from "@/shared/api/types";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { roleLabels } from "@/shared/auth/roleRoutes";
+import { countPendingOfflineDrafts, clearOfflineQueueForSession } from "@/features/teacher/offline/storage";
 import { colors } from "@/shared/theme/colors";
 import { DetailBackBar } from "@/shared/ui/DetailBackBar";
 import { ErrorState } from "@/shared/ui/ErrorState";
 import { LoadingBlock } from "@/shared/ui/LoadingBlock";
 import { Screen } from "@/shared/ui/Screen";
 import { platformShadow } from "@/shared/ui/platformShadow";
-
-const ACCENT_OPTIONS = [
-  { value: "#0891b2", label: "Turkuaz" },
-  { value: "#2563eb", label: "Mavi" },
-  { value: "#6d28d9", label: "Mor" },
-  { value: "#047857", label: "Yeşil" },
-  { value: "#b45309", label: "Kehribar" },
-  { value: "#be123c", label: "Gül" },
-  { value: "#334155", label: "Grafit" }
-] as const;
+import { pickProfileAvatarFromCamera, pickProfileAvatarFromLibrary } from "@/shared/utils/pickProfileAvatar";
 
 function profileInitials(fullName: string) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
+}
+
+function heroColorForRole(role?: string) {
+  switch (role) {
+    case "teacher":
+      return "#059669";
+    case "principal":
+      return "#2563eb";
+    case "guidance":
+      return "#7c3aed";
+    case "guardian":
+      return "#0891b2";
+    default:
+      return colors.primary;
+  }
 }
 
 function statusLabel(status: string) {
@@ -57,16 +67,24 @@ export function ProfileScreen() {
 
   const profileQ = useQuery({ queryKey: queryKeys.profile, queryFn: () => api.profile() });
   const tenantQ = useQuery({ queryKey: queryKeys.tenant, queryFn: () => api.tenant() });
+  const prefsQ = useQuery({ queryKey: queryKeys.notificationPreferences, queryFn: () => api.notificationPreferences() });
 
-  const updateMut = useMutation({
-    mutationFn: (accent: string) => api.updateProfile({ profileAccent: accent }),
+  const prefsMut = useMutation({
+    mutationFn: (payload: Partial<NotificationPreferences>) => api.updateNotificationPreferences(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notificationPreferences });
+    }
+  });
+
+  const avatarMut = useMutation({
+    mutationFn: (avatarUrl: string | null) => api.updateProfile({ avatarUrl }),
     onSuccess: async (profile) => {
-      if (!session) return;
-      const next = {
-        ...session,
-        principal: { ...session.principal, name: profile.fullName, email: profile.email }
-      };
-      await signIn(next);
+      if (session) {
+        await signIn({
+          ...session,
+          principal: { ...session.principal, name: profile.fullName, email: profile.email }
+        });
+      }
       void queryClient.invalidateQueries({ queryKey: queryKeys.profile });
     }
   });
@@ -75,6 +93,23 @@ export function ProfileScreen() {
   const onRefresh = () => {
     void profileQ.refetch();
     void tenantQ.refetch();
+  };
+
+  const uploadAvatar = async (pick: () => Promise<string | null>, fallbackMessage: string) => {
+    try {
+      const dataUrl = await pick();
+      if (!dataUrl) return;
+      avatarMut.mutate(dataUrl);
+    } catch (error) {
+      Alert.alert("Hata", error instanceof Error ? error.message : fallbackMessage);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    Alert.alert("Fotoğrafı kaldır", "Profil fotoğrafınız silinecek.", [
+      { text: "Vazgeç", style: "cancel" },
+      { text: "Kaldır", style: "destructive", onPress: () => avatarMut.mutate(null) }
+    ]);
   };
 
   if (profileQ.isLoading) {
@@ -97,8 +132,9 @@ export function ProfileScreen() {
 
   const profile = profileQ.data;
   const role = session?.principal.role ?? profile?.role;
-  const accent = profile?.profileAccent ?? colors.primary;
+  const heroColor = heroColorForRole(role);
   const pill = statusTone(profile?.status ?? "active");
+  const avatarUrl = profile?.avatarUrl?.trim();
 
   return (
     <Screen layout="stack" refreshing={refreshing} topInsetExtra={6} onRefresh={onRefresh}>
@@ -110,9 +146,9 @@ export function ProfileScreen() {
             <View
               style={[
                 styles.hero,
-                { backgroundColor: accent },
+                { backgroundColor: heroColor },
                 platformShadow("0 14px 32px rgba(28,53,87,0.18)", {
-                  shadowColor: accent,
+                  shadowColor: heroColor,
                   shadowOffset: { width: 0, height: 10 },
                   shadowOpacity: 0.2,
                   shadowRadius: 18,
@@ -120,13 +156,17 @@ export function ProfileScreen() {
                 })
               ]}
             >
-              <View style={[styles.heroBlob, styles.heroBlobLight, { pointerEvents: "none" }]} />
-              <View style={[styles.heroBlob, styles.heroBlobSoft, { pointerEvents: "none" }]} />
+              <View pointerEvents="none" style={[styles.heroBlob, styles.heroBlobLight]} />
+              <View pointerEvents="none" style={[styles.heroBlob, styles.heroBlobSoft]} />
 
               <View style={styles.heroTop}>
                 <View style={styles.avatarWrap}>
                   <View style={styles.avatarRing}>
-                    <Text style={styles.avatarText}>{profileInitials(profile.fullName)}</Text>
+                    {avatarUrl ? (
+                      <Image accessibilityLabel={profile.fullName} source={{ uri: avatarUrl }} style={styles.heroAvatarImage} />
+                    ) : (
+                      <Text style={styles.avatarText}>{profileInitials(profile.fullName)}</Text>
+                    )}
                   </View>
                 </View>
                 <View style={styles.heroCopy}>
@@ -147,6 +187,57 @@ export function ProfileScreen() {
               <Text style={styles.sectionTitle}>Hesap bilgileri</Text>
             </View>
 
+            <View style={styles.photoBlock}>
+              <View style={styles.photoPreviewWrap}>
+                {avatarUrl ? (
+                  <Image accessibilityLabel={profile.fullName} source={{ uri: avatarUrl }} style={styles.photoPreview} />
+                ) : (
+                  <View style={[styles.photoFallback, { backgroundColor: heroColor }]}>
+                    <Text style={styles.photoFallbackText}>{profileInitials(profile.fullName)}</Text>
+                  </View>
+                )}
+                {avatarMut.isPending ? (
+                  <View style={styles.photoLoading}>
+                    <ActivityIndicator color="#fff" size="small" />
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={styles.photoCopy}>
+                <Text style={styles.photoTitle}>Profil fotoğrafı</Text>
+                <Text style={styles.photoHint}>PNG, JPEG veya WebP. En fazla ~900 KB.</Text>
+                <View style={styles.photoActions}>
+                  <Pressable
+                    disabled={avatarMut.isPending}
+                    onPress={() => void uploadAvatar(pickProfileAvatarFromLibrary, "Fotoğraf seçilemedi.")}
+                    style={({ pressed }) => [styles.photoBtn, styles.photoBtnPrimary, pressed && styles.photoBtnPressed]}
+                  >
+                    <ImageIcon color="#fff" size={15} strokeWidth={2.2} />
+                    <Text style={styles.photoBtnPrimaryText}>Fotoğraf seç</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={avatarMut.isPending}
+                    onPress={() => void uploadAvatar(pickProfileAvatarFromCamera, "Fotoğraf çekilemedi.")}
+                    style={({ pressed }) => [styles.photoBtn, styles.photoBtnSecondary, pressed && styles.photoBtnPressed]}
+                  >
+                    <Camera color={colors.accent} size={15} strokeWidth={2.2} />
+                    <Text style={styles.photoBtnSecondaryText}>Fotoğraf çek</Text>
+                  </Pressable>
+                  {avatarUrl ? (
+                    <Pressable
+                      disabled={avatarMut.isPending}
+                      onPress={handleRemoveAvatar}
+                      style={({ pressed }) => [styles.photoBtn, styles.photoBtnGhost, pressed && styles.photoBtnPressed]}
+                    >
+                      <Trash2 color={colors.danger} size={15} strokeWidth={2.2} />
+                      <Text style={styles.photoBtnGhostText}>Kaldır</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                {avatarMut.isError ? <Text style={styles.errorText}>{avatarMut.error.message}</Text> : null}
+              </View>
+            </View>
+
             <View style={styles.infoGrid}>
               <InfoTile icon={Mail} label="E-posta" value={profile.email} />
               <InfoTile icon={Phone} label="Telefon" value={profile.phone?.trim() || "Belirtilmedi"} />
@@ -157,40 +248,74 @@ export function ProfileScreen() {
 
           <View style={styles.sectionCard}>
             <View style={styles.sectionHead}>
-              <Palette color={colors.accent} size={16} strokeWidth={2.2} />
-              <Text style={styles.sectionTitle}>Tema rengi</Text>
+              <Bell color={colors.accent} size={16} strokeWidth={2.2} />
+              <Text style={styles.sectionTitle}>Push bildirimleri</Text>
             </View>
-            <Text style={styles.sectionHint}>Profil kartınızda ve karşılama alanında kullanılacak vurgu rengi.</Text>
-
-            <View style={styles.accentGrid}>
-              {ACCENT_OPTIONS.map((option) => {
-                const active = (profile.profileAccent ?? colors.primary) === option.value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    disabled={updateMut.isPending}
-                    onPress={() => updateMut.mutate(option.value)}
-                    style={({ pressed }) => [styles.accentOption, pressed && styles.accentOptionPressed]}
-                  >
-                    <View style={[styles.swatch, { backgroundColor: option.value }, active && styles.swatchActive]}>
-                      {active ? <Check color="#fff" size={16} strokeWidth={2.8} /> : null}
-                      {updateMut.isPending && updateMut.variables === option.value ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : null}
-                    </View>
-                    <Text style={[styles.accentLabel, active && styles.accentLabelActive]}>{option.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {updateMut.isError ? <Text style={styles.errorText}>{updateMut.error.message}</Text> : null}
+            {prefsQ.isLoading ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <View style={styles.prefList}>
+                <PreferenceRow
+                  disabled={prefsMut.isPending}
+                  label="Devamsızlık"
+                  onChange={(value) => prefsMut.mutate({ attendance: value })}
+                  value={prefsQ.data?.attendance ?? true}
+                />
+                <PreferenceRow
+                  disabled={prefsMut.isPending}
+                  label="Duyurular"
+                  onChange={(value) => prefsMut.mutate({ announcements: value })}
+                  value={prefsQ.data?.announcements ?? true}
+                />
+                <PreferenceRow
+                  disabled={prefsMut.isPending}
+                  label="Destek talepleri"
+                  onChange={(value) => prefsMut.mutate({ support: value })}
+                  value={prefsQ.data?.support ?? true}
+                />
+                <PreferenceRow
+                  disabled={prefsMut.isPending}
+                  label="Rehberlik hatırlatmaları"
+                  onChange={(value) => prefsMut.mutate({ guidance: value })}
+                  value={prefsQ.data?.guidance ?? true}
+                />
+                <PreferenceRow
+                  disabled={prefsMut.isPending}
+                  label="Program güncellemeleri"
+                  onChange={(value) => prefsMut.mutate({ schedule: value })}
+                  value={prefsQ.data?.schedule ?? true}
+                />
+              </View>
+            )}
           </View>
 
           <View style={styles.logoutCard}>
             <Pressable
               onPress={() => {
-                void signOut().then(() => router.replace("/(auth)/login"));
+                void (async () => {
+                  const pending = await countPendingOfflineDrafts(session);
+                  if (pending > 0) {
+                    Alert.alert(
+                      "Bekleyen yoklama",
+                      `${pending} yoklama henüz senkronize edilmedi. Çıkış yaparsanız bu cihazdaki bekleyen kayıtlar silinir.`,
+                      [
+                        { text: "İptal", style: "cancel" },
+                        {
+                          text: "Çıkış yap",
+                          style: "destructive",
+                          onPress: () => {
+                            void clearOfflineQueueForSession(session).then(() =>
+                              signOut().then(() => router.replace("/(auth)/login"))
+                            );
+                          }
+                        }
+                      ]
+                    );
+                    return;
+                  }
+                  await signOut();
+                  router.replace("/(auth)/login");
+                })();
               }}
               style={({ pressed }) => [styles.logoutBtn, pressed && styles.logoutBtnPressed]}
             >
@@ -206,6 +331,25 @@ export function ProfileScreen() {
         </>
       ) : null}
     </Screen>
+  );
+}
+
+function PreferenceRow({
+  label,
+  value,
+  disabled,
+  onChange
+}: {
+  label: string;
+  value: boolean;
+  disabled?: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <View style={styles.prefRow}>
+      <Text style={styles.prefLabel}>{label}</Text>
+      <Switch disabled={disabled} onValueChange={onChange} trackColor={{ true: colors.accent }} value={value} />
+    </View>
   );
 }
 
@@ -244,8 +388,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.45)",
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    overflow: "hidden"
   },
+  heroAvatarImage: { width: "100%", height: "100%" },
   avatarText: { color: "#fff", fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
   heroCopy: { flex: 1, gap: 6 },
   heroName: { fontSize: 22, fontWeight: "800", color: "#fff", letterSpacing: -0.3 },
@@ -272,7 +418,74 @@ const styles = StyleSheet.create({
   },
   sectionHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
-  sectionHint: { fontSize: 13, lineHeight: 18, color: colors.textMuted, fontWeight: "500" },
+  prefList: { gap: 4 },
+  prefRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border
+  },
+  prefLabel: { fontSize: 14, fontWeight: "600", color: colors.text },
+  photoBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12
+  },
+  photoPreviewWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    overflow: "hidden",
+    position: "relative"
+  },
+  photoPreview: { width: "100%", height: "100%" },
+  photoFallback: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  photoFallbackText: { color: "#fff", fontSize: 22, fontWeight: "800" },
+  photoLoading: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(15,23,42,0.45)",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  photoCopy: { flex: 1, gap: 6 },
+  photoTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+  photoHint: { fontSize: 12, lineHeight: 17, color: colors.textMuted, fontWeight: "500" },
+  photoActions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 2 },
+  photoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8
+  },
+  photoBtnPrimary: { backgroundColor: colors.accent },
+  photoBtnSecondary: {
+    backgroundColor: colors.accentLight,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  photoBtnGhost: {
+    backgroundColor: "#fef2f2",
+    borderWidth: 1,
+    borderColor: "#fecaca"
+  },
+  photoBtnPressed: { opacity: 0.88 },
+  photoBtnPrimaryText: { color: "#fff", fontSize: 12, fontWeight: "800" },
+  photoBtnSecondaryText: { color: colors.accent, fontSize: 12, fontWeight: "800" },
+  photoBtnGhostText: { color: colors.danger, fontSize: 12, fontWeight: "800" },
   infoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   infoTile: {
     width: "48%",
@@ -295,35 +508,6 @@ const styles = StyleSheet.create({
   },
   infoTileLabel: { fontSize: 11, fontWeight: "700", color: colors.textMuted, textTransform: "uppercase", letterSpacing: 0.3 },
   infoTileValue: { fontSize: 14, fontWeight: "700", color: colors.text, lineHeight: 18 },
-  accentGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10
-  },
-  accentOption: {
-    width: "30%",
-    flexGrow: 1,
-    minWidth: "28%",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 4
-  },
-  accentOptionPressed: { opacity: 0.88 },
-  swatch: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "transparent"
-  },
-  swatchActive: {
-    borderColor: colors.text,
-    transform: [{ scale: 1.04 }]
-  },
-  accentLabel: { fontSize: 11, fontWeight: "600", color: colors.textMuted, textAlign: "center" },
-  accentLabelActive: { color: colors.text, fontWeight: "800" },
   errorText: { fontSize: 13, color: colors.danger, fontWeight: "700" },
   logoutCard: {
     backgroundColor: colors.surface,

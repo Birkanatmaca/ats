@@ -69,6 +69,27 @@ type StudentSummary struct {
 	Excused   int            `json:"excused"`
 }
 
+type ClassAttendanceStudent struct {
+	StudentID    string `json:"studentId"`
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
+	SchoolNumber string `json:"schoolNumber"`
+	Status       Status `json:"status"`
+}
+
+type ClassAttendanceSheet struct {
+	Date      string                   `json:"date"`
+	ClassID   string                   `json:"classId"`
+	ClassName string                   `json:"className"`
+	SectionID string                   `json:"sectionId,omitempty"`
+	SessionID string                   `json:"sessionId,omitempty"`
+	LessonID  string                   `json:"lessonId,omitempty"`
+	Finalized bool                     `json:"finalized"`
+	CanEdit   bool                     `json:"canEdit"`
+	Message   string                   `json:"message,omitempty"`
+	Students  []ClassAttendanceStudent `json:"students"`
+}
+
 type SummaryEntry struct {
 	Date        string `json:"date"`
 	SubjectName string `json:"subjectName"`

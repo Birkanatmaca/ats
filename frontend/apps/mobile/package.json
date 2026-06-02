@@ -5,14 +5,19 @@
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.4.0",
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-native-community/netinfo": "^12.0.1",
     "@react-navigation/bottom-tabs": "^7.16.2",
     "@tanstack/react-query": "^5.100.14",
     "expo": "~56.0.6",
     "expo-blur": "~56.0.3",
     "expo-constants": "~56.0.16",
+    "expo-device": "~56.0.2",
     "expo-font": "~56.0.5",
+    "expo-image-picker": "~56.0.15",
     "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~56.0.12",
+    "expo-notifications": "~56.0.7",
     "expo-router": "~56.2.7",
     "expo-secure-store": "^56.0.4",
     "expo-splash-screen": "~56.0.10",
@@ -35,14 +40,18 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^3.2.4"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "export:web": "expo export --platform web"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "export:web": "expo export --platform web",
+    "smoke": "npm run typecheck && npm run test && npm run export:web"
   },
   "private": true
 }

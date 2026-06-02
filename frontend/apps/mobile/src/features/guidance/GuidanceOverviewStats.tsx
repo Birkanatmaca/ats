@@ -1,4 +1,4 @@
-import { AlertTriangle, BookOpen, FileText, Users, type LucideIcon } from "lucide-react-native";
+import { AlertTriangle, BookOpen, FileText, FolderOpen, Users, type LucideIcon } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 import { colors } from "@/shared/theme/colors";
 
@@ -8,6 +8,8 @@ export type GuidanceOverviewStatsData = {
   noteCount: number;
   riskTrackingCount: number;
   openPlanCount: number;
+  openCaseCount?: number;
+  criticalCaseCount?: number;
 };
 
 type KpiConfig = {
@@ -51,6 +53,14 @@ function buildKpis(data: GuidanceOverviewStatsData): KpiConfig[] {
       accent: data.riskTrackingCount > 0 ? colors.danger : "#64748b",
       valueColor: data.riskTrackingCount > 0 ? colors.danger : colors.text,
       hint: data.openPlanCount > 0 ? `${data.openPlanCount} açık plan` : "Plan yok"
+    },
+    {
+      key: "cases",
+      label: "Vaka",
+      value: String(data.openCaseCount ?? 0),
+      icon: FolderOpen,
+      accent: "#7c3aed",
+      hint: (data.criticalCaseCount ?? 0) > 0 ? `${data.criticalCaseCount} kritik` : "Aktif vaka"
     }
   ];
 }

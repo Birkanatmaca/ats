@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/animate-ui/components/buttons/button";
 import { APP_URL, navLinks } from "../lib/constants";
 import GooeyNav, { type GooeyNavItem } from "./GooeyNav";
@@ -21,13 +22,6 @@ export function Header() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [menuOpen]);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -54,7 +48,7 @@ export function Header() {
   }
 
   return (
-    <header className={`site-header${scrolled ? " scrolled" : ""}`} id="top">
+    <header className={`site-header${scrolled ? " scrolled" : ""}${menuOpen ? " menu-open" : ""}`} id="top">
       <div className="container header-inner">
         <a className="brand" href="/" onClick={goHome}>
           <img src="/ogta-wordmark.png" alt="OGTA" width={120} height={32} />
@@ -71,7 +65,7 @@ export function Header() {
         </div>
 
         <div className="header-actions">
-          <Button variant="gradient" size="default" asChild>
+          <Button className="btn-panel-entry" variant="gradient" size="default" asChild>
             <a href={APP_URL}>Panel girişi</a>
           </Button>
         </div>
@@ -79,24 +73,46 @@ export function Header() {
         <button
           aria-expanded={menuOpen}
           aria-label={menuOpen ? "Menüyü kapat" : "Menüyü aç"}
-          className="menu-toggle"
+          className={`menu-toggle${menuOpen ? " is-open" : ""}`}
           onClick={() => setMenuOpen((open) => !open)}
           type="button"
         >
-          <span />
-          <span />
+          <span className="menu-toggle__line" />
+          <span className="menu-toggle__line" />
+          <span className="menu-toggle__line" />
         </button>
       </div>
-      <div className={`mobile-nav${menuOpen ? " open" : ""}`}>
-        {navLinks.map((link) => (
-          <Link key={link.href} onClick={() => setMenuOpen(false)} to={link.href}>
-            {link.label}
-          </Link>
-        ))}
-        <Button variant="gradient" size="default" asChild>
-          <a href={APP_URL}>Panel girişi</a>
-        </Button>
-      </div>
+
+      <nav
+        aria-hidden={!menuOpen}
+        aria-label="Mobil menü"
+        className={`mobile-nav-dropdown${menuOpen ? " open" : ""}`}
+      >
+        <div className="container mobile-nav-dropdown__inner">
+          <div className="mobile-nav-dropdown__links">
+            {navLinks.map((link) => {
+              const active = location.pathname === link.href;
+              return (
+                <Link
+                  className={`mobile-nav-dropdown__link${active ? " is-active" : ""}`}
+                  key={link.href}
+                  onClick={() => setMenuOpen(false)}
+                  to={link.href}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <Button className="btn-panel-entry mobile-nav-dropdown__panel" variant="gradient" size="default" asChild>
+            <a href={APP_URL}>
+              <span>Panel girişi</span>
+              <ArrowUpRight aria-hidden="true" size={17} strokeWidth={2.2} />
+            </a>
+          </Button>
+        </div>
+      </nav>
     </header>
   );
 }

@@ -15,47 +15,55 @@ export function Hero() {
 
       <div className="container hero-content">
         <h1 className="hero-headline">
-          <BlurText
-            inline
-            tag="span"
-            className="hero-headline-part"
-            text="Okulunuzun"
-            animateBy="words"
-            delay={85}
-            direction="top"
-            stepDuration={0.38}
-            immediate
-          />
-          <BlurGradientText
-            className="hero-headline-accent"
-            text="Dijital Yönetim"
-            colors={GRADIENT_COLORS}
-            delay={120}
-            startDelay={220}
-            direction="top"
-            stepDuration={0.38}
-            animationSpeed={7}
-            immediate
-          />
-          <BlurText
-            inline
-            tag="span"
-            className="hero-headline-part"
-            text="Merkezi"
-            animateBy="words"
-            delay={85}
-            startDelay={520}
-            direction="top"
-            stepDuration={0.38}
-            immediate
-          />
+          <span className="hero-headline-line">
+            <span className="hero-headline-row">
+              <BlurText
+                inline
+                tag="span"
+                className="hero-headline-part"
+                text="Okulunuzun"
+                animateBy="words"
+                delay={85}
+                direction="top"
+                stepDuration={0.38}
+                immediate
+              />
+            </span>
+            <span className="hero-headline-row">
+              <BlurGradientText
+                className="hero-headline-accent"
+                text="Dijital Yönetim"
+                colors={GRADIENT_COLORS}
+                delay={120}
+                startDelay={220}
+                direction="top"
+                stepDuration={0.38}
+                animationSpeed={7}
+                immediate
+              />
+            </span>
+            <span className="hero-headline-row">
+              <BlurText
+                inline
+                tag="span"
+                className="hero-headline-part"
+                text="Merkezi"
+                animateBy="words"
+                delay={85}
+                startDelay={520}
+                direction="top"
+                stepDuration={0.38}
+                immediate
+              />
+            </span>
+          </span>
         </h1>
 
         <BlurText
           block
           tag="p"
           className="hero-subtitle"
-          text="Ders programı, yoklama, veli iletişimi, rehberlik süreçleri ve AI destekli analizleri OGTA ile tek platformda yönetin."
+          text="Okul yazılımı ve okul yönetim sistemi: öğrenci takip, yoklama, veli iletişimi, rehberlik süreçleri ve AI destekli analizleri OGTA ile tek platformda yönetin."
           animateBy="words"
           delay={35}
           startDelay={750}

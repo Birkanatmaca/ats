@@ -143,19 +143,6 @@ export function PrincipalStudentsPage({
     setSummaryError(null);
   }
 
-  async function handleImportStudents(classId: string, payloads: StudentFormPayload[]) {
-    const result = await api.importStudents({
-      classId,
-      students: payloads.map((payload) => ({
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        schoolNumber: payload.schoolNumber
-      }))
-    });
-    onImportComplete?.();
-    return result;
-  }
-
   return (
     <section className="principal-page-stack principal-students-page guidance-data-page">
       <div className="principal-stat-grid principal-students-stats" aria-label="Öğrenci istatistikleri">
@@ -330,7 +317,7 @@ export function PrincipalStudentsPage({
         classes={classes}
         existingSchoolNumbers={existingSchoolNumbers}
         onClose={() => setImportOpen(false)}
-        onImport={handleImportStudents}
+        onComplete={onImportComplete}
       />
 
       {summaryStudent ? (

@@ -31,6 +31,15 @@ func (s *Service) orchestrateGuidanceMessage(
 	if riskSummaryPattern.MatchString(content) {
 		return s.assistantReply(conversation, s.buildRiskSignalSummary(ctx, principal.TenantID)), nil
 	}
+	if parentMeetingPrepPattern.MatchString(content) {
+		return s.replyParentMeetingPrep(ctx, principal, conversation, content)
+	}
+	if openSupportPlansPattern.MatchString(content) {
+		return s.replyOpenSupportPlans(ctx, principal, conversation, content)
+	}
+	if caseTimelineSummaryPattern.MatchString(content) {
+		return s.replyCaseTimelineSummary(ctx, principal, conversation, content)
+	}
 	if observationSummaryPattern.MatchString(content) {
 		query := extractStudentQuery(content)
 		if query == "" {
@@ -45,7 +54,7 @@ func (s *Service) orchestrateGuidanceMessage(
 		return s.startGuidanceStudentDraft(ctx, principal, conversation, content, aidomain.ActionCreateGuidanceNote)
 	}
 
-	return s.assistantReply(conversation, "Rehberlik panelinde öğrenci arama, rehberlik notu, destek planı, risk sinyali ve gözlem özeti isteklerini destekliyorum."), nil
+	return s.assistantReply(conversation, "Rehberlik panelinde öğrenci arama, rehberlik notu, destek planı, vaka özeti, açık plan listesi, veli görüşmesi hazırlığı, risk sinyali ve gözlem özeti isteklerini destekliyorum."), nil
 }
 
 func (s *Service) startGuidanceStudentDraft(
@@ -297,4 +306,132 @@ func (s *Service) buildStudentObservationSummary(ctx context.Context, tenantID s
 	}
 	sort.Strings(parts)
 	return fmt.Sprintf("%s için toplam %d gözlem kaydı var. Kategori dağılımı: %s.", candidate.Label, total, strings.Join(parts, ", "))
+}
+
+func (s *Service) replyCaseTimelineSummary(
+	ctx context.Context,
+	principal identity.Principal,
+	conversation aidomain.Conversation,
+	content string,
+) (aidomain.SendMessageResult, error) {
+	query := extractStudentQuery(content)
+	if query == "" {
+		return s.assistantReply(conversation, "Hangi öğrencinin vaka özeti istendiğini belirtir misiniz?"), nil
+	}
+	candidates, err := s.searchGuidanceStudents(ctx, principal, query)
+	if err != nil {
+		return aidomain.SendMessageResult{}, err
+	}
+	if len(candidates) == 0 {
+		return s.assistantReply(conversation, "Bu öğrenci için vaka özeti bulamadım."), nil
+	}
+	if len(candidates) > 1 {
+		return aidomain.SendMessageResult{
+			Message: aidomain.Message{
+				ConversationID: conversation.ID,
+				Role:           "assistant",
+				Content:        "Birden fazla öğrenci adayı buldum. Lütfen doğru öğrenciyi seçin.",
+			},
+			Candidates: candidates,
+		}, nil
+	}
+	since := s.clock().AddDate(0, 0, -30)
+	summary, err := s.guidance.BuildStudentCaseTimelineSummary(ctx, principal.TenantID, principal.UserID, string(principal.Role), candidates[0].ID, since)
+	if err != nil {
+		return aidomain.SendMessageResult{}, err
+	}
+	return s.assistantReply(conversation, summary+"\n\nBu özet bilgilendirme amaçlıdır; karar için vaka dosyasını doğrudan inceleyin."), nil
+}
+
+func (s *Service) replyOpenSupportPlans(
+	ctx context.Context,
+	principal identity.Principal,
+	conversation aidomain.Conversation,
+	content string,
+) (aidomain.SendMessageResult, error) {
+	query := extractStudentQuery(content)
+	if query == "" {
+		return s.assistantReply(conversation, "Hangi öğrencinin açık destek planlarını listelememi istersiniz?"), nil
+	}
+	candidates, err := s.searchGuidanceStudents(ctx, principal, query)
+	if err != nil {
+		return aidomain.SendMessageResult{}, err
+	}
+	if len(candidates) == 0 {
+		return s.assistantReply(conversation, "Bu öğrenci için açık destek planı bulamadım."), nil
+	}
+	if len(candidates) > 1 {
+		return aidomain.SendMessageResult{
+			Message: aidomain.Message{
+				ConversationID: conversation.ID,
+				Role:           "assistant",
+				Content:        "Birden fazla öğrenci adayı buldum. Lütfen doğru öğrenciyi seçin.",
+			},
+			Candidates: candidates,
+		}, nil
+	}
+	plans := s.guidance.ListPlans(ctx, principal.TenantID, principal.UserID, candidates[0].ID)
+	open := make([]guidancedomain.SupportPlan, 0)
+	for _, plan := range plans {
+		if plan.Status == guidancedomain.PlanStatusOpen || plan.Status == guidancedomain.PlanStatusMonitoring {
+			open = append(open, plan)
+		}
+	}
+	if len(open) == 0 {
+		return s.assistantReply(conversation, candidates[0].Label+" için açık veya izlemede destek planı bulunmuyor."), nil
+	}
+	lines := make([]string, 0, len(open)+1)
+	lines = append(lines, candidates[0].Label+" için açık takip planları:")
+	for _, plan := range open {
+		line := "- " + plan.Title
+		if plan.DueDate != "" {
+			line += " (son tarih: " + plan.DueDate + ")"
+		}
+		lines = append(lines, line)
+	}
+	return s.assistantReply(conversation, strings.Join(lines, "\n")), nil
+}
+
+func (s *Service) replyParentMeetingPrep(
+	ctx context.Context,
+	principal identity.Principal,
+	conversation aidomain.Conversation,
+	content string,
+) (aidomain.SendMessageResult, error) {
+	query := extractStudentQuery(content)
+	if query == "" {
+		return s.assistantReply(conversation, "Hangi öğrenci için veli görüşmesi hazırlık özeti istediğinizi belirtir misiniz?"), nil
+	}
+	candidates, err := s.searchGuidanceStudents(ctx, principal, query)
+	if err != nil {
+		return aidomain.SendMessageResult{}, err
+	}
+	if len(candidates) == 0 {
+		return s.assistantReply(conversation, "Bu öğrenci için hazırlık özeti oluşturamadım."), nil
+	}
+	if len(candidates) > 1 {
+		return aidomain.SendMessageResult{
+			Message: aidomain.Message{
+				ConversationID: conversation.ID,
+				Role:           "assistant",
+				Content:        "Birden fazla öğrenci adayı buldum. Lütfen doğru öğrenciyi seçin.",
+			},
+			Candidates: candidates,
+		}, nil
+	}
+	since := s.clock().AddDate(0, 0, -30)
+	summary, err := s.guidance.BuildStudentCaseTimelineSummary(ctx, principal.TenantID, principal.UserID, string(principal.Role), candidates[0].ID, since)
+	if err != nil {
+		return aidomain.SendMessageResult{}, err
+	}
+	plans := s.guidance.ListPlans(ctx, principal.TenantID, principal.UserID, candidates[0].ID)
+	openCount := 0
+	for _, plan := range plans {
+		if plan.Status == guidancedomain.PlanStatusOpen || plan.Status == guidancedomain.PlanStatusMonitoring {
+			openCount++
+		}
+	}
+	prep := summary + "\n- Açık/izlemede destek planı: " + fmt.Sprintf("%d", openCount)
+	prep += "\n\nVeli görüşmesi öncesi bu özeti kontrol edin. Görüşme notunu onaylı kayıt olarak vaka dosyasına eklemeyi unutmayın."
+	return s.assistantReply(conversation, prep), nil
 }

@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FileSpreadsheet,
   Plus,
   Search,
   School,
@@ -27,6 +29,7 @@ type StatusFilter = "" | "active" | "passive";
 
 export function PrincipalStudentsScreen() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterClassId, setFilterClassId] = useState("");
   const [filterStatus, setFilterStatus] = useState<StatusFilter>("");
@@ -199,6 +202,13 @@ export function PrincipalStudentsScreen() {
           <Pressable onPress={openCreate} style={({ pressed }) => [styles.heroAddBtn, pressed && styles.heroAddBtnPressed]}>
             <Plus color="#fff" size={18} strokeWidth={2.4} />
             <Text style={styles.heroAddBtnText}>Öğrenci ekle</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/(app)/principal/student-imports" as never)}
+            style={({ pressed }) => [styles.heroSecondaryBtn, pressed && styles.heroAddBtnPressed]}
+          >
+            <FileSpreadsheet color="#fff" size={17} strokeWidth={2.2} />
+            <Text style={styles.heroSecondaryBtnText}>Import geçmişi</Text>
           </Pressable>
         </View>
       </View>
@@ -542,6 +552,22 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "800",
     fontSize: 15
+  },
+  heroSecondaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(255,255,255,0.06)"
+  },
+  heroSecondaryBtnText: {
+    color: "rgba(255,255,255,0.92)",
+    fontWeight: "700",
+    fontSize: 14
   },
   filtersCard: {
     backgroundColor: colors.surface,

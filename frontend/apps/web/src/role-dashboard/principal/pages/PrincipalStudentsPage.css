@@ -244,6 +244,37 @@
   font-size: 11.5px;
 }
 
+.principal-student-import-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+}
+
+.principal-student-import-commit-summary {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  font-size: 13px;
+}
+
+.principal-student-import-row-status--warning {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.principal-student-import-row-status--error {
+  color: #b91c1c;
+  background: rgba(244, 63, 94, 0.14);
+}
+
+.principal-student-import-row-status--imported {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.14);
+}
+
 @media (max-width: 520px) {
   .principal-student-form-grid {
     grid-template-columns: 1fr;

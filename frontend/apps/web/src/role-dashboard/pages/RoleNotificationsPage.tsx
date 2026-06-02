@@ -1,4 +1,4 @@
-import { Bell, CheckCheck, Eye, Search } from "lucide-react";
+import { Bell, CheckCheck, Eye, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { GuardianNotification, UserNotification } from "../../lib/api";
 import { api } from "../../lib/api";
@@ -33,6 +33,7 @@ export function RoleNotificationsPage({
   const [readFilter, setReadFilter] = useState("all");
   const [kindFilter, setKindFilter] = useState("all");
   const [query, setQuery] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,6 +116,27 @@ export function RoleNotificationsPage({
       }
     }
     await load();
+  }
+
+  async function deleteNotification(notificationId: string) {
+    const item = items.find((entry) => entry.id === notificationId);
+    if (!item) return;
+    if (!window.confirm(`"${item.title}" bildirimini silmek istediğinize emin misiniz?`)) {
+      return;
+    }
+    setDeletingId(notificationId);
+    try {
+      if (mode === "guardian") {
+        await api.guardianNotificationDelete(notificationId);
+      } else {
+        await api.notificationDelete(notificationId);
+      }
+      await load();
+    } catch {
+      /* ignore */
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -201,9 +223,17 @@ export function RoleNotificationsPage({
                               <CheckCheck size={15} />
                               Okundu
                             </button>
-                          ) : (
-                            <span className="guidance-data-secondary">—</span>
-                          )}
+                          ) : null}
+                          <button
+                            className="ghost-action danger"
+                            type="button"
+                            onClick={() => void deleteNotification(item.id)}
+                            disabled={deletingId === item.id}
+                            title="Bildirimi sil"
+                          >
+                            <Trash2 size={15} />
+                            {deletingId === item.id ? "Siliniyor…" : "Sil"}
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -7,6 +7,8 @@ type PageSeoProps = {
   description: string;
   path?: string;
   includeFaqSchema?: boolean;
+  keywords?: string;
+  jsonLd?: unknown | unknown[];
 };
 
 function upsertMeta(attr: "name" | "property", key: string, content: string) {
@@ -42,20 +44,25 @@ function upsertJsonLd(id: string, data: unknown) {
   el.textContent = JSON.stringify(data);
 }
 
-export function PageSeo({ title, description, path = "/", includeFaqSchema = false }: PageSeoProps) {
+export function PageSeo({
+  title,
+  description,
+  path = "/",
+  includeFaqSchema = false,
+  keywords,
+  jsonLd
+}: PageSeoProps) {
   useEffect(() => {
     const base = LANDING_URL.replace(/\/$/, "");
     const canonical = `${base}${path.startsWith("/") ? path : `/${path}`}`;
     const image = seoImageUrl();
-    const structuredData = includeFaqSchema
-      ? [...allStructuredData(), faqJsonLd()]
-      : allStructuredData();
+    const structuredData = jsonLd ?? (includeFaqSchema ? [...allStructuredData(), faqJsonLd()] : allStructuredData());
 
     document.title = title;
     document.documentElement.lang = "tr";
 
     upsertMeta("name", "description", description);
-    upsertMeta("name", "keywords", SEO.keywords);
+    upsertMeta("name", "keywords", keywords ?? SEO.keywords);
     upsertMeta("name", "author", SEO.legalName);
     upsertMeta("name", "robots", "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1");
     upsertMeta("name", "theme-color", SEO.themeColor);
@@ -79,7 +86,7 @@ export function PageSeo({ title, description, path = "/", includeFaqSchema = fal
     upsertMeta("name", "twitter:image", image);
 
     upsertJsonLd("ogta-seo-jsonld", structuredData);
-  }, [title, description, path, includeFaqSchema]);
+  }, [title, description, path, includeFaqSchema, keywords, jsonLd]);
 
   return null;
 }

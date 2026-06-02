@@ -226,3 +226,18 @@ RETURNING id::text, title, body, kind, read_at, created_at`,
 	}
 	return item, true
 }
+
+func (s *Store) DeleteGuardianNotification(ctx context.Context, tenantID string, userID string, notificationID string) bool {
+	result, err := s.db.ExecContext(ctx, `
+DELETE FROM notifications
+WHERE tenant_id = $1 AND user_id = $2 AND id = $3`,
+		tenantID, userID, notificationID)
+	if err != nil {
+		return false
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false
+	}
+	return rows > 0
+}

@@ -13,6 +13,9 @@ func (s *Store) GuidanceCanAccessStudent(ctx context.Context, tenantID, userID, 
 	if allowed, checked := s.userCanAccessStudentViaScopes(ctx, tenantID, userID, studentID); checked {
 		return allowed
 	}
+	if s.userRequiresGuidanceScope(ctx, tenantID, userID) {
+		return false
+	}
 	var exists bool
 	err := s.db.QueryRowContext(ctx, `
 SELECT EXISTS (
@@ -20,6 +23,28 @@ SELECT EXISTS (
   WHERE tenant_id = $1 AND id = $2::uuid AND deleted_at IS NULL
 )`, tenantID, studentID).Scan(&exists)
 	return err == nil && exists
+}
+
+func (s *Store) userRequiresGuidanceScope(ctx context.Context, tenantID, userID string) bool {
+	var hasElevated bool
+	_ = s.db.QueryRowContext(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM user_roles ur
+  JOIN roles r ON r.id = ur.role_id
+  WHERE ur.tenant_id = $1 AND ur.user_id = $2::uuid
+    AND r.code IN ('super_admin', 'system_admin', 'principal')
+)`, tenantID, userID).Scan(&hasElevated)
+	if hasElevated {
+		return false
+	}
+	var hasGuidance bool
+	_ = s.db.QueryRowContext(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM user_roles ur
+  JOIN roles r ON r.id = ur.role_id
+  WHERE ur.tenant_id = $1 AND ur.user_id = $2::uuid AND r.code = 'guidance'
+)`, tenantID, userID).Scan(&hasGuidance)
+	return hasGuidance
 }
 
 func (s *Store) ListGuidanceStudents(ctx context.Context, tenantID, userID string) ([]guidancedomain.Student, error) {
@@ -327,6 +352,101 @@ func (s *Store) DeleteSupportPlan(ctx context.Context, tenantID, planID string) 
 	res, err := s.db.ExecContext(ctx, `
 UPDATE support_plans SET deleted_at = now(), updated_at = now()
 WHERE tenant_id = $1 AND id = $2::uuid AND deleted_at IS NULL`, tenantID, planID)
+	if err != nil {
+		return false
+	}
+	n, _ := res.RowsAffected()
+	return n > 0
+}
+
+func (s *Store) ListRiskTrackings(ctx context.Context, tenantID, studentID string) ([]guidancedomain.RiskTracking, error) {
+	query := `
+SELECT
+  t.id::text, t.tenant_id::text, t.student_id::text, s.full_name,
+  COALESCE(c.name, ''), t.counselor_id::text, u.full_name,
+  t.reason, t.created_at, t.updated_at
+FROM guidance_risk_trackings t
+JOIN students s ON s.id = t.student_id AND s.tenant_id = t.tenant_id
+LEFT JOIN LATERAL (
+  SELECT class_id FROM class_students
+  WHERE tenant_id = t.tenant_id AND student_id = t.student_id AND ends_on IS NULL
+  ORDER BY starts_on DESC LIMIT 1
+) cs ON true
+LEFT JOIN classes c ON c.id = cs.class_id AND c.tenant_id = t.tenant_id
+JOIN users u ON u.id = t.counselor_id
+WHERE t.tenant_id = $1 AND t.deleted_at IS NULL`
+	args := []any{tenantID}
+	if strings.TrimSpace(studentID) != "" {
+		query += ` AND t.student_id = $2::uuid`
+		args = append(args, studentID)
+	}
+	query += ` ORDER BY t.created_at DESC`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRiskTrackings(rows)
+}
+
+func scanRiskTrackings(rows *sql.Rows) ([]guidancedomain.RiskTracking, error) {
+	out := make([]guidancedomain.RiskTracking, 0)
+	for rows.Next() {
+		var item guidancedomain.RiskTracking
+		if err := rows.Scan(
+			&item.ID, &item.TenantID, &item.StudentID, &item.StudentName, &item.ClassName,
+			&item.CounselorID, &item.CounselorName, &item.Reason, &item.CreatedAt, &item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetRiskTrackingByStudent(ctx context.Context, tenantID, studentID string) (guidancedomain.RiskTracking, bool) {
+	items, err := s.ListRiskTrackings(ctx, tenantID, studentID)
+	if err != nil || len(items) == 0 {
+		return guidancedomain.RiskTracking{}, false
+	}
+	return items[0], true
+}
+
+func (s *Store) GetRiskTracking(ctx context.Context, tenantID, trackingID string) (guidancedomain.RiskTracking, bool) {
+	items, err := s.ListRiskTrackings(ctx, tenantID, "")
+	if err != nil {
+		return guidancedomain.RiskTracking{}, false
+	}
+	for _, item := range items {
+		if item.ID == trackingID {
+			return item, true
+		}
+	}
+	return guidancedomain.RiskTracking{}, false
+}
+
+func (s *Store) CreateRiskTracking(ctx context.Context, tenantID, counselorID string, input guidancedomain.CreateRiskTrackingInput) (guidancedomain.RiskTracking, bool) {
+	var trackingID string
+	err := s.db.QueryRowContext(ctx, `
+INSERT INTO guidance_risk_trackings (tenant_id, student_id, counselor_id, reason)
+VALUES ($1, $2::uuid, $3::uuid, $4)
+RETURNING id::text`,
+		tenantID, input.StudentID, counselorID, input.Reason).Scan(&trackingID)
+	if err != nil {
+		return guidancedomain.RiskTracking{}, false
+	}
+	item, ok := s.GetRiskTrackingByStudent(ctx, tenantID, input.StudentID)
+	if !ok {
+		return guidancedomain.RiskTracking{}, false
+	}
+	return item, trackingID != ""
+}
+
+func (s *Store) DeleteRiskTracking(ctx context.Context, tenantID, trackingID string) bool {
+	res, err := s.db.ExecContext(ctx, `
+UPDATE guidance_risk_trackings SET deleted_at = now(), updated_at = now()
+WHERE tenant_id = $1 AND id = $2::uuid AND deleted_at IS NULL`, tenantID, trackingID)
 	if err != nil {
 		return false
 	}

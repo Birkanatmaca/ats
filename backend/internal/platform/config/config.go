@@ -30,7 +30,7 @@ func Load() Config {
 		HTTPAddr:           getEnv("HTTP_ADDR", ":8080"),
 		DatabaseURL:        getEnv("DATABASE_URL", "postgres://ots:ots@localhost:5432/ots?sslmode=disable"),
 		JWTSecret:          getEnv("JWT_SECRET", "ots-dev-jwt-secret-change-in-production"),
-		CORSAllowedOrigins: splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://panel.ogtasis.com,https://panel.ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29")),
+		CORSAllowedOrigins: splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006,http://panel.ogtasis.com,https://panel.ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29")),
 		LogLevel:           parseLogLevel(getEnv("LOG_LEVEL", "info")),
 		AIProvider:         getEnv("OGTA_AI_PROVIDER", "openai"),
 		AIModel:            getEnv("OGTA_AI_MODEL", "gpt-4o-mini"),

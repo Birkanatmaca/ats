@@ -36,11 +36,12 @@ export function TeacherOverviewScreen() {
     todayLessons.find((lesson) => isLessonInAttendanceWindow(lesson)) ??
     todayLessons[0] ??
     null;
+  const focusLessonInWindow = focusLesson ? isLessonInAttendanceWindow(focusLesson) : false;
 
   const sessionQ = useQuery({
     queryKey: queryKeys.attendanceSession(focusLesson?.id ?? "none"),
     queryFn: () => api.getAttendanceSessionByLesson(focusLesson!.id),
-    enabled: Boolean(focusLesson?.id),
+    enabled: Boolean(focusLesson?.id && focusLessonInWindow),
     retry: false
   });
 
@@ -58,7 +59,7 @@ export function TeacherOverviewScreen() {
     void lessonQ.refetch();
     void obsQ.refetch();
     void studentsQ.refetch();
-    if (focusLesson?.id) void sessionQ.refetch();
+    if (focusLesson?.id && focusLessonInWindow) void sessionQ.refetch();
   };
 
   if (calendarQ.isLoading) {
@@ -87,7 +88,7 @@ export function TeacherOverviewScreen() {
 
       <TeacherActiveLessonCard
         lesson={focusLesson}
-        loading={sessionQ.isFetching && Boolean(focusLesson)}
+        loading={sessionQ.isFetching && focusLessonInWindow}
         pendingCount={pendingAttendance}
         reason={lessonQ.data?.reason}
         totalCount={attendanceTotal}

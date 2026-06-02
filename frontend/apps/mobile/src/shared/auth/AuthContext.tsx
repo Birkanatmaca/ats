@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { api } from "@/shared/api/client";
 import type { AuthSession } from "@/shared/api/types";
 import { clearAuthSession, readAuthSession, storeAuthSession } from "@/shared/auth/session";
+import { unregisterStoredPushToken } from "@/shared/push/pushTokenRegistry";
 
 type AuthContextValue = {
   session: AuthSession | null;
@@ -33,6 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    try {
+      await unregisterStoredPushToken();
+    } catch {
+      /* ignore unregister errors */
+    }
     try {
       await api.logout();
     } catch {

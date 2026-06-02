@@ -114,6 +114,10 @@ export default function LoginScreen() {
               />
             </View>
 
+            <Pressable accessibilityRole="button" onPress={() => router.push("/(auth)/forgot-password")} style={styles.forgotLink}>
+              <Text style={styles.forgotText}>Şifremi unuttum</Text>
+            </Pressable>
+
             <Pressable
               disabled={loading}
               onPress={() => void submit()}
@@ -144,7 +148,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: "hidden"
   },
   backdropEvents: {
@@ -234,6 +238,8 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.75 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 16, letterSpacing: 0.2 },
+  forgotLink: { alignSelf: "center", paddingVertical: 2 },
+  forgotText: { color: colors.accent, fontSize: 14, fontWeight: "600" },
   error: {
     color: colors.danger,
     fontSize: 13,

@@ -5,24 +5,30 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
-	attendanceapp "ots/backend/internal/app/attendance"
+	academicapp "ots/backend/internal/app/academic"
 	aiapp "ots/backend/internal/app/ai"
+	announcementapp "ots/backend/internal/app/announcement"
+	attendanceapp "ots/backend/internal/app/attendance"
+	billingapp "ots/backend/internal/app/billing"
 	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
 	identityapp "ots/backend/internal/app/identity"
 	observationapp "ots/backend/internal/app/observation"
+	pushapp "ots/backend/internal/app/push"
 	schedulingapp "ots/backend/internal/app/scheduling"
 	schoolapp "ots/backend/internal/app/school"
+	studentimportapp "ots/backend/internal/app/studentimport"
 	superadminapp "ots/backend/internal/app/superadmin"
-	billingapp "ots/backend/internal/app/billing"
 	httphandlers "ots/backend/internal/http/handlers"
 	"ots/backend/internal/http/middleware"
 	platformauth "ots/backend/internal/platform/auth"
 	"ots/backend/internal/platform/config"
 	"ots/backend/internal/platform/openai"
+	platformpush "ots/backend/internal/platform/push"
 	"ots/backend/internal/repository/memory"
 	"ots/backend/internal/repository/postgres"
 )
@@ -38,6 +44,7 @@ func main() {
 
 	var schoolRepo schoolapp.Repository = memoryStore
 	var schedulingRepo schedulingapp.Repository = memoryStore
+	var academicRepo academicapp.Repository = memoryStore
 	var dashboardRepo dashboardapp.Repository = memoryStore
 	var observationRepo observationapp.Repository = memoryStore
 	var attendanceRepo attendanceapp.Repository = memoryStore
@@ -45,6 +52,9 @@ func main() {
 	var guidanceRepo guidanceapp.Repository = memoryStore
 	var aiRepo aiapp.Repository = memoryStore
 	var billingRepo billingapp.Repository = memoryStore
+	var pushRepo pushapp.Repository = memoryStore
+	var announcementRepo announcementapp.Repository = memoryStore
+	var studentImportRepo studentimportapp.Repository = memoryStore
 
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {
@@ -63,6 +73,7 @@ func main() {
 		superAdminRepo = postgresStore
 		schoolRepo = postgresStore
 		schedulingRepo = postgresStore
+		academicRepo = postgresStore
 		dashboardRepo = postgresStore
 		observationRepo = postgresStore
 		attendanceRepo = postgresStore
@@ -70,10 +81,14 @@ func main() {
 		guidanceRepo = postgresStore
 		aiRepo = postgresStore
 		billingRepo = postgresStore
+		pushRepo = postgresStore
+		announcementRepo = postgresStore
+		studentImportRepo = postgresStore
 		logger.Info("postgres repository connected")
 	}
 
 	schoolService := schoolapp.NewService(schoolRepo)
+	academicService := academicapp.NewService(academicRepo, time.Now)
 	observationService := observationapp.NewService(observationRepo)
 	openAIClient := openai.NewHTTPClient(openai.Config{
 		APIKey:        os.Getenv("OPENAI_API_KEY"),
@@ -103,20 +118,31 @@ func main() {
 	})
 
 	billingService := billingapp.NewService(billingRepo, time.Now)
+	var pushSender platformpush.Sender = platformpush.NewExpoSender(os.Getenv("EXPO_ACCESS_TOKEN"), logger)
+	if strings.TrimSpace(os.Getenv("EXPO_PUSH_ENABLED")) == "false" {
+		pushSender = platformpush.NewNoopSender(logger)
+	}
+	pushService := pushapp.NewService(pushRepo, pushSender)
+	announcementService := announcementapp.NewService(announcementRepo, time.Now)
+	studentImportService := studentimportapp.NewService(studentImportRepo, time.Now)
 
 	handlers := httphandlers.New(httphandlers.Dependencies{
-		Identity:    identityapp.NewService(identityRepo, jwtIssuer, time.Now),
-		School:      schoolService,
-		Scheduling:  schedulingapp.NewService(schedulingRepo),
-		Attendance:  attendanceapp.NewService(attendanceRepo),
-		Observation: observationService,
-		Guardian:    guardianapp.NewService(guardianRepo),
-		Guidance:    guidanceapp.NewService(guidanceRepo),
-		Dashboard:   dashboardapp.NewService(dashboardRepo),
-		SuperAdmin:  superadminapp.NewService(superAdminRepo),
-		Billing:     billingService,
-		AI:          aiService,
-		Clock:       time.Now,
+		Identity:      identityapp.NewService(identityRepo, jwtIssuer, time.Now),
+		School:        schoolService,
+		Scheduling:    schedulingapp.NewService(schedulingRepo),
+		Academic:      academicService,
+		Attendance:    attendanceapp.NewService(attendanceRepo),
+		Observation:   observationService,
+		Guardian:      guardianapp.NewService(guardianRepo),
+		Guidance:      guidanceapp.NewService(guidanceRepo),
+		Dashboard:     dashboardapp.NewService(dashboardRepo),
+		SuperAdmin:    superadminapp.NewService(superAdminRepo),
+		Billing:       billingService,
+		AI:            aiService,
+		Push:          pushService,
+		Announcements: announcementService,
+		StudentImport: studentImportService,
+		Clock:         time.Now,
 	})
 
 	go func() {
@@ -130,6 +156,41 @@ func main() {
 		defer ticker.Stop()
 		for range ticker.C {
 			run()
+		}
+	}()
+
+	go func() {
+		runGuidance := func() {
+			pushService.RunGuidanceRemindersAllTenants(context.Background())
+		}
+		runGuidance()
+		guidanceTicker := time.NewTicker(12 * time.Hour)
+		defer guidanceTicker.Stop()
+		for range guidanceTicker.C {
+			runGuidance()
+		}
+	}()
+
+	go func() {
+		runScheduled := func() {
+			published, err := announcementService.PublishDueScheduled(context.Background())
+			if err != nil {
+				logger.Warn("scheduled announcement job failed", slog.String("error", err.Error()))
+				return
+			}
+			for _, item := range published {
+				userIDs, resolveErr := announcementService.ResolveTargetUserIDs(context.Background(), item.TenantID, item.Audiences)
+				if resolveErr != nil {
+					continue
+				}
+				pushService.NotifyAnnouncementToUsers(context.Background(), item.TenantID, item.ID, item.Title, item.Body, userIDs)
+			}
+		}
+		runScheduled()
+		announcementTicker := time.NewTicker(5 * time.Minute)
+		defer announcementTicker.Stop()
+		for range announcementTicker.C {
+			runScheduled()
 		}
 	}()
 

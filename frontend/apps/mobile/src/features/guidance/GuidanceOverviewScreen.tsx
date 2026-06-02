@@ -16,16 +16,28 @@ export function GuidanceOverviewScreen() {
   const trackingsQ = useQuery({ queryKey: queryKeys.guidanceRiskTrackings, queryFn: () => api.guidanceRiskTrackings() });
   const plansQ = useQuery({ queryKey: queryKeys.guidanceSupportPlans, queryFn: () => api.guidanceSupportPlans() });
 
+  const casesQ = useQuery({ queryKey: queryKeys.guidanceCases, queryFn: () => api.guidanceCases() });
+  const caseStatsQ = useQuery({ queryKey: queryKeys.guidanceCaseStats, queryFn: () => api.guidanceCaseStats() });
+
   const openPlans = (plansQ.data ?? []).filter((item) => item.status === "open").length;
+  const openCases = (casesQ.data ?? []).filter((item) => item.status !== "closed").length;
 
   const refreshing =
-    obsQ.isRefetching || studentsQ.isRefetching || notesQ.isRefetching || trackingsQ.isRefetching || plansQ.isRefetching;
+    obsQ.isRefetching ||
+    studentsQ.isRefetching ||
+    notesQ.isRefetching ||
+    trackingsQ.isRefetching ||
+    plansQ.isRefetching ||
+    casesQ.isRefetching ||
+    caseStatsQ.isRefetching;
   const onRefresh = () => {
     void obsQ.refetch();
     void studentsQ.refetch();
     void notesQ.refetch();
     void trackingsQ.refetch();
     void plansQ.refetch();
+    void casesQ.refetch();
+    void caseStatsQ.refetch();
   };
 
   if (obsQ.isLoading) {
@@ -46,7 +58,9 @@ export function GuidanceOverviewScreen() {
           observationCount: obsQ.data?.length ?? 0,
           noteCount: notesQ.data?.length ?? 0,
           riskTrackingCount: trackingsQ.data?.length ?? 0,
-          openPlanCount: openPlans
+          openPlanCount: openPlans,
+          openCaseCount: openCases,
+          criticalCaseCount: caseStatsQ.data?.criticalCount ?? 0
         }}
       />
       <GuidanceOgtaAiStrip />

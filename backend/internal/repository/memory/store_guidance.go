@@ -19,6 +19,11 @@ type supportPlanRecord struct {
 	Deleted bool
 }
 
+type riskTrackingRecord struct {
+	guidancedomain.RiskTracking
+	Deleted bool
+}
+
 func memorySplitFullName(fullName string) (string, string) {
 	parts := strings.Fields(strings.TrimSpace(fullName))
 	if len(parts) == 0 {
@@ -85,6 +90,13 @@ func (s *Store) ensureSupportPlans() map[string]*supportPlanRecord {
 		s.supportPlans = make(map[string]*supportPlanRecord)
 	}
 	return s.supportPlans
+}
+
+func (s *Store) ensureRiskTrackings() map[string]*riskTrackingRecord {
+	if s.guidanceRiskTrackings == nil {
+		s.guidanceRiskTrackings = make(map[string]*riskTrackingRecord)
+	}
+	return s.guidanceRiskTrackings
 }
 
 func memoryFindStudent(students []school.Student, id string) (school.Student, bool) {
@@ -272,6 +284,81 @@ func (s *Store) DeleteSupportPlan(_ context.Context, tenantID, planID string) bo
 	defer s.mu.Unlock()
 	rec, ok := s.ensureSupportPlans()[planID]
 	if !ok || rec.TenantID != tenantID {
+		return false
+	}
+	rec.Deleted = true
+	return true
+}
+
+func (s *Store) ListRiskTrackings(_ context.Context, tenantID, studentID string) ([]guidancedomain.RiskTracking, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]guidancedomain.RiskTracking, 0)
+	for _, rec := range s.ensureRiskTrackings() {
+		if rec.Deleted || rec.TenantID != tenantID {
+			continue
+		}
+		if studentID != "" && rec.StudentID != studentID {
+			continue
+		}
+		out = append(out, rec.RiskTracking)
+	}
+	return out, nil
+}
+
+func (s *Store) GetRiskTrackingByStudent(_ context.Context, tenantID, studentID string) (guidancedomain.RiskTracking, bool) {
+	items, _ := s.ListRiskTrackings(context.Background(), tenantID, studentID)
+	if len(items) == 0 {
+		return guidancedomain.RiskTracking{}, false
+	}
+	return items[0], true
+}
+
+func (s *Store) GetRiskTracking(_ context.Context, tenantID, trackingID string) (guidancedomain.RiskTracking, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	rec, ok := s.ensureRiskTrackings()[trackingID]
+	if !ok || rec.Deleted || rec.TenantID != tenantID {
+		return guidancedomain.RiskTracking{}, false
+	}
+	return rec.RiskTracking, true
+}
+
+func (s *Store) CreateRiskTracking(_ context.Context, tenantID, counselorID string, input guidancedomain.CreateRiskTrackingInput) (guidancedomain.RiskTracking, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st, ok := memoryFindStudent(s.students, input.StudentID)
+	if !ok || st.TenantID != tenantID {
+		return guidancedomain.RiskTracking{}, false
+	}
+	for _, rec := range s.ensureRiskTrackings() {
+		if !rec.Deleted && rec.TenantID == tenantID && rec.StudentID == input.StudentID {
+			return rec.RiskTracking, true
+		}
+	}
+	now := s.clock()
+	id := fmt.Sprintf("risk-tracking-%d", len(s.ensureRiskTrackings())+1)
+	item := guidancedomain.RiskTracking{
+		ID:            id,
+		TenantID:      tenantID,
+		StudentID:     input.StudentID,
+		StudentName:   st.FullName,
+		ClassName:     memoryClassName(s.classes, st.ClassID),
+		CounselorID:   counselorID,
+		CounselorName: memoryAuthorName(s.users, counselorID),
+		Reason:        strings.TrimSpace(input.Reason),
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	s.ensureRiskTrackings()[id] = &riskTrackingRecord{RiskTracking: item}
+	return item, true
+}
+
+func (s *Store) DeleteRiskTracking(_ context.Context, tenantID, trackingID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rec, ok := s.ensureRiskTrackings()[trackingID]
+	if !ok || rec.TenantID != tenantID || rec.Deleted {
 		return false
 	}
 	rec.Deleted = true

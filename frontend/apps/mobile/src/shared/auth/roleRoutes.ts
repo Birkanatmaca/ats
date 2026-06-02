@@ -1,3 +1,4 @@
+import type { Href } from "expo-router";
 import type { Role } from "@/shared/api/types";
 
 export type MobileRoleShell = "principal" | "teacher" | "guardian" | "guidance" | "super_admin_blocked";
@@ -19,18 +20,18 @@ export function resolveMobileShell(role: Role): MobileRoleShell {
   }
 }
 
-export function shellHref(shell: MobileRoleShell): string {
+export function shellHref(shell: MobileRoleShell): Href {
   switch (shell) {
     case "principal":
-      return "/(app)/principal";
+      return "/(app)/principal" as Href;
     case "teacher":
-      return "/(app)/teacher";
+      return "/(app)/teacher" as Href;
     case "guardian":
-      return "/(app)/guardian";
+      return "/(app)/guardian" as Href;
     case "guidance":
-      return "/(app)/guidance";
+      return "/(app)/guidance" as Href;
     case "super_admin_blocked":
-      return "/(app)/super-admin-blocked";
+      return "/(app)/super-admin-blocked" as Href;
   }
 }
 

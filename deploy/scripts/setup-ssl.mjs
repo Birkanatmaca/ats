@@ -13,7 +13,7 @@ const user = process.env.OTS_PROD_USER || "root";
 const password = process.env.OTS_PROD_PASSWORD;
 const target = process.env.OTS_PROD_PATH || "/opt/ots";
 const sslEmail = process.env.SSL_EMAIL || "billing@ogta.ai";
-const domains = ["ogtasis.com", "www.ogtasis.com", "panel.ogtasis.com"];
+const domains = ["ogtasis.com", "www.ogtasis.com", "panel.ogtasis.com", "mobile.ogtasis.com"];
 
 if (!password) {
   console.error("OTS_PROD_PASSWORD gerekli");
@@ -80,7 +80,7 @@ async function main() {
 NGINX_CONFIG=nginx.http.conf
 LANDING_URL=https://ogtasis.com
 PANEL_URL=https://panel.ogtasis.com
-CORS_ALLOWED_ORIGINS=https://panel.ogtasis.com,http://panel.ogtasis.com,https://ogtasis.com,http://ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29
+CORS_ALLOWED_ORIGINS=https://panel.ogtasis.com,http://panel.ogtasis.com,https://mobile.ogtasis.com,http://mobile.ogtasis.com,https://ogtasis.com,http://ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29
 SSL_EMAIL=${sslEmail}
 `;
   await new Promise((resolve, reject) => {

@@ -125,6 +125,13 @@ export function getMoreMenuItems(shell: Exclude<MobileRoleShell, "super_admin_bl
         section: "school",
         description: "Ders programı ve planlama"
       },
+      {
+        key: "student-imports",
+        label: "Öğrenci import",
+        route: `${base}/student-imports`,
+        section: "school",
+        description: "Toplu öğrenci aktarım geçmişi"
+      },
       ...items
     ];
   }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	schedulingapp "ots/backend/internal/app/scheduling"
 	"ots/backend/internal/domain/dashboard"
 	"ots/backend/internal/domain/scheduling"
 	"ots/backend/internal/domain/school"
@@ -160,7 +161,7 @@ func (s *Store) GenerateDraftSchedule(_ context.Context, tenantID string) schedu
 	}
 }
 
-func (s *Store) UpdateScheduleLesson(_ context.Context, tenantID string, scheduleID string, lessonID string, input scheduling.UpdateLessonInput) (scheduling.Lesson, bool, error) {
+func (s *Store) UpdateScheduleLesson(_ context.Context, tenantID string, scheduleID string, lessonID string, actorUserID string, input scheduling.UpdateLessonInput) (scheduling.Lesson, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	schedule, ok := s.schedules[scheduleID]
@@ -171,6 +172,7 @@ func (s *Store) UpdateScheduleLesson(_ context.Context, tenantID string, schedul
 		if lesson.ID != lessonID {
 			continue
 		}
+		before := memoryLessonSnapshot(lesson)
 		if input.TeacherID != nil {
 			teacher, ok := s.teacherByUserID(strings.TrimSpace(*input.TeacherID))
 			if !ok {
@@ -206,6 +208,9 @@ func (s *Store) UpdateScheduleLesson(_ context.Context, tenantID string, schedul
 		lesson.EndsAt = lessonTime(s.clock(), lesson.DayOfWeek, lesson.EndTime)
 		schedule.Lessons[index] = lesson
 		s.schedules[scheduleID] = schedule
+		if actorUserID != "" {
+			s.appendScheduleChangeLogLocked(scheduleID, actorUserID, lessonID, "lesson.update", before, memoryLessonSnapshot(lesson))
+		}
 		return lesson, true, nil
 	}
 	return scheduling.Lesson{}, false, nil
@@ -218,20 +223,11 @@ func (s *Store) ValidateSchedule(_ context.Context, tenantID string, scheduleID 
 	if !ok || tenantID != s.tenant.ID {
 		return scheduling.ValidationResult{Valid: false, HardConflicts: []string{"Program bulunamadı."}}
 	}
-	hard := []string{}
-	classSlot := map[string]map[int]map[string]bool{}
-	teacherSlot := map[string]map[int]map[string]bool{}
-	for _, lesson := range schedule.Lessons {
-		if memoryIsBusy(classSlot, lesson.ClassID, lesson.DayOfWeek, lesson.StartTime) {
-			hard = append(hard, fmt.Sprintf("%s sınıf çakışması", lesson.ClassName))
-		}
-		if memoryIsBusy(teacherSlot, lesson.TeacherID, lesson.DayOfWeek, lesson.StartTime) {
-			hard = append(hard, fmt.Sprintf("%s öğretmen çakışması", lesson.TeacherName))
-		}
-		memoryMarkBusy(classSlot, lesson.ClassID, lesson.DayOfWeek, lesson.StartTime)
-		memoryMarkBusy(teacherSlot, lesson.TeacherID, lesson.DayOfWeek, lesson.StartTime)
-	}
-	return scheduling.ValidationResult{Valid: len(hard) == 0, HardConflicts: hard}
+	reqs := make([]scheduling.ClassSubjectRequirement, len(s.requirements))
+	copy(reqs, s.requirements)
+	availabilities := make([]scheduling.TeacherAvailability, len(s.availabilities))
+	copy(availabilities, s.availabilities)
+	return schedulingapp.ValidateLessonsWithAvailabilities(schedule.Lessons, reqs, availabilities)
 }
 
 func (s *Store) PublishSchedule(ctx context.Context, tenantID string, scheduleID string, actorUserID string) (scheduling.Schedule, bool, error) {
@@ -353,20 +349,11 @@ func defaultAvailabilityType(value string) string {
 }
 
 func (s *Store) validateScheduleLocked(schedule scheduling.Schedule) scheduling.ValidationResult {
-	hard := []string{}
-	classSlot := map[string]map[int]map[string]bool{}
-	teacherSlot := map[string]map[int]map[string]bool{}
-	for _, lesson := range schedule.Lessons {
-		if memoryIsBusy(classSlot, lesson.ClassID, lesson.DayOfWeek, lesson.StartTime) {
-			hard = append(hard, "class conflict")
-		}
-		if memoryIsBusy(teacherSlot, lesson.TeacherID, lesson.DayOfWeek, lesson.StartTime) {
-			hard = append(hard, "teacher conflict")
-		}
-		memoryMarkBusy(classSlot, lesson.ClassID, lesson.DayOfWeek, lesson.StartTime)
-		memoryMarkBusy(teacherSlot, lesson.TeacherID, lesson.DayOfWeek, lesson.StartTime)
-	}
-	return scheduling.ValidationResult{Valid: len(hard) == 0, HardConflicts: hard}
+	reqs := make([]scheduling.ClassSubjectRequirement, len(s.requirements))
+	copy(reqs, s.requirements)
+	availabilities := make([]scheduling.TeacherAvailability, len(s.availabilities))
+	copy(availabilities, s.availabilities)
+	return schedulingapp.ValidateLessonsWithAvailabilities(schedule.Lessons, reqs, availabilities)
 }
 
 func (s *Store) greedyAssignLessons(scheduleID, tenantID string) []scheduling.Lesson {

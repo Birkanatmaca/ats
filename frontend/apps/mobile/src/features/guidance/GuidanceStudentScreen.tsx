@@ -18,6 +18,7 @@ import {
   View
 } from "react-native";
 import { GuidanceStudentOgtaAiStrip } from "@/features/guidance/GuidanceStudentOgtaAiStrip";
+import { GuidanceStudentCaseTab } from "@/features/guidance/GuidanceStudentCaseTab";
 import {
   buildGuidanceRiskSignals,
   buildGuidanceStudentSupports,
@@ -97,6 +98,7 @@ export function GuidanceStudentScreen() {
   const [noteBody, setNoteBody] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(true);
+  const [studentTab, setStudentTab] = useState<"overview" | "case">("overview");
 
   const studentsQ = useQuery({ queryKey: queryKeys.guidanceStudents, queryFn: () => api.guidanceStudents() });
   const notesQ = useQuery({
@@ -292,6 +294,25 @@ export function GuidanceStudentScreen() {
         totalNotes={stats.total}
       />
 
+      <View style={styles.tabRow}>
+        <Pressable
+          onPress={() => setStudentTab("overview")}
+          style={[styles.tabBtn, studentTab === "overview" && styles.tabBtnActive]}
+        >
+          <Text style={[styles.tabBtnText, studentTab === "overview" && styles.tabBtnTextActive]}>Genel</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setStudentTab("case")}
+          style={[styles.tabBtn, studentTab === "case" && styles.tabBtnActive]}
+        >
+          <Text style={[styles.tabBtnText, studentTab === "case" && styles.tabBtnTextActive]}>Vaka dosyası</Text>
+        </Pressable>
+      </View>
+
+      {studentTab === "case" && studentId ? <GuidanceStudentCaseTab studentId={studentId} /> : null}
+
+      {studentTab === "overview" ? (
+        <>
       {notesQ.isError ? <ErrorState message={notesQ.error.message} onRetry={() => void notesQ.refetch()} /> : null}
       {obsQ.isError ? <ErrorState message={obsQ.error.message} onRetry={() => void obsQ.refetch()} /> : null}
 
@@ -385,6 +406,8 @@ export function GuidanceStudentScreen() {
       ) : (
         filteredNotes.map((entry) => <NoteCard key={entry.id} entry={entry} />)
       )}
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -437,6 +460,23 @@ function NoteCard({ entry }: { entry: UnifiedNote }) {
 
 const styles = StyleSheet.create({
   heroShell: { marginHorizontal: -4, marginBottom: 12 },
+  tabRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12
+  },
+  tabBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "#f8fafc"
+  },
+  tabBtnActive: { backgroundColor: "#7c3aed", borderColor: "#7c3aed" },
+  tabBtnText: { fontSize: 13, fontWeight: "700", color: colors.textMuted },
+  tabBtnTextActive: { color: "#fff" },
   hero: {
     backgroundColor: "#7c3aed",
     borderRadius: 22,

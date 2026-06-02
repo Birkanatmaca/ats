@@ -16,7 +16,7 @@ const user = process.env.OTS_PROD_USER || "root";
 const password = process.env.OTS_PROD_PASSWORD;
 const target = process.env.OTS_PROD_PATH || "/opt/ots";
 const sslEmail = process.env.SSL_EMAIL || "billing@ogta.ai";
-const domains = ["ogtasis.com", "www.ogtasis.com", "panel.ogtasis.com"];
+const domains = ["ogtasis.com", "www.ogtasis.com", "panel.ogtasis.com", "mobile.ogtasis.com"];
 
 if (!password) {
   console.error("OTS_PROD_PASSWORD gerekli");

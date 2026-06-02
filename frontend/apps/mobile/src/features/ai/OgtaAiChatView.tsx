@@ -58,6 +58,8 @@ export function OgtaAiChatView({
 }: Props) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
+  const topInset = insets.top + (Platform.OS === "web" ? 14 : 18);
+  const bottomInset = Math.max(insets.bottom, Platform.OS === "web" ? 12 : 0) + 18;
 
   useEffect(() => {
     if (!visible) return;
@@ -73,10 +75,10 @@ export function OgtaAiChatView({
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 6 : 0}
-        style={[styles.flex, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]}
+        keyboardVerticalOffset={Platform.OS === "ios" ? topInset : 0}
+        style={styles.flex}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: topInset }]}>
           <Pressable
             accessibilityLabel="Kapat"
             accessibilityRole="button"
@@ -195,7 +197,7 @@ export function OgtaAiChatView({
           ) : null}
         </ScrollView>
 
-        <View style={styles.composerWrap}>
+        <View style={[styles.composerWrap, { paddingBottom: bottomInset }]}>
           <LinearGradient
             colors={["rgba(255,255,255,0.14)", "rgba(147,197,253,0.12)"]}
             end={{ x: 1, y: 0.5 }}
@@ -208,7 +210,9 @@ export function OgtaAiChatView({
               onChangeText={onInputChange}
               placeholder="Sorunu yaz, birlikte çözelim…"
               placeholderTextColor="rgba(219,234,254,0.72)"
-              style={styles.composerInput}
+              scrollEnabled
+              style={[styles.composerInput, Platform.OS === "web" && styles.composerInputWeb]}
+              textAlignVertical="center"
               value={input}
             />
             <Pressable
@@ -238,15 +242,15 @@ export function OgtaAiChatView({
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "#172554"
   },
   flex: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingBottom: 10
+    paddingHorizontal: 16,
+    paddingBottom: 12
   },
   closeBtn: {
     width: 40,
@@ -282,8 +286,8 @@ const styles = StyleSheet.create({
   chatScroll: { flex: 1 },
   chatContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
     gap: 12
   },
   loadingWrap: { alignItems: "center", gap: 12, paddingTop: 48 },
@@ -415,33 +419,45 @@ const styles = StyleSheet.create({
     paddingVertical: 10
   },
   typingText: { color: "rgba(199,210,254,0.82)", fontSize: 12, fontWeight: "600" },
-  composerWrap: { paddingHorizontal: 16, paddingTop: 8 },
+  composerWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(165,180,252,0.14)",
+    backgroundColor: "rgba(15,23,42,0.42)"
+  },
   composerShell: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
-    borderRadius: 18,
-    paddingLeft: 14,
-    paddingRight: 6,
-    paddingVertical: 6,
-    minHeight: 52,
+    gap: 10,
+    borderRadius: 20,
+    paddingLeft: 16,
+    paddingRight: 8,
+    paddingVertical: 8,
+    minHeight: 56,
     borderWidth: 1,
-    borderColor: "rgba(165,180,252,0.24)"
+    borderColor: "rgba(165,180,252,0.28)"
   },
   composerInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
+    lineHeight: 22,
     color: "#fff",
-    maxHeight: 120,
-    paddingVertical: 8,
+    maxHeight: 132,
+    minHeight: 40,
+    paddingTop: Platform.OS === "ios" ? 10 : 8,
+    paddingBottom: Platform.OS === "ios" ? 10 : 8,
     fontWeight: "500"
   },
-  sendBtnWrap: { marginBottom: 2 },
+  composerInputWeb: {
+    outlineStyle: "none"
+  } as object,
+  sendBtnWrap: { marginBottom: 4 },
   sendBtnDisabled: { opacity: 0.45 },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

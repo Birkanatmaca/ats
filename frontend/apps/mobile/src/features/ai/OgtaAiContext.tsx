@@ -81,7 +81,8 @@ export function OgtaAiProvider({
 
   const pendingAction = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].pendingAction) return messages[i].pendingAction;
+      const action = messages[i].pendingAction;
+      if (action) return action;
     }
     return null;
   }, [messages]);

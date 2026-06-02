@@ -12,6 +12,8 @@ export default function GuidanceRootLayout() {
         <Stack.Screen name="support" options={swipeDetailScreenOptions} />
         <Stack.Screen name="profile" options={swipeDetailScreenOptions} />
         <Stack.Screen name="students/[studentId]" options={swipeDetailScreenOptions} />
+        <Stack.Screen name="cases/index" options={swipeDetailScreenOptions} />
+        <Stack.Screen name="cases/[caseId]" options={swipeDetailScreenOptions} />
       </Stack>
     </OgtaAiProvider>
   );

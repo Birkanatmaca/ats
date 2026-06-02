@@ -7,6 +7,7 @@ import {
   Clock3,
   PencilLine,
   Search,
+  TriangleAlert,
   XCircle
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +23,10 @@ import {
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { AttendanceRecord, AttendanceSession, Lesson } from "@/shared/api/types";
+import { useOfflineAttendance } from "@/features/teacher/offline/OfflineAttendanceContext";
+import { OfflineStatusBanner } from "@/features/teacher/offline/OfflineStatusBanner";
+import { PendingAttendanceQueue } from "@/features/teacher/offline/PendingAttendanceQueue";
+import { SyncConflictSheet } from "@/features/teacher/offline/SyncConflictSheet";
 import { colors } from "@/shared/theme/colors";
 import { EmptyState } from "@/shared/ui/EmptyState";
 import { ErrorState } from "@/shared/ui/ErrorState";
@@ -49,6 +54,52 @@ const statuses: Array<{ value: Status; label: string; color: string; bg: string 
 ];
 
 const HERO = "#059669";
+const ATTENDANCE_WINDOW_MS = 10 * 60 * 1000;
+
+type WindowAccessInfo = {
+  open: boolean;
+  windowLabel: string;
+  lessonRange: string;
+  title: string;
+  message: string;
+};
+
+function windowAccessInfo(lesson: Lesson, now: Date): WindowAccessInfo {
+  const open = isLessonInAttendanceWindow(lesson, now);
+  const windowLabel = attendanceWindowLabel(lesson);
+  const lessonRange = formatLessonRange(lesson);
+  const start = new Date(lesson.startsAt).getTime() - ATTENDANCE_WINDOW_MS;
+  const end = new Date(lesson.endsAt).getTime() + ATTENDANCE_WINDOW_MS;
+  const time = now.getTime();
+
+  if (open) {
+    return {
+      open: true,
+      windowLabel,
+      lessonRange,
+      title: "Yoklama penceresi açık",
+      message: `${lesson.className} · ${lesson.subjectName} · Ders ${lessonRange}`
+    };
+  }
+
+  if (time < start) {
+    return {
+      open: false,
+      windowLabel,
+      lessonRange,
+      title: "Yoklama henüz açılmadı",
+      message: `Ders saati ${lessonRange}. Yoklama penceresi ${windowLabel} aralığında açılır — şu an erişilemez.`
+    };
+  }
+
+  return {
+    open: false,
+    windowLabel,
+    lessonRange,
+    title: "Yoklama penceresi kapandı",
+    message: `Ders saati ${lessonRange}. Son yoklama aralığı ${windowLabel} idi — şu an erişilemez.`
+  };
+}
 
 async function openSession(lesson: Lesson): Promise<AttendanceSession> {
   try {
@@ -81,7 +132,7 @@ function sessionStatusTone(params: {
 }): { text: string; detail: string; tone: "closed" | "done" | "pending" } {
   const { sessionMatches, windowOpen, isFinalized } = params;
   if (!sessionMatches && !windowOpen) {
-    return { text: "Yoklama alınmadı", detail: "Yoklama penceresi kapalı", tone: "closed" };
+    return { text: "Erişilemez", detail: "Yoklama penceresi dışında", tone: "closed" as const };
   }
   if (sessionMatches && isFinalized) {
     return { text: "Yoklama alındı", detail: "Kayıt tamamlandı", tone: "done" };
@@ -95,6 +146,14 @@ function sessionStatusTone(params: {
 
 export function TeacherAttendanceScreen() {
   const queryClient = useQueryClient();
+  const {
+    online,
+    cacheOpenedSession,
+    persistSessionChanges,
+    loadDraftSession,
+    getDraftForLesson,
+    pendingCount: offlinePendingCount
+  } = useOfflineAttendance();
   const today = currentWeekday();
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedLessonId, setSelectedLessonId] = useState("");
@@ -144,41 +203,75 @@ export function TeacherAttendanceScreen() {
   );
 
   const selectedLesson = lessonOptions.find((l) => l.id === selectedLessonId) ?? lessonOptions[0];
+  const windowAccess = selectedLesson ? windowAccessInfo(selectedLesson, now) : null;
+  const offlineDraft = selectedLesson ? getDraftForLesson(selectedLesson.id) : undefined;
+  const finalizePending = Boolean(offlineDraft?.finalizePending);
 
   const windowOpen = selectedLesson ? isLessonInAttendanceWindow(selectedLesson, now) : false;
   const sessionMatches = Boolean(session && selectedLesson && session.lessonId === selectedLesson.id);
-  const isFinalized = Boolean(session?.finalizedAt);
-  const canEdit = sessionMatches && windowOpen && !isFinalized;
+  const isFinalized = Boolean(session?.finalizedAt) && !finalizePending;
+  const canEdit =
+    sessionMatches && !isFinalized && !finalizePending && (windowOpen || !online);
   const canReopen = sessionMatches && windowOpen && isFinalized;
 
   useEffect(() => {
-    if (session && selectedLesson && !isLessonInAttendanceWindow(selectedLesson, now)) {
+    if (!selectedLesson || sessionMatches) return;
+    const cached = loadDraftSession(selectedLesson.id);
+    if (cached) {
+      setSession(cached);
+      setMessage(online ? null : "Bekleyen çevrimdışı yoklama yüklendi.");
+    }
+  }, [selectedLesson, sessionMatches, loadDraftSession, online]);
+
+  useEffect(() => {
+    if (!session || !selectedLesson) return;
+    const hasPendingDraft = Boolean(offlineDraft && offlineDraft.syncStatus !== "synced");
+    if (!isLessonInAttendanceWindow(selectedLesson, now) && !hasPendingDraft && online) {
       setSession(null);
       setMessage(null);
     }
-  }, [session, selectedLesson, now]);
+  }, [session, selectedLesson, now, offlineDraft, online]);
 
   const openMutation = useMutation({
     mutationFn: (lesson: Lesson) => openSession(lesson),
-    onSuccess: (loaded) => {
+    onSuccess: (loaded, lesson) => {
       setSession(loaded);
       setMessage(`${loaded.className} · ${loaded.subjectName} listesi hazır.`);
       setError(null);
+      void cacheOpenedSession(loaded, lesson);
     },
-    onError: (err) => setError(err instanceof Error ? err.message : "Oturum açılamadı.")
+    onError: (err) => {
+      if (selectedLesson) {
+        const cached = loadDraftSession(selectedLesson.id);
+        if (cached) {
+          setSession(cached);
+          setMessage("Çevrimdışı taslak yüklendi.");
+          setError(null);
+          return;
+        }
+      }
+      setError(err instanceof Error ? err.message : "Oturum açılamadı.");
+    }
   });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!session) throw new Error("Oturum yok");
+      if (!online) {
+        await persistSessionChanges(session, { finalizePending: true });
+        return session;
+      }
       const saved = await api.updateAttendanceRecords(session.id, session.records);
       return api.finalizeAttendanceSession(saved.id);
     },
     onSuccess: (finalized) => {
       setSession(finalized);
-      setMessage("Yoklama kaydedildi.");
+      setMessage(online ? "Yoklama kaydedildi." : "Yoklama tamamlandı. Senkron bekliyor.");
       setError(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.teacherCalendar });
+      if (online) {
+        void cacheOpenedSession(finalized, selectedLesson ?? undefined);
+      }
     },
     onError: (err) => setError(err instanceof Error ? err.message : "Kayıt başarısız.")
   });
@@ -198,6 +291,19 @@ export function TeacherAttendanceScreen() {
 
   const handleOpenLesson = useCallback(
     (lesson: Lesson) => {
+      if (!online) {
+        const cached = loadDraftSession(lesson.id);
+        if (cached) {
+          setSelectedLessonId(lesson.id);
+          setSelectedClassId(lesson.classId);
+          setSession(cached);
+          setMessage("Çevrimdışı taslak yüklendi.");
+          setError(null);
+          return;
+        }
+        setError("Bağlantı yok. Liste daha önce çevrimiçi açılmamış.");
+        return;
+      }
       if (!isLessonInAttendanceWindow(lesson, now)) {
         setError("Yoklama penceresi kapalı (ders başlangıcından 10 dk önce – bitişinden 10 dk sonra).");
         return;
@@ -207,7 +313,7 @@ export function TeacherAttendanceScreen() {
       setError(null);
       openMutation.mutate(lesson);
     },
-    [now, openMutation]
+    [now, online, openMutation, loadDraftSession]
   );
 
   useEffect(() => {
@@ -235,21 +341,32 @@ export function TeacherAttendanceScreen() {
     );
   }, [session, search]);
 
-  const updateStatus = useCallback((studentId: string, status: Status) => {
-    setSession((current) =>
-      current
-        ? {
-            ...current,
-            records: current.records.map((r) => (r.studentId === studentId ? { ...r, status } : r))
-          }
-        : current
-    );
-  }, []);
+  const updateStatus = useCallback(
+    (studentId: string, status: Status) => {
+      setSession((current) => {
+        if (!current) return current;
+        const next = {
+          ...current,
+          records: current.records.map((r) => (r.studentId === studentId ? { ...r, status } : r))
+        };
+        if (!online) {
+          void persistSessionChanges(next);
+        }
+        return next;
+      });
+    },
+    [online, persistSessionChanges]
+  );
 
   const markAllPresent = () => {
-    setSession((current) =>
-      current ? { ...current, records: current.records.map((r) => ({ ...r, status: "present" as const })) } : current
-    );
+    setSession((current) => {
+      if (!current) return current;
+      const next = { ...current, records: current.records.map((r) => ({ ...r, status: "present" as const })) };
+      if (!online) {
+        void persistSessionChanges(next);
+      }
+      return next;
+    });
   };
 
   function handleClassChange(classId: string) {
@@ -339,9 +456,40 @@ export function TeacherAttendanceScreen() {
 
       {calendarQ.isError ? <ErrorState message={calendarQ.error.message} onRetry={onRefresh} /> : null}
 
+      <OfflineStatusBanner />
+      {offlinePendingCount > 0 ? <PendingAttendanceQueue /> : null}
+      <SyncConflictSheet />
+
+      {!calendarQ.isError && selectedLesson && windowAccess && !windowAccess.open ? (
+        <View style={styles.windowWarningCard}>
+          <View style={styles.windowWarningTop}>
+            <View style={styles.windowWarningIconWrap}>
+              <TriangleAlert color="#b45309" size={22} strokeWidth={2.4} />
+            </View>
+            <View style={styles.windowWarningHeadCopy}>
+              <Text style={styles.windowWarningTitle}>{windowAccess.title}</Text>
+              <View style={styles.windowWarningBadge}>
+                <Clock3 color="#92400e" size={12} strokeWidth={2.4} />
+                <Text style={styles.windowWarningBadgeText}>ERİŞİLEMEZ</Text>
+              </View>
+            </View>
+          </View>
+          <Text style={styles.windowWarningBody}>{windowAccess.message}</Text>
+          <View style={styles.windowWarningTimeRow}>
+            <CalendarDays color="#b45309" size={15} strokeWidth={2.2} />
+            <Text style={styles.windowWarningTimeText}>
+              Yoklama penceresi: <Text style={styles.windowWarningTimeStrong}>{windowAccess.windowLabel}</Text>
+            </Text>
+          </View>
+          <Text style={styles.windowWarningHint}>
+            Yoklama, ders başlangıcından 10 dk önce ile ders bitişinden 10 dk sonra arasında alınabilir.
+          </Text>
+        </View>
+      ) : null}
+
       {!calendarQ.isError ? (
         <>
-          <View style={styles.statusCard}>
+          <View style={[styles.statusCard, !windowOpen && selectedLesson ? styles.statusCardClosed : null]}>
             <View style={[styles.statusBadge, styles[`statusBadge_${statusInfo.tone}`]]}>
               <Text style={[styles.statusBadgeText, styles[`statusBadgeText_${statusInfo.tone}`]]}>
                 {statusInfo.text}
@@ -367,9 +515,9 @@ export function TeacherAttendanceScreen() {
             </View>
           ) : null}
           {error ? (
-            <View style={styles.bannerErr}>
-              <AlertCircle color="#dc2626" size={16} strokeWidth={2.2} />
-              <Text style={styles.bannerErrText}>{error}</Text>
+            <View style={styles.bannerWarn}>
+              <TriangleAlert color="#b45309" size={16} strokeWidth={2.2} />
+              <Text style={styles.bannerWarnText}>{error}</Text>
             </View>
           ) : null}
 
@@ -413,10 +561,16 @@ export function TeacherAttendanceScreen() {
                       style={[
                         styles.lessonChip,
                         active && styles.lessonChipActive,
+                        !open && !active && styles.lessonChipClosed,
                         !open && styles.lessonChipDisabled,
                         isActiveNow && styles.lessonChipLive
                       ]}
                     >
+                      {!open ? (
+                        <View style={styles.closedDot}>
+                          <Text style={styles.closedDotText}>KAPALI</Text>
+                        </View>
+                      ) : null}
                       {isActiveNow ? (
                         <View style={styles.liveDot}>
                           <Text style={styles.liveDotText}>CANLI</Text>
@@ -428,9 +582,8 @@ export function TeacherAttendanceScreen() {
                       <Text style={[styles.lessonChipSub, active && styles.lessonChipTextActive]}>
                         {lesson.subjectName}
                       </Text>
-                      <Text style={[styles.lessonChipTime, active && styles.lessonChipTextActive]}>
+                      <Text style={[styles.lessonChipTime, active && styles.lessonChipTextActive, !open && !active && styles.lessonChipTimeClosed]}>
                         {formatLessonRange(lesson)}
-                        {!open ? " · kapalı" : ""}
                       </Text>
                     </Pressable>
                   );
@@ -438,16 +591,15 @@ export function TeacherAttendanceScreen() {
               </ScrollView>
             )}
 
-            {selectedLesson ? (
-              <View style={styles.windowNote}>
-                <CalendarDays color={windowOpen ? HERO : colors.textMuted} size={15} strokeWidth={2.2} />
-                <Text style={styles.windowNoteText}>
+            {selectedLesson && windowAccess?.open ? (
+              <View style={styles.windowNoteOpen}>
+                <CalendarDays color={HERO} size={15} strokeWidth={2.2} />
+                <Text style={styles.windowNoteOpenText}>
                   <Text style={styles.windowNoteStrong}>
                     {selectedLesson.className} · {selectedLesson.subjectName}
                   </Text>
                   {" · "}
-                  Pencere: {attendanceWindowLabel(selectedLesson)}
-                  {!windowOpen ? " · şu an erişilemez" : ""}
+                  Ders {windowAccess.lessonRange} · Pencere {windowAccess.windowLabel}
                 </Text>
               </View>
             ) : null}
@@ -498,10 +650,15 @@ export function TeacherAttendanceScreen() {
                     ) : (
                       <>
                         <CheckCircle2 color="#fff" size={16} strokeWidth={2.2} />
-                        <Text style={styles.primaryActionText}>Tamamla</Text>
+                        <Text style={styles.primaryActionText}>{online ? "Tamamla" : "Tamamla (beklemede)"}</Text>
                       </>
                     )}
                   </Pressable>
+                </View>
+              ) : finalizePending ? (
+                <View style={styles.finalizePendingBanner}>
+                  <Clock3 color="#1d4ed8" size={16} strokeWidth={2.2} />
+                  <Text style={styles.finalizePendingText}>Tamamlama senkron bekliyor</Text>
                 </View>
               ) : null}
             </View>
@@ -574,13 +731,9 @@ export function TeacherAttendanceScreen() {
                 </View>
               ) : null}
             </>
-          ) : !openMutation.isPending && todayLessons.length > 0 ? (
+          ) : !openMutation.isPending && todayLessons.length > 0 && windowOpen ? (
             <EmptyState
-              message={
-                windowOpen
-                  ? "Yukarıdan ders seçip listeyi açarak yoklama alabilirsiniz."
-                  : "Seçili ders için yoklama penceresi henüz açılmadı veya kapandı."
-              }
+              message="Yukarıdan ders seçip listeyi açarak yoklama alabilirsiniz."
               title="Liste bekleniyor"
             />
           ) : null}
@@ -630,20 +783,119 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8
   },
+  statusCardClosed: {
+    backgroundColor: "#fffbeb",
+    borderColor: "#fcd34d"
+  },
   statusBadge: {
     alignSelf: "flex-start",
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4
   },
-  statusBadge_closed: { backgroundColor: "#f1f5f9" },
+  statusBadge_closed: { backgroundColor: "#fef3c7" },
   statusBadge_done: { backgroundColor: "#ecfdf5" },
   statusBadge_pending: { backgroundColor: "#fffbeb" },
   statusBadgeText: { fontSize: 12, fontWeight: "700" },
-  statusBadgeText_closed: { color: "#64748b" },
+  statusBadgeText_closed: { color: "#b45309" },
   statusBadgeText_done: { color: "#047857" },
   statusBadgeText_pending: { color: "#b45309" },
   statusDetail: { fontSize: 13, color: colors.textMuted },
+  windowWarningCard: {
+    backgroundColor: "#fffbeb",
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "#fbbf24",
+    padding: 14,
+    gap: 10
+  },
+  windowWarningTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12
+  },
+  windowWarningIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#fef3c7",
+    borderWidth: 1,
+    borderColor: "#fcd34d",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  windowWarningHeadCopy: {
+    flex: 1,
+    gap: 6
+  },
+  windowWarningTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#92400e",
+    letterSpacing: -0.2
+  },
+  windowWarningBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#fde68a",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#fbbf24"
+  },
+  windowWarningBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#92400e",
+    letterSpacing: 0.4
+  },
+  windowWarningBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#78350f",
+    fontWeight: "600"
+  },
+  windowWarningTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fef3c7",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#fde68a"
+  },
+  windowWarningTimeText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#92400e",
+    fontWeight: "600"
+  },
+  windowWarningTimeStrong: {
+    fontWeight: "800",
+    color: "#b45309"
+  },
+  windowWarningHint: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#a16207",
+    fontWeight: "500"
+  },
+  bannerWarn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fffbeb",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#fcd34d"
+  },
+  bannerWarnText: { flex: 1, color: "#b45309", fontSize: 13, fontWeight: "700" },
   progressBlock: { gap: 6, marginTop: 2 },
   progressTrack: {
     height: 8,
@@ -710,8 +962,23 @@ const styles = StyleSheet.create({
     gap: 2
   },
   lessonChipActive: { backgroundColor: HERO, borderColor: HERO },
-  lessonChipDisabled: { opacity: 0.62 },
+  lessonChipDisabled: { opacity: 0.88 },
+  lessonChipClosed: {
+    backgroundColor: "#fffbeb",
+    borderColor: "#fcd34d"
+  },
   lessonChipLive: { borderColor: "#fde68a" },
+  closedDot: {
+    alignSelf: "flex-start",
+    backgroundColor: "#fde68a",
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: "#fbbf24"
+  },
+  closedDotText: { fontSize: 9, fontWeight: "800", color: "#92400e", letterSpacing: 0.3 },
   liveDot: {
     alignSelf: "flex-start",
     backgroundColor: "#fef3c7",
@@ -724,8 +991,9 @@ const styles = StyleSheet.create({
   lessonChipTitle: { fontWeight: "700", fontSize: 13, color: colors.text },
   lessonChipSub: { fontSize: 11, color: colors.textMuted },
   lessonChipTime: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
+  lessonChipTimeClosed: { color: "#b45309", fontWeight: "700" },
   lessonChipTextActive: { color: "#fff" },
-  windowNote: {
+  windowNoteOpen: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 8,
@@ -735,7 +1003,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#bbf7d0"
   },
-  windowNoteText: { flex: 1, fontSize: 12, color: colors.text, lineHeight: 18 },
+  windowNoteOpenText: { flex: 1, fontSize: 12, color: colors.text, lineHeight: 18 },
   windowNoteStrong: { fontWeight: "700" },
   toolbarActions: { marginTop: 4 },
   primaryAction: {
@@ -816,5 +1084,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#a7f3d0"
   },
-  finalizedText: { color: "#047857", fontWeight: "600", fontSize: 13 }
+  finalizedText: { color: "#047857", fontWeight: "600", fontSize: 13 },
+  finalizePendingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#eff6ff",
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#bfdbfe"
+  },
+  finalizePendingText: { color: "#1d4ed8", fontWeight: "700", fontSize: 13 }
 });

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"ots/backend/internal/domain/identity"
-	superadmindomain "ots/backend/internal/domain/superadmin"
 	"ots/backend/internal/domain/school"
+	superadmindomain "ots/backend/internal/domain/superadmin"
 )
 
 func (s *Store) ListClasses(_ context.Context, tenantID string) ([]school.PrincipalRosterClass, error) {
@@ -547,6 +547,7 @@ func (s *Store) ProvisionGuardian(ctx context.Context, tenantID string, input sc
 		linked++
 	}
 	return school.ProvisionGuardianResult{
+		UserID:            cred.User.ID,
 		Email:             email,
 		TemporaryPassword: cred.TemporaryPassword,
 		LinkedStudents:    linked,

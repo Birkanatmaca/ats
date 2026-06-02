@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { api } from "@/shared/api/client";
+import { TeacherAcademicResultsPanel } from "@/features/teacher/TeacherAcademicResultsPanel";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { Lesson } from "@/shared/api/types";
 import { colors } from "@/shared/theme/colors";
@@ -168,6 +169,8 @@ export function TeacherLessonsScreen() {
           </View>
         </View>
       </View>
+
+      <TeacherAcademicResultsPanel lessons={lessons} />
 
       <View style={styles.viewToggle}>
         <Pressable

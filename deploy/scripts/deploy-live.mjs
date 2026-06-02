@@ -79,7 +79,7 @@ async function main() {
 NGINX_CONFIG=${process.env.NGINX_CONFIG || "nginx.ssl.conf"}
 LANDING_URL=${process.env.LANDING_URL || "https://ogtasis.com"}
 PANEL_URL=${process.env.PANEL_URL || "https://panel.ogtasis.com"}
-CORS_ALLOWED_ORIGINS=${process.env.CORS_ALLOWED_ORIGINS || "https://panel.ogtasis.com,http://panel.ogtasis.com,https://ogtasis.com,http://ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29"}
+CORS_ALLOWED_ORIGINS=${process.env.CORS_ALLOWED_ORIGINS || "https://panel.ogtasis.com,http://panel.ogtasis.com,https://mobile.ogtasis.com,http://mobile.ogtasis.com,https://ogtasis.com,http://ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29"}
 `;
   await new Promise((resolve, reject) => {
     conn.sftp((err, sftp) => {

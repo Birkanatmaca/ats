@@ -10,55 +10,73 @@ import (
 	"sync"
 	"time"
 
-	"ots/backend/internal/domain/attendance"
-	"ots/backend/internal/domain/dashboard"
+	academicdomain "ots/backend/internal/domain/academic"
 	aidomain "ots/backend/internal/domain/ai"
+	announcementdomain "ots/backend/internal/domain/announcement"
+	"ots/backend/internal/domain/attendance"
 	billingdomain "ots/backend/internal/domain/billing"
+	"ots/backend/internal/domain/dashboard"
 	guardiandomain "ots/backend/internal/domain/guardian"
 	"ots/backend/internal/domain/identity"
 	"ots/backend/internal/domain/observation"
+	pushdomain "ots/backend/internal/domain/push"
 	"ots/backend/internal/domain/scheduling"
 	"ots/backend/internal/domain/school"
 	superadmindomain "ots/backend/internal/domain/superadmin"
 )
 
 type Store struct {
-	mu             sync.RWMutex
-	clock          func() time.Time
-	tenant         school.Tenant
-	institutions   []superadmindomain.Institution
-	users          []systemUser
-	auditLogs      []superadmindomain.AuditEntry
-	supportTickets []superadmindomain.SupportTicket
-	maintenance    superadmindomain.MaintenanceMode
-	credentials    map[string]memoryCredential
-	classes        []school.Class
-	students       []school.Student
-	teachers       []school.Teacher
-	subjects       []school.Subject
-	academicYears  []school.AcademicYear
-	terms          []school.Term
-	studentMeta    map[string]memoryStudentMeta
-	schedule       scheduling.Schedule
-	schedules      map[string]scheduling.Schedule
-	requirements   []scheduling.ClassSubjectRequirement
-	availabilities []scheduling.TeacherAvailability
-	sessions       map[string]attendance.Session
-	observations   []observation.Observation
-	guidanceNotes  map[string]*guidanceNoteRecord
-	supportPlans   map[string]*supportPlanRecord
-	announcements     []school.Announcement
-	notifications     []memoryNotification
-	studentGuardians  []memoryStudentGuardian
-	resetTokens       map[string]memoryResetToken
-	aiConversations   []memoryAIConversation
-	aiMessages        []memoryAIMessage
-	aiPendingActions  []memoryAIPendingAction
-	aiToolCalls       []memoryAIToolCall
-	aiSeq             int
-	aiCostSettings    aidomain.CostSettings
-	tenantAIQuotas    map[string]aidomain.TenantQuota
-	billingSettings   billingdomain.Settings
+	mu                    sync.RWMutex
+	clock                 func() time.Time
+	tenant                school.Tenant
+	institutions          []superadmindomain.Institution
+	users                 []systemUser
+	auditLogs             []superadmindomain.AuditEntry
+	supportTickets        []superadmindomain.SupportTicket
+	maintenance           superadmindomain.MaintenanceMode
+	credentials           map[string]memoryCredential
+	classes               []school.Class
+	students              []school.Student
+	teachers              []school.Teacher
+	subjects              []school.Subject
+	academicYears         []school.AcademicYear
+	terms                 []school.Term
+	studentMeta           map[string]memoryStudentMeta
+	schedule              scheduling.Schedule
+	schedules             map[string]scheduling.Schedule
+	scheduleChangeLogs    map[string][]scheduling.ScheduleChangeLog
+	requirements          []scheduling.ClassSubjectRequirement
+	availabilities        []scheduling.TeacherAvailability
+	academicAssessments   []academicdomain.Assessment
+	academicResults       []academicdomain.Result
+	learningOutcomes      []academicdomain.LearningOutcome
+	outcomeProgress       []academicdomain.StudentOutcomeProgress
+	sessions              map[string]attendance.Session
+	observations          []observation.Observation
+	guidanceNotes         map[string]*guidanceNoteRecord
+	supportPlans          map[string]*supportPlanRecord
+	guidanceRiskTrackings map[string]*riskTrackingRecord
+	guidanceCases         map[string]*guidanceCaseRecord
+	guidanceCaseEvents    map[string]*guidanceCaseEventRecord
+	deviceTokens          []memoryDeviceToken
+	notificationPrefs     map[string]pushdomain.Preferences
+	pushDeliveryLogs      []memoryDeliveryLog
+	announcements         []school.Announcement
+	targetedAnnouncements map[string]memoryTargetedAnnouncement
+	announcementReads     map[string]time.Time
+	announcementTemplates map[string]announcementdomain.Template
+	studentImportJobs     map[string]memoryImportJob
+	notifications         []memoryNotification
+	studentGuardians      []memoryStudentGuardian
+	resetTokens           map[string]memoryResetToken
+	aiConversations       []memoryAIConversation
+	aiMessages            []memoryAIMessage
+	aiPendingActions      []memoryAIPendingAction
+	aiToolCalls           []memoryAIToolCall
+	aiSeq                 int
+	aiCostSettings        aidomain.CostSettings
+	tenantAIQuotas        map[string]aidomain.TenantQuota
+	billingSettings       billingdomain.Settings
 }
 
 type memoryResetToken struct {
@@ -276,6 +294,82 @@ func NewStore(clock func() time.Time) *Store {
 		{ID: "audit-4", Tenant: "Nova Etüt Merkezi", Actor: "Sistem", Action: "tenant.plan_changed", ResourceType: "tenant", Sensitivity: "system_confidential", CreatedAt: now.Add(-5 * time.Hour)},
 	}
 
+	academicAssessments := []academicdomain.Assessment{
+		{
+			ID:             "assessment-math-1",
+			TenantID:       tenant.ID,
+			Name:           "Matematik Deneme 1",
+			SubjectID:      "subject-math",
+			SubjectName:    "Matematik",
+			ClassID:        "class-5a",
+			ClassName:      "5/A",
+			AssessmentType: academicdomain.AssessmentExam,
+			MaxScore:       100,
+			AssessmentDate: now.AddDate(0, 0, -14).Format("2006-01-02"),
+			CreatedBy:      "00000000-0000-0000-0000-000000010112",
+			CreatedAt:      now.AddDate(0, 0, -15),
+			UpdatedAt:      now.AddDate(0, 0, -15),
+		},
+		{
+			ID:             "assessment-math-2",
+			TenantID:       tenant.ID,
+			Name:           "Matematik Deneme 2",
+			SubjectID:      "subject-math",
+			SubjectName:    "Matematik",
+			ClassID:        "class-5a",
+			ClassName:      "5/A",
+			AssessmentType: academicdomain.AssessmentQuiz,
+			MaxScore:       100,
+			AssessmentDate: now.AddDate(0, 0, -5).Format("2006-01-02"),
+			CreatedBy:      "00000000-0000-0000-0000-000000010112",
+			CreatedAt:      now.AddDate(0, 0, -6),
+			UpdatedAt:      now.AddDate(0, 0, -6),
+		},
+		{
+			ID:             "assessment-tr-1",
+			TenantID:       tenant.ID,
+			Name:           "Türkçe Okuma Anlama",
+			SubjectID:      "subject-tr",
+			SubjectName:    "Türkçe",
+			ClassID:        "class-5a",
+			ClassName:      "5/A",
+			AssessmentType: academicdomain.AssessmentExam,
+			MaxScore:       100,
+			AssessmentDate: now.AddDate(0, 0, -8).Format("2006-01-02"),
+			CreatedBy:      "teacher-2",
+			CreatedAt:      now.AddDate(0, 0, -9),
+			UpdatedAt:      now.AddDate(0, 0, -9),
+		},
+	}
+	academicResults := []academicdomain.Result{
+		{ID: "academic-result-1", TenantID: tenant.ID, AssessmentID: "assessment-math-1", StudentID: "student-1", StudentName: "Defne Yılmaz", ClassID: "class-5a", ClassName: "5/A", Score: 84, CreatedAt: now.AddDate(0, 0, -14), UpdatedAt: now.AddDate(0, 0, -14)},
+		{ID: "academic-result-2", TenantID: tenant.ID, AssessmentID: "assessment-math-1", StudentID: "student-2", StudentName: "Efe Demir", ClassID: "class-5a", ClassName: "5/A", Score: 58, Note: "Problem çözme adımlarında destek gerekli.", CreatedAt: now.AddDate(0, 0, -14), UpdatedAt: now.AddDate(0, 0, -14)},
+		{ID: "academic-result-3", TenantID: tenant.ID, AssessmentID: "assessment-math-1", StudentID: "student-3", StudentName: "Mina Kaya", ClassID: "class-5a", ClassName: "5/A", Score: 73, CreatedAt: now.AddDate(0, 0, -14), UpdatedAt: now.AddDate(0, 0, -14)},
+		{ID: "academic-result-4", TenantID: tenant.ID, AssessmentID: "assessment-math-2", StudentID: "student-1", StudentName: "Defne Yılmaz", ClassID: "class-5a", ClassName: "5/A", Score: 88, CreatedAt: now.AddDate(0, 0, -5), UpdatedAt: now.AddDate(0, 0, -5)},
+		{ID: "academic-result-5", TenantID: tenant.ID, AssessmentID: "assessment-math-2", StudentID: "student-2", StudentName: "Efe Demir", ClassID: "class-5a", ClassName: "5/A", Score: 52, Note: "Son sınava göre düşüş var.", CreatedAt: now.AddDate(0, 0, -5), UpdatedAt: now.AddDate(0, 0, -5)},
+		{ID: "academic-result-6", TenantID: tenant.ID, AssessmentID: "assessment-math-2", StudentID: "student-3", StudentName: "Mina Kaya", ClassID: "class-5a", ClassName: "5/A", Score: 76, CreatedAt: now.AddDate(0, 0, -5), UpdatedAt: now.AddDate(0, 0, -5)},
+		{ID: "academic-result-7", TenantID: tenant.ID, AssessmentID: "assessment-tr-1", StudentID: "student-1", StudentName: "Defne Yılmaz", ClassID: "class-5a", ClassName: "5/A", Score: 79, CreatedAt: now.AddDate(0, 0, -8), UpdatedAt: now.AddDate(0, 0, -8)},
+		{ID: "academic-result-8", TenantID: tenant.ID, AssessmentID: "assessment-tr-1", StudentID: "student-2", StudentName: "Efe Demir", ClassID: "class-5a", ClassName: "5/A", Score: 65, CreatedAt: now.AddDate(0, 0, -8), UpdatedAt: now.AddDate(0, 0, -8)},
+	}
+	learningOutcomes := []academicdomain.LearningOutcome{
+		{ID: "outcome-math-1", TenantID: tenant.ID, SubjectID: "subject-math", SubjectName: "Matematik", Code: "MAT.5.1", Title: "Doğal sayılarla problem çözer.", GradeLevel: "5"},
+	}
+	outcomeProgress := []academicdomain.StudentOutcomeProgress{
+		{
+			ID:           "outcome-progress-1",
+			TenantID:     tenant.ID,
+			StudentID:    "student-2",
+			OutcomeID:    "outcome-math-1",
+			OutcomeCode:  "MAT.5.1",
+			OutcomeTitle: "Doğal sayılarla problem çözer.",
+			SubjectName:  "Matematik",
+			Status:       academicdomain.OutcomeNeedsSupport,
+			Evidence:     "Son iki denemede problem çözme puanı düşük.",
+			UpdatedBy:    "00000000-0000-0000-0000-000000010112",
+			UpdatedAt:    now.AddDate(0, 0, -3),
+		},
+	}
+
 	return &Store{
 		clock:        clock,
 		tenant:       tenant,
@@ -303,18 +397,23 @@ func NewStore(clock func() time.Time) *Store {
 			Enabled: false,
 			Message: "Sistem bakımı devam ediyor. Kısa süre sonra tekrar deneyebilirsiniz.",
 		},
-		credentials:  map[string]memoryCredential{},
-		classes:       classes,
-		students:      students,
-		teachers:      teachers,
-		subjects:      subjects,
-		academicYears: academicYears,
-		terms:         terms,
-		studentMeta:   map[string]memoryStudentMeta{},
-		schedule:      schedule,
-		schedules:     schedules,
-		sessions:     map[string]attendance.Session{},
-		observations: observations,
+		credentials:         map[string]memoryCredential{},
+		classes:             classes,
+		students:            students,
+		teachers:            teachers,
+		subjects:            subjects,
+		academicYears:       academicYears,
+		terms:               terms,
+		studentMeta:         map[string]memoryStudentMeta{},
+		schedule:            schedule,
+		schedules:           schedules,
+		scheduleChangeLogs:  map[string][]scheduling.ScheduleChangeLog{},
+		academicAssessments: academicAssessments,
+		academicResults:     academicResults,
+		learningOutcomes:    learningOutcomes,
+		outcomeProgress:     outcomeProgress,
+		sessions:            map[string]attendance.Session{},
+		observations:        observations,
 		announcements: []school.Announcement{
 			{
 				ID:          "announcement-1",
@@ -1122,6 +1221,22 @@ func (s *Store) MarkGuardianNotificationRead(_ context.Context, tenantID string,
 	return guardiandomain.Notification{}, false
 }
 
+func (s *Store) DeleteGuardianNotification(_ context.Context, tenantID string, userID string, notificationID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return false
+	}
+	for index := range s.notifications {
+		if s.notifications[index].ID != notificationID || s.notifications[index].UserID != userID {
+			continue
+		}
+		s.notifications = append(s.notifications[:index], s.notifications[index+1:]...)
+		return true
+	}
+	return false
+}
+
 func (s *Store) PrincipalRoster(_ context.Context, tenantID string) (school.PrincipalRoster, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -1247,7 +1362,7 @@ func (s *Store) PrincipalSummary(_ context.Context, tenantID string) dashboard.P
 		AbsentToday:             absentToday,
 		OpenObservationSignals:  len(s.observations),
 		ClassAttendance:         classAttendance,
-		Operations: buildMemoryPrincipalOperations(todayLessons, finalizedToday, string(s.schedule.Status), classAttendance),
+		Operations:              buildMemoryPrincipalOperations(todayLessons, finalizedToday, string(s.schedule.Status), classAttendance),
 	}
 }
 
