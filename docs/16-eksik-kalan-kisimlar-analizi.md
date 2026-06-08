@@ -6,6 +6,8 @@
 
 > **Güncelleme (2026-05-25):** ogta.ai modülü uygulandı. Güncel durum, tamamlanan fazlar ve kalan ogta.ai eksikleri için bkz. **[17-ogta-ai-durum-ve-eksikler.md](./17-ogta-ai-durum-ve-eksikler.md)**.
 
+> **Güncelleme (2026-06-05):** Bu doküman tarihsel analiz olarak korunuyor. Güncel snapshot için **[20-mobil-frontend-backend-guncel-analizi.md](./20-mobil-frontend-backend-guncel-analizi.md)** ve servis/canlı takip için **[21-moduller-gelistirme-ve-canli-servis-takip-plani.md](./21-moduller-gelistirme-ve-canli-servis-takip-plani.md)** temel alınmalı. Bu tarihte password reset public/mobil akışı, observation ana RBAC sertleştirmesi, explicit memory fallback flag'i, `jwt/v5` dependency sınıflandırması ve servis/ulasim/auth reset/observation/guidance/push handler smoke testleri uygulanmış durumda. Hâlâ açık ana başlıklar PostgreSQL gerçek integration suite, handler negatif testlerinin kalan modüllere genişletilmesi, native mobil E2E, kalıcı password reset token modeli, hedefli duyuru modeli, rehberlik vaka/risk kayıtları ve canlı servis takipte GPS/ETA/bildirim/timeline fazlarıdır.
+
 ---
 
 ## 1. Yönetici Özeti
@@ -308,7 +310,7 @@ Gereken iş:
 
 ## 6. P1 - Test ve Kabul Eksikleri
 
-### 6.1 Web E2E testi yok
+### 6.1 Web E2E kapsamı dar
 
 CI var:
 
@@ -317,7 +319,8 @@ CI var:
 
 Eksik:
 
-- Playwright veya Cypress smoke test.
+- Playwright altyapısı ve en az bir smoke senaryosu artık var.
+- Kapsam hâlâ dar; principal CRUD, attendance, guidance, auth reset, servis ve super admin akışları uçtan uca korunmuyor.
 
 Önerilen minimum E2E senaryoları:
 
@@ -425,14 +428,14 @@ Gereken iş:
 
 ## 8. P2 - Dokümantasyon Tutarsızlıkları
 
-### 8.1 README güncel değil
+### 8.1 README PostgreSQL/fallback açıklaması güncellendi
 
-`README.md`, API'nin ilk geliştirme aşamasında in-memory repository ile çalıştığını söylüyor. Kodda ise `main.go` PostgreSQL'e bağlanabiliyorsa tüm ana repository'leri PostgreSQL store'a geçiriyor; sadece bağlantı yoksa development ortamında memory fallback kullanıyor.
+2026-06-05 itibariyla `README.md`, API'nin varsayılan olarak PostgreSQL beklediğini ve kalıcı olmayan in-memory repository'nin yalnızca `ALLOW_IN_MEMORY_FALLBACK=true` ile açılacağını belirtiyor.
 
-Gereken iş:
+Kalan takip:
 
-- README güncellenmeli.
-- Production'da PostgreSQL bağlantısı başarısızsa uygulamanın çıktığı belirtilmeli.
+- Deploy ortamlarında fallback flag'i kapalı kalmalı.
+- Yeni modüller için demo seed ile gerçek PostgreSQL migration davranışı ayrıca smoke edilmelidir.
 
 ### 8.2 `docs/14` bazı eski maddeleri hala eksik gösteriyor
 

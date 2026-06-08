@@ -2,17 +2,18 @@ package middleware
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"strings"
 
 	"ots/backend/internal/domain/identity"
+	platformaudit "ots/backend/internal/platform/audit"
 )
 
 type AuditWriter func(ctx context.Context, tenantID, actorUserID, action, resourceType, resourceID, metadata string)
 
 var auditSkipPrefixes = []string{
 	"/api/v1/auth/",
-	"/api/v1/super-admin/",
 	"/healthz",
 }
 
@@ -20,6 +21,8 @@ var auditSkipPrefixes = []string{
 func OperationalAudit(write AuditWriter) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			details := requestDetails(r)
+			r = r.WithContext(platformaudit.WithRequestDetails(r.Context(), details))
 			if write == nil || isAuditSkipped(r.Method, r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
@@ -37,7 +40,8 @@ func OperationalAudit(write AuditWriter) Middleware {
 			if action == "" {
 				return
 			}
-			write(r.Context(), principal.TenantID, principal.UserID, action, resourceType, resourceID, "{}")
+			details.Status = rec.status
+			write(r.Context(), principal.TenantID, principal.UserID, action, resourceType, resourceID, platformaudit.MergeMetadata("{}", details))
 		})
 	}
 }
@@ -52,6 +56,16 @@ func (r *auditStatusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+func (r *auditStatusRecorder) Flush() {
+	if flusher, ok := r.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (r *auditStatusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
 func isAuditSkipped(method, path string) bool {
 	if method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions {
 		return true
@@ -61,7 +75,53 @@ func isAuditSkipped(method, path string) bool {
 			return true
 		}
 	}
+	if strings.HasPrefix(path, "/api/v1/super-admin/") && !isSuperAdminOperationalAuditPath(method, path) {
+		return true
+	}
 	return false
+}
+
+func isSuperAdminOperationalAuditPath(method, path string) bool {
+	switch {
+	case method == http.MethodPatch && path == "/api/v1/super-admin/ai/cost-settings":
+		return true
+	case method == http.MethodPatch && strings.HasPrefix(path, "/api/v1/super-admin/institutions/") && strings.HasSuffix(path, "/ai-quota"):
+		return true
+	case method == http.MethodPost && path == "/api/v1/super-admin/ai/retention/run":
+		return true
+	case method == http.MethodPatch && path == "/api/v1/super-admin/billing/settings":
+		return true
+	default:
+		return false
+	}
+}
+
+func requestDetails(r *http.Request) platformaudit.RequestDetails {
+	return platformaudit.RequestDetails{
+		Method:    r.Method,
+		Path:      r.URL.Path,
+		RequestID: RequestIDFromContext(r.Context()),
+		IP:        clientIP(r),
+		UserAgent: r.UserAgent(),
+	}
+}
+
+func clientIP(r *http.Request) string {
+	forwarded := strings.TrimSpace(r.Header.Get("X-Forwarded-For"))
+	if forwarded != "" {
+		parts := strings.Split(forwarded, ",")
+		if first := strings.TrimSpace(parts[0]); first != "" {
+			return first
+		}
+	}
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-Ip")); realIP != "" {
+		return realIP
+	}
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil {
+		return host
+	}
+	return strings.TrimSpace(r.RemoteAddr)
 }
 
 func auditMeta(method, path string) (action, resourceType, resourceID string) {
@@ -76,6 +136,14 @@ func auditMeta(method, path string) (action, resourceType, resourceID string) {
 	}
 	verb := strings.ToLower(method)
 	switch {
+	case path == "/api/v1/super-admin/ai/cost-settings":
+		return "ai.cost_settings.update", "ai_cost_settings", ""
+	case strings.HasPrefix(path, "/api/v1/super-admin/institutions/") && strings.HasSuffix(path, "/ai-quota"):
+		return "ai.tenant_quota.update", "ai_tenant_quota", parts[len(parts)-2]
+	case path == "/api/v1/super-admin/ai/retention/run":
+		return "ai.retention.run", "ai_retention", ""
+	case path == "/api/v1/super-admin/billing/settings":
+		return "billing.settings.update", "billing_settings", ""
 	case strings.Contains(path, "/finalize"):
 		return "attendance.finalize", "attendance_session", lastUUIDSegment(path)
 	case strings.Contains(path, "/publish"):

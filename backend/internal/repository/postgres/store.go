@@ -18,6 +18,7 @@ import (
 
 	"ots/backend/internal/domain/identity"
 	superadmindomain "ots/backend/internal/domain/superadmin"
+	platformaudit "ots/backend/internal/platform/audit"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -88,6 +89,7 @@ LEFT JOIN LATERAL (
 		WHEN 'guidance' THEN 3
 		WHEN 'teacher' THEN 4
 		WHEN 'guardian' THEN 5
+		WHEN 'driver' THEN 6
 		ELSE 9
 	END
 	LIMIT 1
@@ -125,6 +127,14 @@ LIMIT 1`
 
 	_, _ = s.db.ExecContext(ctx, `UPDATE users SET last_login_at = now(), updated_at = now() WHERE id = $1`, principal.UserID)
 	return principal, true, nil
+}
+
+func (s *Store) RecordAuthenticationAudit(ctx context.Context, principal identity.Principal, action string, metadata string) {
+	metadata = platformaudit.MergeRequestDetails(ctx, metadata)
+	_, _ = s.db.ExecContext(ctx, `
+INSERT INTO audit_logs (tenant_id, actor_user_id, action, resource_type, sensitivity, metadata)
+VALUES ($1, NULLIF($2, '')::uuid, $3, 'auth_session', 'operational', $4::jsonb)`,
+		principal.TenantID, principal.UserID, action, metadata)
 }
 
 func (s *Store) SetPassword(ctx context.Context, userID string, newPassword string) (identity.Principal, bool, error) {
@@ -826,23 +836,70 @@ RETURNING id::text`, email, passwordHash, fullName).Scan(&userID); err != nil {
 	return superadmindomain.CreatedUserCredential{User: user, TemporaryPassword: tempPassword}, nil
 }
 
-func (s *Store) ListAuditEntries(ctx context.Context) ([]superadmindomain.AuditEntry, error) {
-	const query = `
+func (s *Store) ListAuditEntries(ctx context.Context, query superadmindomain.AuditLogQuery) ([]superadmindomain.AuditEntry, error) {
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 250 {
+		limit = 250
+	}
+	const querySQL = `
 SELECT
 	a.id::text,
+	COALESCE(a.tenant_id::text, '') AS tenant_id,
 	COALESCE(t.name, 'ÖTS Platform') AS tenant_name,
+	COALESCE(a.actor_user_id::text, '') AS actor_id,
 	COALESCE(u.full_name, 'Sistem') AS actor,
+	COALESCE(u.email, '') AS actor_email,
+	COALESCE(actor_role.code, '') AS actor_role,
 	a.action,
 	a.resource_type,
+	COALESCE(a.resource_id::text, '') AS resource_id,
 	a.sensitivity,
+	COALESCE(a.metadata::text, '{}'::text) AS metadata,
 	a.created_at
 FROM audit_logs a
 LEFT JOIN tenants t ON t.id = a.tenant_id
 LEFT JOIN users u ON u.id = a.actor_user_id
+LEFT JOIN LATERAL (
+	SELECT r.code
+	FROM user_roles ur
+	JOIN roles r ON r.id = ur.role_id
+	WHERE ur.user_id = a.actor_user_id
+		AND (ur.tenant_id = a.tenant_id OR ur.tenant_id::text = '` + systemTenantID + `')
+	ORDER BY CASE WHEN ur.tenant_id = a.tenant_id THEN 0 ELSE 1 END
+	LIMIT 1
+) actor_role ON true
+WHERE ($1 = '' OR COALESCE(a.tenant_id::text, '') = $1)
+	AND ($2 = '' OR a.action ILIKE '%' || $2 || '%')
+	AND ($3 = '' OR COALESCE(a.actor_user_id::text, '') = $3)
+	AND ($4 = '' OR COALESCE(actor_role.code, '') = $4)
+	AND ($5 = '' OR a.resource_type ILIKE '%' || $5 || '%')
+	AND ($6 = '' OR a.sensitivity = $6)
+	AND ($7 = '' OR (
+		a.action ILIKE '%' || $7 || '%'
+		OR a.resource_type ILIKE '%' || $7 || '%'
+		OR COALESCE(a.resource_id::text, '') ILIKE '%' || $7 || '%'
+		OR COALESCE(t.name, '') ILIKE '%' || $7 || '%'
+		OR COALESCE(u.full_name, '') ILIKE '%' || $7 || '%'
+		OR COALESCE(u.email, '') ILIKE '%' || $7 || '%'
+		OR COALESCE(actor_role.code, '') ILIKE '%' || $7 || '%'
+		OR COALESCE(a.metadata::text, '') ILIKE '%' || $7 || '%'
+	))
 ORDER BY a.created_at DESC
-LIMIT 100`
+LIMIT $8`
 
-	rows, err := s.db.QueryContext(ctx, query)
+	rows, err := s.db.QueryContext(ctx, querySQL,
+		strings.TrimSpace(query.TenantID),
+		strings.TrimSpace(query.Action),
+		strings.TrimSpace(query.ActorID),
+		strings.TrimSpace(query.ActorRole),
+		strings.TrimSpace(query.ResourceType),
+		strings.TrimSpace(query.Sensitivity),
+		strings.TrimSpace(query.Search),
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -851,12 +908,30 @@ LIMIT 100`
 	entries := []superadmindomain.AuditEntry{}
 	for rows.Next() {
 		var entry superadmindomain.AuditEntry
-		if err := rows.Scan(&entry.ID, &entry.Tenant, &entry.Actor, &entry.Action, &entry.ResourceType, &entry.Sensitivity, &entry.CreatedAt); err != nil {
+		if err := rows.Scan(&entry.ID, &entry.TenantID, &entry.Tenant, &entry.ActorID, &entry.Actor, &entry.ActorEmail, &entry.ActorRole, &entry.Action, &entry.ResourceType, &entry.ResourceID, &entry.Sensitivity, &entry.Metadata, &entry.CreatedAt); err != nil {
 			return nil, err
 		}
 		entries = append(entries, entry)
 	}
 	return entries, rows.Err()
+}
+
+func (s *Store) PurgeAuditEntries(ctx context.Context, before time.Time, tenantID string) (int, error) {
+	query := `DELETE FROM audit_logs WHERE created_at < $1`
+	args := []any{before.UTC()}
+	if trimmed := strings.TrimSpace(tenantID); trimmed != "" {
+		query += ` AND COALESCE(tenant_id::text, '') = $2`
+		args = append(args, trimmed)
+	}
+	result, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return int(affected), nil
 }
 
 func (s *Store) supportTicketByID(ctx context.Context, ticketID string) (superadmindomain.SupportTicket, bool, error) {
@@ -1156,7 +1231,7 @@ func temporaryPassword() (string, error) {
 }
 
 func ensureInstitutionRoles(ctx context.Context, tx *sql.Tx, tenantID string) error {
-	for _, roleCode := range []string{"principal", "guidance", "teacher", "guardian"} {
+	for _, roleCode := range []string{"principal", "guidance", "teacher", "guardian", "driver"} {
 		if _, err := ensureRole(ctx, tx, tenantID, roleCode); err != nil {
 			return err
 		}
@@ -1215,6 +1290,7 @@ LEFT JOIN LATERAL (
 		WHEN 'guidance' THEN 3
 		WHEN 'teacher' THEN 4
 		WHEN 'guardian' THEN 5
+		WHEN 'driver' THEN 6
 		ELSE 9
 	END
 	LIMIT 1
@@ -1252,6 +1328,7 @@ VALUES ($1, $2, $3, $4)`, tenantID, userID, fullName, email)
 }
 
 func insertAudit(ctx context.Context, tx *sql.Tx, tenantID string, actorUserID string, action string, resourceType string, resourceID string, sensitivity string, metadata string) error {
+	metadata = platformaudit.MergeRequestDetails(ctx, metadata)
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO audit_logs (tenant_id, actor_user_id, action, resource_type, resource_id, sensitivity, metadata)
 VALUES ($1, NULLIF($2, '')::uuid, $3, $4, NULLIF($5, '')::uuid, $6, $7::jsonb)`, tenantID, actorUserID, action, resourceType, resourceID, sensitivity, metadata)
@@ -1332,6 +1409,8 @@ func normalizeInstitutionRole(value string) string {
 		return "teacher"
 	case "guardian":
 		return "guardian"
+	case "driver":
+		return "driver"
 	default:
 		return ""
 	}
@@ -1354,6 +1433,7 @@ func roleName(code string) string {
 		"guidance":    "Rehberlik",
 		"teacher":     "Öğretmen",
 		"guardian":    "Veli",
+		"driver":      "Şoför",
 		"super_admin": "Süper Admin",
 	}
 	if label, ok := labels[code]; ok {

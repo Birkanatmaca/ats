@@ -2,11 +2,13 @@ package memory
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"ots/backend/internal/domain/attendance"
 	"ots/backend/internal/domain/identity"
+	superadmindomain "ots/backend/internal/domain/superadmin"
 )
 
 func TestAuthenticateDefaultSuperAdmin(t *testing.T) {
@@ -114,5 +116,44 @@ func TestFinalizeAttendanceSessionCreatesAbsenceNotification(t *testing.T) {
 	}
 	if len(store.notifications) <= before {
 		t.Fatal("expected absence notification to be created")
+	}
+}
+
+func TestAuditEntriesIncludeActorDetailsAndAllTenants(t *testing.T) {
+	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.UTC)
+	store := NewStore(func() time.Time { return fixed })
+
+	store.RecordOperationalAudit(context.Background(), "tenant-03", "user-super-admin", "ai.tenant_quota.update", "ai_tenant_quota", "tenant-03", `{"dailyMessageLimit":100}`)
+
+	entries, err := store.ListAuditEntries(context.Background(), superadmindomain.AuditLogQuery{
+		TenantID:  "tenant-03",
+		ActorRole: string(identity.RoleSuperAdmin),
+		Search:    "superadmin@ots.local",
+		Limit:     10,
+	})
+	if err != nil {
+		t.Fatalf("unexpected audit list error: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected tenant-03 audit entry")
+	}
+	found := false
+	for _, entry := range entries {
+		if entry.Action != "ai.tenant_quota.update" {
+			continue
+		}
+		found = true
+		if entry.Tenant != "Nova Etüt Merkezi" {
+			t.Fatalf("expected tenant name, got %q", entry.Tenant)
+		}
+		if entry.ActorEmail != "superadmin@ots.local" || entry.ActorRole != string(identity.RoleSuperAdmin) {
+			t.Fatalf("expected actor details, got email=%q role=%q", entry.ActorEmail, entry.ActorRole)
+		}
+		if !strings.Contains(entry.Metadata, "dailyMessageLimit") {
+			t.Fatalf("expected metadata to be preserved, got %q", entry.Metadata)
+		}
+	}
+	if !found {
+		t.Fatal("expected ai.tenant_quota.update audit entry")
 	}
 }

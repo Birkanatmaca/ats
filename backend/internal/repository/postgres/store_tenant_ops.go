@@ -10,6 +10,7 @@ import (
 	dashboarddomain "ots/backend/internal/domain/dashboard"
 	observationdomain "ots/backend/internal/domain/observation"
 	schooldomain "ots/backend/internal/domain/school"
+	platformaudit "ots/backend/internal/platform/audit"
 )
 
 func (s *Store) CurrentTenant(ctx context.Context, tenantID string) (schooldomain.Tenant, bool) {
@@ -499,6 +500,7 @@ func (s *Store) RecordOperationalAudit(ctx context.Context, tenantID string, act
 	if action == "guidance.view" {
 		sensitivity = "sensitive_student"
 	}
+	metadata = platformaudit.MergeRequestDetails(ctx, metadata)
 	_, _ = s.db.ExecContext(ctx, `
 INSERT INTO audit_logs (tenant_id, actor_user_id, action, resource_type, resource_id, sensitivity, metadata)
 VALUES ($1, NULLIF($2, '')::uuid, $3, $4, NULLIF($5, '')::uuid, $6, $7::jsonb)`,

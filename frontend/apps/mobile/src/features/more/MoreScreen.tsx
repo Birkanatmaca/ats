@@ -19,7 +19,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { resolveMobileShell } from "@/shared/auth/roleRoutes";
-import { getMoreMenuItems, moreSectionLabels, moreSectionOrder, type MoreMenuItem } from "@/shared/navigation/roleTabs";
+import {
+  getMoreMenuItems,
+  isTabbedRoleShell,
+  moreSectionLabels,
+  moreSectionOrder,
+  type MoreMenuItem
+} from "@/shared/navigation/roleTabs";
 import { colors } from "@/shared/theme/colors";
 import { Screen } from "@/shared/ui/Screen";
 
@@ -56,7 +62,7 @@ export function MoreScreen() {
   const shell = role ? resolveMobileShell(role) : null;
 
   const groupedMenu = useMemo(() => {
-    if (!shell || shell === "super_admin_blocked") return [];
+    if (!isTabbedRoleShell(shell)) return [];
 
     const menu = getMoreMenuItems(shell);
     const groups: Array<{ section: MoreMenuItem["section"]; items: MoreMenuItem[] }> = [];
@@ -69,7 +75,7 @@ export function MoreScreen() {
     return groups;
   }, [shell]);
 
-  if (!shell || shell === "super_admin_blocked") {
+  if (!isTabbedRoleShell(shell)) {
     return (
       <Screen>
         <Text style={styles.emptyText}>Erişim yok.</Text>

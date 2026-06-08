@@ -7,6 +7,7 @@ import (
 	"time"
 
 	attendancedomain "ots/backend/internal/domain/attendance"
+	platformaudit "ots/backend/internal/platform/audit"
 )
 
 func (s *Store) GetAttendanceSession(ctx context.Context, tenantID string, sessionID string) (attendancedomain.Session, bool) {
@@ -523,6 +524,7 @@ LIMIT 100`, tenantID, studentID)
 }
 
 func (s *Store) writeOperationalAudit(ctx context.Context, tenantID, actorUserID, action, resourceType, resourceID, metadata string) {
+	metadata = platformaudit.MergeRequestDetails(ctx, metadata)
 	_, _ = s.db.ExecContext(ctx, `
 INSERT INTO audit_logs (tenant_id, actor_user_id, action, resource_type, resource_id, sensitivity, metadata)
 VALUES ($1, NULLIF($2, '')::uuid, $3, $4, NULLIF($5, '')::uuid, 'operational', $6::jsonb)`,

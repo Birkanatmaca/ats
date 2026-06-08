@@ -46,7 +46,7 @@ func (s *Store) CloneSchedule(_ context.Context, tenantID, scheduleID, actorUser
 	}
 	cloned.Lessons = clonedLessons
 	s.schedules[newID] = cloned
-	s.appendOperationalAuditLocked(actorUserID, "schedule.clone", "schedule", newID, fmt.Sprintf(`{"sourceScheduleId":"%s"}`, scheduleID))
+	s.appendOperationalAuditLocked(tenantID, actorUserID, "schedule.clone", "schedule", newID, fmt.Sprintf(`{"sourceScheduleId":"%s"}`, scheduleID))
 	return cloned, true, nil
 }
 

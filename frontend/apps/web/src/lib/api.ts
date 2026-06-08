@@ -1,4 +1,4 @@
-export type Role = "super_admin" | "system_admin" | "principal" | "guidance" | "teacher" | "guardian";
+export type Role = "super_admin" | "system_admin" | "principal" | "guidance" | "teacher" | "guardian" | "driver";
 
 export type Principal = {
   userId: string;
@@ -740,6 +740,357 @@ export type BillingQuotePreview = {
   companyEmail: string;
 };
 
+export type BillingAccountStatus = "active" | "paused" | "closed";
+export type PaymentPlanStatus = "active" | "completed" | "cancelled";
+export type PaymentInstallmentStatus = "pending" | "partial" | "paid" | "overdue" | "cancelled";
+export type PaymentMethod = "cash" | "bank_transfer" | "card" | "other";
+
+export type Payment = {
+  id: string;
+  tenantId: string;
+  installmentId: string;
+  amount: number;
+  method: PaymentMethod;
+  paidAt: string;
+  recordedBy?: string;
+  note?: string;
+  void: boolean;
+  voidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentInstallment = {
+  id: string;
+  tenantId: string;
+  paymentPlanId: string;
+  billingAccountId: string;
+  studentId?: string;
+  studentName?: string;
+  classId?: string;
+  className?: string;
+  planName?: string;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: PaymentInstallmentStatus;
+  payments?: Payment[];
+};
+
+export type PaymentPlan = {
+  id: string;
+  tenantId: string;
+  billingAccountId: string;
+  name: string;
+  totalAmount: number;
+  currency: string;
+  startDate: string;
+  status: PaymentPlanStatus;
+  createdAt: string;
+  updatedAt: string;
+  installments: PaymentInstallment[];
+};
+
+export type BillingAccount = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  classId?: string;
+  className?: string;
+  guardianUserId?: string;
+  status: BillingAccountStatus;
+  createdAt: string;
+  plans: PaymentPlan[];
+};
+
+export type CreatePaymentPlanInput = {
+  name: string;
+  totalAmount: number;
+  currency?: string;
+  startDate: string;
+  installmentCount?: number;
+  installments?: Array<{ dueDate: string; amount: number }>;
+};
+
+export type UpdatePaymentPlanInput = {
+  name?: string;
+  status?: PaymentPlanStatus;
+};
+
+export type CreatePaymentInput = {
+  amount: number;
+  method: PaymentMethod;
+  paidAt?: string;
+  note?: string;
+};
+
+export type UpdatePaymentInput = Partial<CreatePaymentInput>;
+
+export type BillingDashboard = {
+  totalReceivable: number;
+  collectedAmount: number;
+  outstandingAmount: number;
+  overdueAmount: number;
+  overdueCount: number;
+  activePlanCount: number;
+  overdueInstallments: PaymentInstallment[];
+  updatedAt: string;
+};
+
+export type GuardianBillingSummary = {
+  account: BillingAccount;
+  upcomingInstallments: PaymentInstallment[];
+  overdueInstallments: PaymentInstallment[];
+  paymentHistory: Payment[];
+  outstandingAmount: number;
+  overdueAmount: number;
+};
+
+export type ServiceDirection = "morning" | "evening" | "both";
+export type ServiceStatus = "active" | "passive" | "archived";
+export type ServiceStaffRole = "driver" | "attendant";
+
+export type ServiceVehicle = {
+  id: string;
+  tenantId: string;
+  plate: string;
+  capacity: number;
+  brand?: string;
+  model?: string;
+  status: ServiceStatus;
+  assignedCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceStaff = {
+  id: string;
+  tenantId: string;
+  userId?: string;
+  fullName: string;
+  phone?: string;
+  role: ServiceStaffRole;
+  status: ServiceStatus;
+  sharingStatus?: string;
+  lastSeenAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRouteStop = {
+  id: string;
+  tenantId: string;
+  routeId: string;
+  name: string;
+  plannedTime: string;
+  sortOrder: number;
+};
+
+export type ServiceAssignment = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  routeId: string;
+  routeName?: string;
+  stopId?: string;
+  stopName?: string;
+  direction: ServiceDirection;
+  status: ServiceStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRoute = {
+  id: string;
+  tenantId: string;
+  name: string;
+  direction: ServiceDirection;
+  vehicleId?: string;
+  vehiclePlate?: string;
+  vehicleCapacity?: number;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  driverSharingStatus?: string;
+  driverLastSeenAt?: string;
+  attendantId?: string;
+  attendantName?: string;
+  attendantPhone?: string;
+  status: ServiceStatus;
+  stops: ServiceRouteStop[];
+  assignments: ServiceAssignment[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRouteInput = {
+  name: string;
+  direction: ServiceDirection;
+  vehicleId?: string;
+  driverId?: string;
+  attendantId?: string;
+  status?: ServiceStatus;
+  stops?: Array<{ name: string; plannedTime: string; sortOrder?: number }>;
+};
+
+export type ServiceAssignmentInput = {
+  studentId: string;
+  routeId: string;
+  stopId?: string;
+  direction: ServiceDirection;
+  status?: ServiceStatus;
+};
+
+export type GuardianServiceSummary = {
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  className?: string;
+  assignments: ServiceAssignment[];
+  routes: ServiceRoute[];
+  updatedAt: string;
+  hasAssignment: boolean;
+};
+
+export type LifeMealType = "breakfast" | "lunch" | "snack";
+export type LifeStatus = "active" | "passive" | "archived";
+export type StudyAttendanceStatus = "attended" | "absent" | "excused";
+export type ClubMembershipStatus = "active" | "waitlisted" | "left";
+
+export type MealMenu = {
+  id: string;
+  tenantId: string;
+  date: string;
+  mealType: LifeMealType;
+  title: string;
+  description?: string;
+  allergens: string[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StudyAttendance = {
+  id: string;
+  tenantId: string;
+  sessionId: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  status: StudyAttendanceStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StudySession = {
+  id: string;
+  tenantId: string;
+  subjectId?: string;
+  subjectName?: string;
+  teacherUserId?: string;
+  teacherName?: string;
+  classId?: string;
+  className?: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  status: LifeStatus;
+  attendance: StudyAttendance[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ClubMembership = {
+  id: string;
+  tenantId: string;
+  clubId: string;
+  clubName?: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  status: ClubMembershipStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Club = {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  advisorUserId?: string;
+  advisorName?: string;
+  capacity: number;
+  status: LifeStatus;
+  memberships: ClubMembership[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GuardianLifeSummary = {
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  className?: string;
+  meals: MealMenu[];
+  studySessions: StudySession[];
+  clubMemberships: ClubMembership[];
+  clubs: Club[];
+  updatedAt: string;
+};
+
+export type MealMenuInput = {
+  date: string;
+  mealType: LifeMealType;
+  title: string;
+  description?: string;
+  allergens?: string[];
+};
+
+export type StudySessionInput = {
+  subjectId?: string;
+  teacherUserId?: string;
+  classId?: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  status?: LifeStatus;
+};
+
+export type StudyAttendanceInput = {
+  studentId: string;
+  status: StudyAttendanceStatus;
+};
+
+export type ClubInput = {
+  name: string;
+  description?: string;
+  advisorUserId?: string;
+  capacity: number;
+  status?: LifeStatus;
+};
+
+export type ClubMembershipInput = {
+  studentId: string;
+  status?: ClubMembershipStatus;
+};
+
 export type Incident = {
   id: string;
   title: string;
@@ -920,12 +1271,35 @@ export type AiCapabilitiesResult = {
 
 export type AuditEntry = {
   id: string;
+  tenantId?: string;
   tenant: string;
+  actorId?: string;
   actor: string;
+  actorEmail?: string;
+  actorRole?: string;
   action: string;
   resourceType: string;
+  resourceId?: string;
   sensitivity: string;
+  metadata?: string;
   createdAt: string;
+};
+
+export type SuperAdminAuditLogQuery = {
+  tenantId?: string;
+  action?: string;
+  actorId?: string;
+  actorRole?: string;
+  resourceType?: string;
+  sensitivity?: string;
+  search?: string;
+  limit?: number;
+};
+
+export type AuditPurgeResult = {
+  deletedCount: number;
+  before: string;
+  tenantId?: string;
 };
 
 type Envelope<T> = {
@@ -1122,7 +1496,26 @@ export const api = {
     request<UserAccount>(`/api/v1/super-admin/users/${userId}?tenantId=${encodeURIComponent(tenantId)}`, {
       method: "DELETE"
     }),
-  superAdminAuditLogs: () => request<AuditEntry[]>("/api/v1/super-admin/audit-logs"),
+  superAdminAuditLogs: (query?: SuperAdminAuditLogQuery) => {
+    const params = new URLSearchParams();
+    if (query?.tenantId) params.set("tenantId", query.tenantId);
+    if (query?.action) params.set("action", query.action);
+    if (query?.actorId) params.set("actorId", query.actorId);
+    if (query?.actorRole) params.set("actorRole", query.actorRole);
+    if (query?.resourceType) params.set("resourceType", query.resourceType);
+    if (query?.sensitivity) params.set("sensitivity", query.sensitivity);
+    if (query?.search) params.set("search", query.search);
+    if (typeof query?.limit === "number") params.set("limit", String(query.limit));
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return request<AuditEntry[]>(`/api/v1/super-admin/audit-logs${suffix}`);
+  },
+  purgeSuperAdminAuditLogs: (payload: { olderThanDays: number; tenantId?: string }) => {
+    const params = new URLSearchParams({ olderThanDays: String(payload.olderThanDays) });
+    if (payload.tenantId) params.set("tenantId", payload.tenantId);
+    return request<AuditPurgeResult>(`/api/v1/super-admin/audit-logs?${params.toString()}`, {
+      method: "DELETE"
+    });
+  },
   superAdminSettings: () => request<PlatformSettings>("/api/v1/super-admin/settings"),
   superAdminSupportTickets: () => request<SupportTicket[]>("/api/v1/super-admin/support/tickets"),
   updateSuperAdminSupportTicket: (
@@ -1200,6 +1593,98 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  billingStudentAccount: (studentId: string) =>
+    request<BillingAccount>(`/api/v1/billing/students/${studentId}/account`),
+  createBillingPlan: (studentId: string, payload: CreatePaymentPlanInput) =>
+    request<BillingAccount>(`/api/v1/billing/students/${studentId}/plans`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateBillingPlan: (planId: string, payload: UpdatePaymentPlanInput) =>
+    request<PaymentPlan>(`/api/v1/billing/plans/${planId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  billingInstallments: (params?: { studentId?: string; classId?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.studentId) query.set("studentId", params.studentId);
+    if (params?.classId) query.set("classId", params.classId);
+    if (params?.status) query.set("status", params.status);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<PaymentInstallment[] | null>(`/api/v1/billing/installments${suffix}`).then(asArray);
+  },
+  createBillingPayment: (installmentId: string, payload: CreatePaymentInput) =>
+    request<PaymentInstallment>(`/api/v1/billing/installments/${installmentId}/payments`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateBillingPayment: (paymentId: string, payload: UpdatePaymentInput) =>
+    request<Payment>(`/api/v1/billing/payments/${paymentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  voidBillingPayment: (paymentId: string) =>
+    request<Payment>(`/api/v1/billing/payments/${paymentId}`, { method: "DELETE" }),
+  billingDashboard: () => request<BillingDashboard>("/api/v1/billing/dashboard"),
+  billingOverdueReport: () =>
+    request<PaymentInstallment[] | null>("/api/v1/billing/reports/overdue").then(asArray),
+  guardianBilling: (studentId: string) =>
+    request<GuardianBillingSummary>(`/api/v1/guardian/students/${studentId}/billing`),
+  serviceRoutes: () => request<ServiceRoute[] | null>("/api/v1/services/routes").then(asArray),
+  serviceRoute: (routeId: string) => request<ServiceRoute>(`/api/v1/services/routes/${routeId}`),
+  createServiceRoute: (payload: ServiceRouteInput) =>
+    request<ServiceRoute>("/api/v1/services/routes", { method: "POST", body: JSON.stringify(payload) }),
+  updateServiceRoute: (routeId: string, payload: Partial<ServiceRouteInput>) =>
+    request<ServiceRoute>(`/api/v1/services/routes/${routeId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteServiceRoute: (routeId: string) =>
+    request<void>(`/api/v1/services/routes/${routeId}`, { method: "DELETE" }),
+  serviceVehicles: () => request<ServiceVehicle[] | null>("/api/v1/services/vehicles").then(asArray),
+  createServiceVehicle: (payload: { plate: string; capacity: number; brand?: string; model?: string }) =>
+    request<ServiceVehicle>("/api/v1/services/vehicles", { method: "POST", body: JSON.stringify(payload) }),
+  serviceStaff: () => request<ServiceStaff[] | null>("/api/v1/services/staff").then(asArray),
+  createServiceStaff: (payload: { fullName: string; phone?: string; role: ServiceStaffRole }) =>
+    request<ServiceStaff>("/api/v1/services/staff", { method: "POST", body: JSON.stringify(payload) }),
+  assignServiceStudent: (payload: ServiceAssignmentInput) =>
+    request<ServiceAssignment>("/api/v1/services/assignments", { method: "POST", body: JSON.stringify(payload) }),
+  guardianService: (studentId: string) =>
+    request<GuardianServiceSummary>(`/api/v1/guardian/students/${studentId}/service`),
+  guardianLife: (studentId: string) =>
+    request<GuardianLifeSummary>(`/api/v1/guardian/students/${studentId}/life`),
+  lifeMeals: (params?: { fromDate?: string; toDate?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.fromDate) query.set("fromDate", params.fromDate);
+    if (params?.toDate) query.set("toDate", params.toDate);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<MealMenu[] | null>(`/api/v1/life/meals${suffix}`).then(asArray);
+  },
+  createLifeMeal: (payload: MealMenuInput) =>
+    request<MealMenu>("/api/v1/life/meals", { method: "POST", body: JSON.stringify(payload) }),
+  updateLifeMeal: (mealId: string, payload: Partial<MealMenuInput>) =>
+    request<MealMenu>(`/api/v1/life/meals/${mealId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteLifeMeal: (mealId: string) => request<void>(`/api/v1/life/meals/${mealId}`, { method: "DELETE" }),
+  studySessions: () => request<StudySession[] | null>("/api/v1/life/study-sessions").then(asArray),
+  createStudySession: (payload: StudySessionInput) =>
+    request<StudySession>("/api/v1/life/study-sessions", { method: "POST", body: JSON.stringify(payload) }),
+  updateStudySession: (sessionId: string, payload: Partial<StudySessionInput>) =>
+    request<StudySession>(`/api/v1/life/study-sessions/${sessionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  recordStudyAttendance: (sessionId: string, records: StudyAttendanceInput[]) =>
+    request<StudyAttendance[]>(`/api/v1/life/study-sessions/${sessionId}/attendance`, {
+      method: "POST",
+      body: JSON.stringify({ records })
+    }),
+  clubs: () => request<Club[] | null>("/api/v1/life/clubs").then(asArray),
+  createClub: (payload: ClubInput) =>
+    request<Club>("/api/v1/life/clubs", { method: "POST", body: JSON.stringify(payload) }),
+  updateClub: (clubId: string, payload: Partial<ClubInput>) =>
+    request<Club>(`/api/v1/life/clubs/${clubId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  addClubMembership: (clubId: string, payload: ClubMembershipInput) =>
+    request<ClubMembership>(`/api/v1/life/clubs/${clubId}/memberships`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
   teacherCalendar: () => request<Lesson[] | null>("/api/v1/teachers/me/calendar").then(asArray),
@@ -1213,7 +1698,7 @@ export const api = {
       body: JSON.stringify({ lessonId })
     }),
   getAttendanceSessionByLesson: (lessonId: string) =>
-    request<AttendanceSession>(`/api/v1/attendance/sessions/by-lesson/${lessonId}`),
+    request<AttendanceSession>(`/api/v1/attendance/lessons/${lessonId}/session`),
   getAttendanceSession: (sessionId: string) => request<AttendanceSession>(`/api/v1/attendance/sessions/${sessionId}`),
   attendanceToday: (date?: string) =>
     request<AttendanceDayReport>(`/api/v1/dashboard/attendance/today${date ? `?date=${encodeURIComponent(date)}` : ""}`),
@@ -1490,6 +1975,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  provisionServiceDriver: (payload: { email: string; firstName: string; lastName: string; phone?: string; title?: string }) =>
+    request<{ userId: string; serviceStaffId: string; email: string; temporaryPassword: string }>(
+      "/api/v1/principal/service-drivers",
+      {
+        method: "POST",
+        body: JSON.stringify(payload)
+      }
+    ),
   resetTeacherPassword: (teacherId: string) =>
     request<{ temporaryPassword: string }>(`/api/v1/teachers/${teacherId}/reset-password`, {
       method: "POST",

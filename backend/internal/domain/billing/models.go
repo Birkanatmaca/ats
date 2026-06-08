@@ -85,3 +85,158 @@ type QuotePreview struct {
 	CompanyName            string          `json:"companyName"`
 	CompanyEmail           string          `json:"companyEmail"`
 }
+
+type BillingAccountStatus string
+
+const (
+	BillingAccountActive BillingAccountStatus = "active"
+	BillingAccountPaused BillingAccountStatus = "paused"
+	BillingAccountClosed BillingAccountStatus = "closed"
+)
+
+type PaymentPlanStatus string
+
+const (
+	PaymentPlanActive    PaymentPlanStatus = "active"
+	PaymentPlanCompleted PaymentPlanStatus = "completed"
+	PaymentPlanCancelled PaymentPlanStatus = "cancelled"
+)
+
+type InstallmentStatus string
+
+const (
+	InstallmentPending   InstallmentStatus = "pending"
+	InstallmentPartial   InstallmentStatus = "partial"
+	InstallmentPaid      InstallmentStatus = "paid"
+	InstallmentOverdue   InstallmentStatus = "overdue"
+	InstallmentCancelled InstallmentStatus = "cancelled"
+)
+
+type PaymentMethod string
+
+const (
+	PaymentCash         PaymentMethod = "cash"
+	PaymentBankTransfer PaymentMethod = "bank_transfer"
+	PaymentCard         PaymentMethod = "card"
+	PaymentOther        PaymentMethod = "other"
+)
+
+type BillingAccount struct {
+	ID             string               `json:"id"`
+	TenantID       string               `json:"tenantId"`
+	StudentID      string               `json:"studentId"`
+	StudentName    string               `json:"studentName"`
+	SchoolNumber   string               `json:"schoolNumber"`
+	ClassID        string               `json:"classId,omitempty"`
+	ClassName      string               `json:"className,omitempty"`
+	GuardianUserID string               `json:"guardianUserId,omitempty"`
+	Status         BillingAccountStatus `json:"status"`
+	CreatedAt      time.Time            `json:"createdAt"`
+	Plans          []PaymentPlan        `json:"plans"`
+}
+
+type PaymentPlan struct {
+	ID               string               `json:"id"`
+	TenantID         string               `json:"tenantId"`
+	BillingAccountID string               `json:"billingAccountId"`
+	Name             string               `json:"name"`
+	TotalAmount      float64              `json:"totalAmount"`
+	Currency         string               `json:"currency"`
+	StartDate        string               `json:"startDate"`
+	Status           PaymentPlanStatus    `json:"status"`
+	CreatedAt        time.Time            `json:"createdAt"`
+	UpdatedAt        time.Time            `json:"updatedAt"`
+	Installments     []PaymentInstallment `json:"installments"`
+}
+
+type PaymentInstallment struct {
+	ID               string            `json:"id"`
+	TenantID         string            `json:"tenantId"`
+	PaymentPlanID    string            `json:"paymentPlanId"`
+	BillingAccountID string            `json:"billingAccountId"`
+	StudentID        string            `json:"studentId,omitempty"`
+	StudentName      string            `json:"studentName,omitempty"`
+	ClassID          string            `json:"classId,omitempty"`
+	ClassName        string            `json:"className,omitempty"`
+	PlanName         string            `json:"planName,omitempty"`
+	DueDate          string            `json:"dueDate"`
+	Amount           float64           `json:"amount"`
+	PaidAmount       float64           `json:"paidAmount"`
+	RemainingAmount  float64           `json:"remainingAmount"`
+	Status           InstallmentStatus `json:"status"`
+	Payments         []Payment         `json:"payments,omitempty"`
+}
+
+type Payment struct {
+	ID            string        `json:"id"`
+	TenantID      string        `json:"tenantId"`
+	InstallmentID string        `json:"installmentId"`
+	Amount        float64       `json:"amount"`
+	Method        PaymentMethod `json:"method"`
+	PaidAt        time.Time     `json:"paidAt"`
+	RecordedBy    string        `json:"recordedBy,omitempty"`
+	Note          string        `json:"note,omitempty"`
+	Void          bool          `json:"void"`
+	VoidedAt      *time.Time    `json:"voidedAt,omitempty"`
+	CreatedAt     time.Time     `json:"createdAt"`
+	UpdatedAt     time.Time     `json:"updatedAt"`
+}
+
+type CreatePaymentPlanInput struct {
+	Name             string             `json:"name"`
+	TotalAmount      float64            `json:"totalAmount"`
+	Currency         string             `json:"currency"`
+	StartDate        string             `json:"startDate"`
+	InstallmentCount int                `json:"installmentCount"`
+	Installments     []InstallmentInput `json:"installments,omitempty"`
+}
+
+type InstallmentInput struct {
+	DueDate string  `json:"dueDate"`
+	Amount  float64 `json:"amount"`
+}
+
+type UpdatePaymentPlanInput struct {
+	Name   *string            `json:"name,omitempty"`
+	Status *PaymentPlanStatus `json:"status,omitempty"`
+}
+
+type InstallmentFilter struct {
+	StudentID string `json:"studentId,omitempty"`
+	ClassID   string `json:"classId,omitempty"`
+	Status    string `json:"status,omitempty"`
+}
+
+type CreatePaymentInput struct {
+	Amount float64       `json:"amount"`
+	Method PaymentMethod `json:"method"`
+	PaidAt *time.Time    `json:"paidAt,omitempty"`
+	Note   string        `json:"note,omitempty"`
+}
+
+type UpdatePaymentInput struct {
+	Amount *float64       `json:"amount,omitempty"`
+	Method *PaymentMethod `json:"method,omitempty"`
+	PaidAt *time.Time     `json:"paidAt,omitempty"`
+	Note   *string        `json:"note,omitempty"`
+}
+
+type BillingDashboard struct {
+	TotalReceivable     float64              `json:"totalReceivable"`
+	CollectedAmount     float64              `json:"collectedAmount"`
+	OutstandingAmount   float64              `json:"outstandingAmount"`
+	OverdueAmount       float64              `json:"overdueAmount"`
+	OverdueCount        int                  `json:"overdueCount"`
+	ActivePlanCount     int                  `json:"activePlanCount"`
+	OverdueInstallments []PaymentInstallment `json:"overdueInstallments"`
+	UpdatedAt           time.Time            `json:"updatedAt"`
+}
+
+type GuardianBillingSummary struct {
+	Account              BillingAccount       `json:"account"`
+	UpcomingInstallments []PaymentInstallment `json:"upcomingInstallments"`
+	OverdueInstallments  []PaymentInstallment `json:"overdueInstallments"`
+	PaymentHistory       []Payment            `json:"paymentHistory"`
+	OutstandingAmount    float64              `json:"outstandingAmount"`
+	OverdueAmount        float64              `json:"overdueAmount"`
+}

@@ -199,10 +199,33 @@ type CreatedUserCredential struct {
 
 type AuditEntry struct {
 	ID           string    `json:"id"`
+	TenantID     string    `json:"tenantId,omitempty"`
 	Tenant       string    `json:"tenant"`
+	ActorID      string    `json:"actorId,omitempty"`
 	Actor        string    `json:"actor"`
+	ActorEmail   string    `json:"actorEmail,omitempty"`
+	ActorRole    string    `json:"actorRole,omitempty"`
 	Action       string    `json:"action"`
 	ResourceType string    `json:"resourceType"`
+	ResourceID   string    `json:"resourceId,omitempty"`
 	Sensitivity  string    `json:"sensitivity"`
+	Metadata     string    `json:"metadata,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
+}
+
+type AuditLogQuery struct {
+	TenantID     string
+	Action       string
+	ActorID      string
+	ActorRole    string
+	ResourceType string
+	Sensitivity  string
+	Search       string
+	Limit        int
+}
+
+type AuditPurgeResult struct {
+	DeletedCount int       `json:"deletedCount"`
+	Before       time.Time `json:"before"`
+	TenantID     string    `json:"tenantId,omitempty"`
 }

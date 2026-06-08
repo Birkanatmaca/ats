@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,12 +17,14 @@ import (
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
 	identityapp "ots/backend/internal/app/identity"
+	lifeapp "ots/backend/internal/app/life"
 	observationapp "ots/backend/internal/app/observation"
 	pushapp "ots/backend/internal/app/push"
 	schedulingapp "ots/backend/internal/app/scheduling"
 	schoolapp "ots/backend/internal/app/school"
 	studentimportapp "ots/backend/internal/app/studentimport"
 	superadminapp "ots/backend/internal/app/superadmin"
+	transportapp "ots/backend/internal/app/transport"
 	attendanceDomain "ots/backend/internal/domain/attendance"
 	"ots/backend/internal/domain/identity"
 	observationDomain "ots/backend/internal/domain/observation"
@@ -43,6 +46,8 @@ type Dependencies struct {
 	Dashboard     *dashboardapp.Service
 	SuperAdmin    *superadminapp.Service
 	Billing       *billingapp.Service
+	Transport     *transportapp.Service
+	Life          *lifeapp.Service
 	AI            *aiapp.Service
 	Push          *pushapp.Service
 	Announcements *announcementapp.Service
@@ -62,6 +67,8 @@ type Handler struct {
 	dashboard     *dashboardapp.Service
 	superAdmin    *superadminapp.Service
 	billing       *billingapp.Service
+	transport     *transportapp.Service
+	life          *lifeapp.Service
 	ai            *aiapp.Service
 	push          *pushapp.Service
 	announcements *announcementapp.Service
@@ -82,6 +89,8 @@ func New(deps Dependencies) *Handler {
 		dashboard:     deps.Dashboard,
 		superAdmin:    deps.SuperAdmin,
 		billing:       deps.Billing,
+		transport:     deps.Transport,
+		life:          deps.Life,
 		ai:            deps.AI,
 		push:          deps.Push,
 		announcements: deps.Announcements,
@@ -134,6 +143,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/super-admin/users/{id}", h.updateSuperAdminUser)
 	mux.HandleFunc("DELETE /api/v1/super-admin/users/{id}", h.deleteSuperAdminUser)
 	mux.HandleFunc("GET /api/v1/super-admin/audit-logs", h.superAdminAuditLogs)
+	mux.HandleFunc("DELETE /api/v1/super-admin/audit-logs", h.purgeSuperAdminAuditLogs)
 	mux.HandleFunc("GET /api/v1/super-admin/settings", h.superAdminSettings)
 	mux.HandleFunc("PATCH /api/v1/super-admin/settings", h.updateSuperAdminSettings)
 	mux.HandleFunc("GET /api/v1/super-admin/support/tickets", h.superAdminSupportTickets)
@@ -158,7 +168,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/teachers/me/students", h.teacherStudents)
 	mux.HandleFunc("GET /api/v1/attendance/current-lesson", h.currentLesson)
 	mux.HandleFunc("POST /api/v1/attendance/sessions", h.createAttendanceSession)
-	mux.HandleFunc("GET /api/v1/attendance/sessions/by-lesson/{lessonId}", h.getAttendanceSessionByLesson)
+	mux.HandleFunc("GET /api/v1/attendance/lessons/{lessonId}/session", h.getAttendanceSessionByLesson)
 	mux.HandleFunc("GET /api/v1/attendance/sessions/{id}", h.getAttendanceSession)
 	mux.HandleFunc("GET /api/v1/attendance/sessions/{id}/version", h.getAttendanceSessionVersion)
 	mux.HandleFunc("PATCH /api/v1/attendance/sessions/{id}/records", h.updateAttendanceRecords)
@@ -167,6 +177,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/dashboard/attendance/today", h.attendanceToday)
 	mux.HandleFunc("GET /api/v1/students/{id}/attendance-summary", h.studentAttendanceSummary)
 	h.registerAcademicRoutes(mux)
+	h.registerBillingRoutes(mux)
+	h.registerTransportRoutes(mux)
+	h.registerLifeRoutes(mux)
 	h.registerPrincipalAttendanceRoutes(mux)
 	mux.HandleFunc("GET /api/v1/observations", h.listObservations)
 	mux.HandleFunc("POST /api/v1/observations", h.createObservation)
@@ -191,6 +204,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/classes/{id}/students", h.assignClassStudent)
 	mux.HandleFunc("POST /api/v1/students/import", h.importStudents)
 	mux.HandleFunc("POST /api/v1/teachers/{id}/reset-password", h.resetTeacherPassword)
+	mux.HandleFunc("POST /api/v1/principal/service-drivers", h.provisionPrincipalServiceDriver)
 	h.registerStudentImportRoutes(mux)
 	h.RegisterGuidanceRoutes(mux)
 	h.registerAIRoutes(mux)
@@ -694,12 +708,71 @@ func (h *Handler) superAdminAuditLogs(w http.ResponseWriter, r *http.Request) {
 	if _, ok := requireSuperAdmin(w, r); !ok {
 		return
 	}
-	auditLogs, err := h.superAdmin.AuditLogs(r.Context())
+	query := superadminDomain.AuditLogQuery{
+		TenantID:     strings.TrimSpace(r.URL.Query().Get("tenantId")),
+		Action:       strings.TrimSpace(r.URL.Query().Get("action")),
+		ActorID:      strings.TrimSpace(r.URL.Query().Get("actorId")),
+		ActorRole:    strings.TrimSpace(r.URL.Query().Get("actorRole")),
+		ResourceType: strings.TrimSpace(r.URL.Query().Get("resourceType")),
+		Sensitivity:  strings.TrimSpace(r.URL.Query().Get("sensitivity")),
+		Search:       strings.TrimSpace(r.URL.Query().Get("search")),
+		Limit:        parsePositiveLimit(r.URL.Query().Get("limit"), 100),
+	}
+	auditLogs, err := h.superAdmin.AuditLogs(r.Context(), query)
 	if err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "AUDIT_LOGS_FAILED", "Loglar alınamadı.", nil)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, auditLogs, nil)
+}
+
+func (h *Handler) purgeSuperAdminAuditLogs(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireSuperAdmin(w, r)
+	if !ok {
+		return
+	}
+	olderThanDays, err := parsePositiveIntParam(r.URL.Query().Get("olderThanDays"), 30)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Silme süresi okunamadı.", nil)
+		return
+	}
+	if olderThanDays < 1 {
+		olderThanDays = 1
+	}
+	if olderThanDays > 3650 {
+		olderThanDays = 3650
+	}
+	cutoff := h.clock().UTC().Add(-time.Duration(olderThanDays) * 24 * time.Hour)
+	tenantID := strings.TrimSpace(r.URL.Query().Get("tenantId"))
+	result, purgeErr := h.superAdmin.PurgeAuditLogs(r.Context(), principal, cutoff, tenantID)
+	if purgeErr != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "AUDIT_PURGE_FAILED", "Loglar temizlenemedi.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, result, nil)
+}
+
+func parsePositiveLimit(raw string, fallback int) int {
+	value, err := parsePositiveIntParam(raw, fallback)
+	if err != nil {
+		return fallback
+	}
+	if value > 250 {
+		return 250
+	}
+	return value
+}
+
+func parsePositiveIntParam(raw string, fallback int) (int, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fallback, nil
+	}
+	value, err := strconv.Atoi(trimmed)
+	if err != nil {
+		return 0, err
+	}
+	return value, nil
 }
 
 func (h *Handler) superAdminSettings(w http.ResponseWriter, r *http.Request) {
@@ -1531,6 +1604,32 @@ func (h *Handler) provisionPrincipalGuardian(w http.ResponseWriter, r *http.Requ
 	}
 	if err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "GUARDIAN_PROVISION_FAILED", "Veli oluşturulamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, result, nil)
+}
+
+func (h *Handler) provisionPrincipalServiceDriver(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireSchoolOperator(w, r)
+	if !ok {
+		return
+	}
+	var input schoolDomain.ProvisionServiceDriverInput
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Şoför bilgileri okunamadı.", nil)
+		return
+	}
+	result, err := h.school.ProvisionServiceDriver(r.Context(), principal.TenantID, input)
+	if errors.Is(err, schoolapp.ErrInvalidInput) {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli ad, soyad ve e-posta gönderilmelidir.", nil)
+		return
+	}
+	if errors.Is(err, schoolapp.ErrDuplicateEmail) {
+		httpx.WriteError(w, http.StatusConflict, "EMAIL_ALREADY_EXISTS", "Bu e-posta adresi zaten kayıtlı.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "DRIVER_PROVISION_FAILED", "Şoför oluşturulamadı.", nil)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, result, nil)

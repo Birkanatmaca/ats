@@ -10,6 +10,7 @@ export default function TeacherRootLayout() {
         <Stack screenOptions={roleStackScreenOptions}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="announcements" options={swipeDetailScreenOptions} />
+          <Stack.Screen name="life" options={swipeDetailScreenOptions} />
           <Stack.Screen name="notifications" options={swipeDetailScreenOptions} />
           <Stack.Screen name="support" options={swipeDetailScreenOptions} />
           <Stack.Screen name="profile" options={swipeDetailScreenOptions} />

@@ -18,11 +18,14 @@ import (
 	"ots/backend/internal/domain/dashboard"
 	guardiandomain "ots/backend/internal/domain/guardian"
 	"ots/backend/internal/domain/identity"
+	lifedomain "ots/backend/internal/domain/life"
 	"ots/backend/internal/domain/observation"
 	pushdomain "ots/backend/internal/domain/push"
 	"ots/backend/internal/domain/scheduling"
 	"ots/backend/internal/domain/school"
 	superadmindomain "ots/backend/internal/domain/superadmin"
+	transportdomain "ots/backend/internal/domain/transport"
+	platformaudit "ots/backend/internal/platform/audit"
 )
 
 type Store struct {
@@ -77,6 +80,22 @@ type Store struct {
 	aiCostSettings        aidomain.CostSettings
 	tenantAIQuotas        map[string]aidomain.TenantQuota
 	billingSettings       billingdomain.Settings
+	billingAccounts       []billingdomain.BillingAccount
+	paymentPlans          []billingdomain.PaymentPlan
+	paymentInstallments   []billingdomain.PaymentInstallment
+	payments              []billingdomain.Payment
+	serviceVehicles       []transportdomain.Vehicle
+	serviceStaff          []transportdomain.Staff
+	serviceRoutes         []transportdomain.Route
+	serviceRouteStops     []transportdomain.RouteStop
+	serviceAssignments    []transportdomain.Assignment
+	serviceTrips          []transportdomain.Trip
+	serviceTripLocations  []transportdomain.TripLocation
+	lifeMeals             []lifedomain.MealMenu
+	studySessions         []lifedomain.StudySession
+	studyAttendance       []lifedomain.StudyAttendance
+	clubs                 []lifedomain.Club
+	clubMemberships       []lifedomain.ClubMembership
 }
 
 type memoryResetToken struct {
@@ -278,20 +297,32 @@ func NewStore(clock func() time.Time) *Store {
 			PasswordHash: "b68306fe713a56eadf2f649a2c1ad73766e3f7fb005772ed560eaeef9c20fcb4",
 			CreatedAt:    now.AddDate(0, 0, -5),
 		},
+		{
+			ID:           "00000000-0000-0000-0000-000000010114",
+			TenantID:     tenant.ID,
+			Tenant:       tenant.Name,
+			FullName:     "Mehmet Yalçın",
+			Email:        "sofor@atlas.k12.tr",
+			Role:         identity.RoleDriver,
+			Status:       "active",
+			PasswordSalt: "ots-default-driver",
+			PasswordHash: "e82b322787205a3a448eabe1eb6a83b50ac9287020b4291ba1b14e0af509975b",
+			CreatedAt:    now.AddDate(0, -1, -10),
+		},
 	}
 
 	institutions := []superadmindomain.Institution{
-		{ID: tenant.ID, Name: tenant.Name, Plan: tenant.Plan, Timezone: tenant.Timezone, Students: len(students), Users: 4, Status: "active", LastActivityAt: now.Add(-18 * time.Minute)},
+		{ID: tenant.ID, Name: tenant.Name, Plan: tenant.Plan, Timezone: tenant.Timezone, Students: len(students), Users: 5, Status: "active", LastActivityAt: now.Add(-18 * time.Minute)},
 		{ID: "tenant-02", Name: "Bilge Çocuk Kreşi", Plan: "Starter", Timezone: "Europe/Istanbul", Students: 84, Users: 19, Status: "trial", LastActivityAt: now.Add(-2 * time.Hour)},
 		{ID: "tenant-03", Name: "Nova Etüt Merkezi", Plan: "Premium", Timezone: "Europe/Istanbul", Students: 231, Users: 42, Status: "active", LastActivityAt: now.Add(-41 * time.Minute)},
 		{ID: "tenant-04", Name: "Kuzey Kurs Akademi", Plan: "Growth", Timezone: "Europe/Istanbul", Students: 156, Users: 28, Status: "review", LastActivityAt: now.Add(-7 * time.Hour)},
 	}
 
 	auditLogs := []superadmindomain.AuditEntry{
-		{ID: "audit-1", Tenant: tenant.Name, Actor: "Cem Arslan", Action: "schedule.publish", ResourceType: "schedule", Sensitivity: "operational", CreatedAt: now.Add(-14 * time.Minute)},
-		{ID: "audit-2", Tenant: tenant.Name, Actor: "Ayşe Kara", Action: "attendance.update", ResourceType: "attendance_session", Sensitivity: "operational", CreatedAt: now.Add(-38 * time.Minute)},
-		{ID: "audit-3", Tenant: tenant.Name, Actor: "Selin Ergin", Action: "guidance.view", ResourceType: "student_observation", Sensitivity: "sensitive_student", CreatedAt: now.Add(-1 * time.Hour)},
-		{ID: "audit-4", Tenant: "Nova Etüt Merkezi", Actor: "Sistem", Action: "tenant.plan_changed", ResourceType: "tenant", Sensitivity: "system_confidential", CreatedAt: now.Add(-5 * time.Hour)},
+		{ID: "audit-1", TenantID: tenant.ID, Tenant: tenant.Name, ActorID: "00000000-0000-0000-0000-000000010110", Actor: "Cem Arslan", ActorEmail: "mudur@atlas.k12.tr", ActorRole: string(identity.RolePrincipal), Action: "schedule.publish", ResourceType: "schedule", Sensitivity: "operational", CreatedAt: now.Add(-14 * time.Minute)},
+		{ID: "audit-2", TenantID: tenant.ID, Tenant: tenant.Name, ActorID: "00000000-0000-0000-0000-000000010112", Actor: "Ayşe Kara", ActorEmail: "ogretmen@atlas.k12.tr", ActorRole: string(identity.RoleTeacher), Action: "attendance.update", ResourceType: "attendance_session", Sensitivity: "operational", CreatedAt: now.Add(-38 * time.Minute)},
+		{ID: "audit-3", TenantID: tenant.ID, Tenant: tenant.Name, ActorID: "00000000-0000-0000-0000-000000010111", Actor: "Selin Ergin", ActorEmail: "rehberlik@atlas.k12.tr", ActorRole: string(identity.RoleGuidance), Action: "guidance.view", ResourceType: "student_observation", Sensitivity: "sensitive_student", CreatedAt: now.Add(-1 * time.Hour)},
+		{ID: "audit-4", TenantID: "tenant-03", Tenant: "Nova Etüt Merkezi", Actor: "Sistem", Action: "tenant.plan_changed", ResourceType: "tenant", Sensitivity: "system_confidential", CreatedAt: now.Add(-5 * time.Hour)},
 	}
 
 	academicAssessments := []academicdomain.Assessment{
@@ -368,6 +399,92 @@ func NewStore(clock func() time.Time) *Store {
 			UpdatedBy:    "00000000-0000-0000-0000-000000010112",
 			UpdatedAt:    now.AddDate(0, 0, -3),
 		},
+	}
+
+	billingAccounts := []billingdomain.BillingAccount{
+		{
+			ID:             "billing-account-student-2",
+			TenantID:       tenant.ID,
+			StudentID:      "student-2",
+			StudentName:    "Efe Demir",
+			SchoolNumber:   "502",
+			ClassID:        "class-5a",
+			ClassName:      "5/A",
+			GuardianUserID: "00000000-0000-0000-0000-000000010113",
+			Status:         billingdomain.BillingAccountActive,
+			CreatedAt:      now.AddDate(0, -2, 0),
+		},
+	}
+	paymentPlans := []billingdomain.PaymentPlan{
+		{
+			ID:               "payment-plan-student-2",
+			TenantID:         tenant.ID,
+			BillingAccountID: "billing-account-student-2",
+			Name:             "2026 Bahar Eğitim Ücreti",
+			TotalAmount:      30000,
+			Currency:         "TRY",
+			StartDate:        now.AddDate(0, -2, 0).Format("2006-01-02"),
+			Status:           billingdomain.PaymentPlanActive,
+			CreatedAt:        now.AddDate(0, -2, 0),
+			UpdatedAt:        now.AddDate(0, -2, 0),
+		},
+	}
+	paymentInstallments := []billingdomain.PaymentInstallment{
+		{ID: "installment-student-2-1", TenantID: tenant.ID, PaymentPlanID: "payment-plan-student-2", BillingAccountID: "billing-account-student-2", StudentID: "student-2", StudentName: "Efe Demir", ClassName: "5/A", PlanName: "2026 Bahar Eğitim Ücreti", DueDate: now.AddDate(0, -2, 0).Format("2006-01-02"), Amount: 10000, PaidAmount: 10000, RemainingAmount: 0, Status: billingdomain.InstallmentPaid},
+		{ID: "installment-student-2-2", TenantID: tenant.ID, PaymentPlanID: "payment-plan-student-2", BillingAccountID: "billing-account-student-2", StudentID: "student-2", StudentName: "Efe Demir", ClassName: "5/A", PlanName: "2026 Bahar Eğitim Ücreti", DueDate: now.AddDate(0, -1, 0).Format("2006-01-02"), Amount: 10000, PaidAmount: 3000, RemainingAmount: 7000, Status: billingdomain.InstallmentOverdue},
+		{ID: "installment-student-2-3", TenantID: tenant.ID, PaymentPlanID: "payment-plan-student-2", BillingAccountID: "billing-account-student-2", StudentID: "student-2", StudentName: "Efe Demir", ClassName: "5/A", PlanName: "2026 Bahar Eğitim Ücreti", DueDate: now.AddDate(0, 1, 0).Format("2006-01-02"), Amount: 10000, PaidAmount: 0, RemainingAmount: 10000, Status: billingdomain.InstallmentPending},
+	}
+	payments := []billingdomain.Payment{
+		{ID: "payment-student-2-1", TenantID: tenant.ID, InstallmentID: "installment-student-2-1", Amount: 10000, Method: billingdomain.PaymentBankTransfer, PaidAt: now.AddDate(0, -2, 2), RecordedBy: "00000000-0000-0000-0000-000000010110", Note: "İlk taksit", CreatedAt: now.AddDate(0, -2, 2), UpdatedAt: now.AddDate(0, -2, 2)},
+		{ID: "payment-student-2-2", TenantID: tenant.ID, InstallmentID: "installment-student-2-2", Amount: 3000, Method: billingdomain.PaymentCash, PaidAt: now.AddDate(0, -1, 4), RecordedBy: "00000000-0000-0000-0000-000000010110", Note: "Kısmi ödeme", CreatedAt: now.AddDate(0, -1, 4), UpdatedAt: now.AddDate(0, -1, 4)},
+	}
+
+	serviceVehicles := []transportdomain.Vehicle{
+		{ID: "service-vehicle-1", TenantID: tenant.ID, Plate: "34 OTS 101", Capacity: 1, Brand: "Ford", Model: "Transit", Status: transportdomain.StatusActive, CreatedAt: now.AddDate(0, -1, 0), UpdatedAt: now.AddDate(0, -1, 0)},
+	}
+	serviceStaff := []transportdomain.Staff{
+		{ID: "service-staff-driver-1", TenantID: tenant.ID, UserID: "00000000-0000-0000-0000-000000010114", FullName: "Mehmet Yalçın", Phone: "+90 555 010 1010", Role: transportdomain.StaffDriver, Status: transportdomain.StatusActive, SharingStatus: "passive", CreatedAt: now.AddDate(0, -1, 0), UpdatedAt: now.AddDate(0, -1, 0)},
+		{ID: "service-staff-attendant-1", TenantID: tenant.ID, FullName: "Zeynep Güneş", Phone: "+90 555 010 2020", Role: transportdomain.StaffAttendant, Status: transportdomain.StatusActive, CreatedAt: now.AddDate(0, -1, 0), UpdatedAt: now.AddDate(0, -1, 0)},
+	}
+	serviceRoutes := []transportdomain.Route{
+		{ID: "service-route-5a-morning", TenantID: tenant.ID, Name: "5/A Sabah Servisi", Direction: transportdomain.DirectionMorning, VehicleID: "service-vehicle-1", DriverID: "service-staff-driver-1", AttendantID: "service-staff-attendant-1", Status: transportdomain.StatusActive, CreatedAt: now.AddDate(0, -1, 0), UpdatedAt: now.AddDate(0, -1, 0)},
+	}
+	serviceRouteStops := []transportdomain.RouteStop{
+		{ID: "service-stop-1", TenantID: tenant.ID, RouteID: "service-route-5a-morning", Name: "Ataşehir Meydan", PlannedTime: "07:35", SortOrder: 1},
+		{ID: "service-stop-2", TenantID: tenant.ID, RouteID: "service-route-5a-morning", Name: "Okul Kapısı", PlannedTime: "08:05", SortOrder: 2},
+	}
+	serviceAssignments := []transportdomain.Assignment{
+		{ID: "service-assignment-student-2", TenantID: tenant.ID, StudentID: "student-2", RouteID: "service-route-5a-morning", StopID: "service-stop-1", Direction: transportdomain.DirectionMorning, Status: transportdomain.StatusActive, CreatedAt: now.AddDate(0, -1, 0), UpdatedAt: now.AddDate(0, -1, 0)},
+	}
+	lifeMeals := []lifedomain.MealMenu{
+		{ID: "meal-menu-1", TenantID: tenant.ID, Date: today.Format("2006-01-02"), MealType: lifedomain.MealBreakfast, Title: "Peynirli sandviç", Description: "Süt ve mevsim meyvesi", Allergens: []string{"Süt", "Gluten"}, CreatedBy: "00000000-0000-0000-0000-000000010110", CreatedAt: now.AddDate(0, 0, -1), UpdatedAt: now.AddDate(0, 0, -1)},
+		{ID: "meal-menu-2", TenantID: tenant.ID, Date: today.Format("2006-01-02"), MealType: lifedomain.MealLunch, Title: "Mercimek çorbası ve tavuk sote", Description: "Bulgur pilavı, ayran", Allergens: []string{"Süt"}, CreatedBy: "00000000-0000-0000-0000-000000010110", CreatedAt: now.AddDate(0, 0, -1), UpdatedAt: now.AddDate(0, 0, -1)},
+		{ID: "meal-menu-3", TenantID: tenant.ID, Date: today.AddDate(0, 0, 1).Format("2006-01-02"), MealType: lifedomain.MealLunch, Title: "Sebzeli makarna", Description: "Yoğurt ve salata", Allergens: []string{"Gluten", "Süt"}, CreatedBy: "00000000-0000-0000-0000-000000010110", CreatedAt: now.AddDate(0, 0, -1), UpdatedAt: now.AddDate(0, 0, -1)},
+	}
+	studySessions := []lifedomain.StudySession{
+		{
+			ID:            "study-session-math-5a",
+			TenantID:      tenant.ID,
+			SubjectID:     "subject-math",
+			TeacherUserID: "00000000-0000-0000-0000-000000010112",
+			ClassID:       "class-5a",
+			Title:         "Matematik problem çözme etüdü",
+			StartsAt:      today.AddDate(0, 0, 1).Add(15 * time.Hour),
+			EndsAt:        today.AddDate(0, 0, 1).Add(16 * time.Hour),
+			Capacity:      2,
+			Status:        lifedomain.StatusActive,
+			CreatedAt:     now.AddDate(0, 0, -2),
+			UpdatedAt:     now.AddDate(0, 0, -2),
+		},
+	}
+	studyAttendance := []lifedomain.StudyAttendance{
+		{ID: "study-attendance-student-2", TenantID: tenant.ID, SessionID: "study-session-math-5a", StudentID: "student-2", Status: lifedomain.StudyAttended, CreatedAt: now.AddDate(0, 0, -1), UpdatedAt: now.AddDate(0, 0, -1)},
+	}
+	clubs := []lifedomain.Club{
+		{ID: "club-robotics", TenantID: tenant.ID, Name: "Robotik Kulübü", Description: "Kodlama, sensör ve takım çalışması", AdvisorUserID: "00000000-0000-0000-0000-000000010112", Capacity: 1, Status: lifedomain.StatusActive, CreatedAt: now.AddDate(0, -1, 0), UpdatedAt: now.AddDate(0, -1, 0)},
+	}
+	clubMemberships := []lifedomain.ClubMembership{
+		{ID: "club-membership-student-2", TenantID: tenant.ID, ClubID: "club-robotics", StudentID: "student-2", Status: lifedomain.ClubMembershipActive, CreatedAt: now.AddDate(0, -1, 0), UpdatedAt: now.AddDate(0, -1, 0)},
 	}
 
 	return &Store{
@@ -459,6 +576,22 @@ func NewStore(clock func() time.Time) *Store {
 			CompanyName:       "OGTA Platform",
 			CompanyEmail:      "billing@ogta.ai",
 		},
+		billingAccounts:      billingAccounts,
+		paymentPlans:         paymentPlans,
+		paymentInstallments:  paymentInstallments,
+		payments:             payments,
+		serviceVehicles:      serviceVehicles,
+		serviceStaff:         serviceStaff,
+		serviceRoutes:        serviceRoutes,
+		serviceRouteStops:    serviceRouteStops,
+		serviceAssignments:   serviceAssignments,
+		serviceTrips:         []transportdomain.Trip{},
+		serviceTripLocations: []transportdomain.TripLocation{},
+		lifeMeals:            lifeMeals,
+		studySessions:        studySessions,
+		studyAttendance:      studyAttendance,
+		clubs:                clubs,
+		clubMemberships:      clubMemberships,
 	}
 }
 
@@ -484,6 +617,13 @@ func (s *Store) Authenticate(_ context.Context, email string, password string) (
 		}, true, nil
 	}
 	return identity.Principal{}, false, nil
+}
+
+func (s *Store) RecordAuthenticationAudit(ctx context.Context, principal identity.Principal, action string, metadata string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	metadata = platformaudit.MergeRequestDetails(ctx, metadata)
+	s.appendAuditLocked(principal.TenantID, principal.UserID, action, "auth_session", "", "operational", metadata)
 }
 
 func (s *Store) SetPassword(_ context.Context, userID string, newPassword string) (identity.Principal, bool, error) {
@@ -625,15 +765,7 @@ func (s *Store) UpdatePlatformSettings(_ context.Context, actor identity.Princip
 			s.credentials[credential.Key] = memoryCredential{Value: strings.TrimSpace(credential.Value), UpdatedAt: &now}
 		}
 	}
-	s.auditLogs = append(s.auditLogs, superadmindomain.AuditEntry{
-		ID:           fmt.Sprintf("audit-%d", len(s.auditLogs)+1),
-		Tenant:       "ÖTS Platform",
-		Actor:        actor.Name,
-		Action:       "platform_settings.update",
-		ResourceType: "platform_settings",
-		Sensitivity:  "system_confidential",
-		CreatedAt:    now,
-	})
+	s.appendAuditLocked(actor.TenantID, actor.UserID, "platform_settings.update", "platform_settings", "", "system_confidential", fmt.Sprintf(`{"maintenance_enabled":%t}`, s.maintenance.Enabled))
 	return s.platformSettingsLocked(), nil
 }
 
@@ -670,15 +802,7 @@ func (s *Store) CreateSupportTicket(_ context.Context, principal identity.Princi
 		ticket.ReporterName = "Kullanıcı"
 	}
 	s.supportTickets = append(s.supportTickets, ticket)
-	s.auditLogs = append(s.auditLogs, superadmindomain.AuditEntry{
-		ID:           fmt.Sprintf("audit-%d", len(s.auditLogs)+1),
-		Tenant:       ticket.Tenant,
-		Actor:        ticket.ReporterName,
-		Action:       "support_ticket.create",
-		ResourceType: "support_ticket",
-		Sensitivity:  "operational",
-		CreatedAt:    now,
-	})
+	s.appendAuditLocked(ticket.TenantID, principal.UserID, "support_ticket.create", "support_ticket", ticket.ID, "operational", fmt.Sprintf(`{"type":%q,"status":"open"}`, ticket.Type))
 	return ticket, nil
 }
 
@@ -729,15 +853,7 @@ func (s *Store) UpdateSupportTicket(_ context.Context, actor identity.Principal,
 		s.supportTickets[index].Priority = priority
 		s.supportTickets[index].InternalNote = strings.TrimSpace(input.InternalNote)
 		s.supportTickets[index].UpdatedAt = now
-		s.auditLogs = append(s.auditLogs, superadmindomain.AuditEntry{
-			ID:           fmt.Sprintf("audit-%d", len(s.auditLogs)+1),
-			Tenant:       s.supportTickets[index].Tenant,
-			Actor:        actor.Name,
-			Action:       "support_ticket.update",
-			ResourceType: "support_ticket",
-			Sensitivity:  "system_confidential",
-			CreatedAt:    now,
-		})
+		s.appendAuditLocked(s.supportTickets[index].TenantID, actor.UserID, "support_ticket.update", "support_ticket", ticketID, "system_confidential", fmt.Sprintf(`{"status":%q,"priority":%q}`, status, priority))
 		return s.supportTickets[index], true, nil
 	}
 	return superadmindomain.SupportTicket{}, false, nil
@@ -804,7 +920,7 @@ func (s *Store) GetInstitution(_ context.Context, tenantID string) (superadmindo
 	return superadmindomain.InstitutionDetail{}, false, nil
 }
 
-func (s *Store) CreateInstitution(_ context.Context, _ identity.Principal, input superadmindomain.CreateInstitutionInput) (superadmindomain.InstitutionDetail, error) {
+func (s *Store) CreateInstitution(_ context.Context, actor identity.Principal, input superadmindomain.CreateInstitutionInput) (superadmindomain.InstitutionDetail, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -826,6 +942,7 @@ func (s *Store) CreateInstitution(_ context.Context, _ identity.Principal, input
 		LastActivityAt: now,
 	}
 	s.institutions = append(s.institutions, institution)
+	s.appendAuditLocked(institution.ID, actor.UserID, "tenant.create", "tenant", institution.ID, "system_confidential", fmt.Sprintf(`{"name":%q,"plan":%q}`, institution.Name, institution.Plan))
 	return superadmindomain.InstitutionDetail{Institution: institution, CreatedAt: now, UpdatedAt: now}, nil
 }
 
@@ -858,7 +975,7 @@ func (s *Store) CreateUser(ctx context.Context, actor identity.Principal, input 
 	})
 }
 
-func (s *Store) UpdateUser(_ context.Context, _ identity.Principal, userID string, input superadmindomain.UpdateUserInput) (superadmindomain.UserAccount, bool, error) {
+func (s *Store) UpdateUser(_ context.Context, actor identity.Principal, userID string, input superadmindomain.UpdateUserInput) (superadmindomain.UserAccount, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -884,12 +1001,13 @@ func (s *Store) UpdateUser(_ context.Context, _ identity.Principal, userID strin
 		} else {
 			s.users[index].Status = "active"
 		}
+		s.appendAuditLocked(input.TenantID, actor.UserID, "tenant_user.update", "user", userID, "system_confidential", fmt.Sprintf(`{"email":%q,"role":%q,"status":%q}`, s.users[index].Email, s.users[index].Role, s.users[index].Status))
 		return userAccountFromSystem(s.users[index]), true, nil
 	}
 	return superadmindomain.UserAccount{}, false, nil
 }
 
-func (s *Store) DeleteUser(_ context.Context, _ identity.Principal, userID string, tenantID string) (superadmindomain.UserAccount, bool, error) {
+func (s *Store) DeleteUser(_ context.Context, actor identity.Principal, userID string, tenantID string) (superadmindomain.UserAccount, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -902,6 +1020,7 @@ func (s *Store) DeleteUser(_ context.Context, _ identity.Principal, userID strin
 		}
 		s.users[index].Status = "passive"
 		s.users[index].MustChangePassword = false
+		s.appendAuditLocked(tenantID, actor.UserID, "tenant_user.delete", "user", userID, "system_confidential", `{"delete_mode":"soft_deactivate"}`)
 		return superadmindomain.UserAccount{
 			ID:                 s.users[index].ID,
 			TenantID:           s.users[index].TenantID,
@@ -928,7 +1047,7 @@ func (s *Store) ListInstitutionUsers(_ context.Context, tenantID string) ([]supe
 	return out, nil
 }
 
-func (s *Store) CreateInstitutionUser(_ context.Context, _ identity.Principal, tenantID string, input superadmindomain.CreateInstitutionUserInput) (superadmindomain.CreatedUserCredential, error) {
+func (s *Store) CreateInstitutionUser(_ context.Context, actor identity.Principal, tenantID string, input superadmindomain.CreateInstitutionUserInput) (superadmindomain.CreatedUserCredential, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -968,6 +1087,7 @@ func (s *Store) CreateInstitutionUser(_ context.Context, _ identity.Principal, t
 		CreatedAt:          now,
 	}
 	s.users = append(s.users, user)
+	s.appendAuditLocked(tenantID, actor.UserID, "tenant_user.create", "user", user.ID, "system_confidential", fmt.Sprintf(`{"email":%q,"role":%q,"must_change_password":true}`, email, role))
 	return superadmindomain.CreatedUserCredential{
 		User: superadmindomain.UserAccount{
 			ID:                 user.ID,
@@ -984,12 +1104,67 @@ func (s *Store) CreateInstitutionUser(_ context.Context, _ identity.Principal, t
 	}, nil
 }
 
-func (s *Store) ListAuditEntries(_ context.Context) ([]superadmindomain.AuditEntry, error) {
+func (s *Store) ListAuditEntries(_ context.Context, query superadmindomain.AuditLogQuery) ([]superadmindomain.AuditEntry, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := append([]superadmindomain.AuditEntry(nil), s.auditLogs...)
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 250 {
+		limit = 250
+	}
+	search := strings.ToLower(strings.TrimSpace(query.Search))
+	out := make([]superadmindomain.AuditEntry, 0, len(s.auditLogs))
+	for _, entry := range s.auditLogs {
+		if trimmed := strings.TrimSpace(query.TenantID); trimmed != "" && entry.TenantID != trimmed {
+			continue
+		}
+		if trimmed := strings.TrimSpace(query.Action); trimmed != "" && !strings.Contains(strings.ToLower(entry.Action), strings.ToLower(trimmed)) {
+			continue
+		}
+		if trimmed := strings.TrimSpace(query.ActorID); trimmed != "" && entry.ActorID != trimmed {
+			continue
+		}
+		if trimmed := strings.TrimSpace(query.ActorRole); trimmed != "" && !strings.EqualFold(entry.ActorRole, trimmed) {
+			continue
+		}
+		if trimmed := strings.TrimSpace(query.ResourceType); trimmed != "" && !strings.Contains(strings.ToLower(entry.ResourceType), strings.ToLower(trimmed)) {
+			continue
+		}
+		if trimmed := strings.TrimSpace(query.Sensitivity); trimmed != "" && !strings.EqualFold(entry.Sensitivity, trimmed) {
+			continue
+		}
+		if search != "" {
+			joined := strings.ToLower(strings.Join([]string{entry.TenantID, entry.Tenant, entry.ActorID, entry.Actor, entry.ActorEmail, entry.ActorRole, entry.Action, entry.ResourceType, entry.ResourceID, entry.Metadata}, " "))
+			if !strings.Contains(joined, search) {
+				continue
+			}
+		}
+		out = append(out, entry)
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
-	return out, nil
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return append([]superadmindomain.AuditEntry(nil), out...), nil
+}
+
+func (s *Store) PurgeAuditEntries(_ context.Context, before time.Time, tenantID string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	trimmedTenant := strings.TrimSpace(tenantID)
+	kept := s.auditLogs[:0]
+	deleted := 0
+	for _, entry := range s.auditLogs {
+		if entry.CreatedAt.Before(before) && (trimmedTenant == "" || entry.TenantID == trimmedTenant) {
+			deleted++
+			continue
+		}
+		kept = append(kept, entry)
+	}
+	s.auditLogs = kept
+	return deleted, nil
 }
 
 func (s *Store) CurrentTenant(_ context.Context, tenantID string) (school.Tenant, bool) {
@@ -1882,37 +2057,63 @@ func (s *Store) TeacherCanObserveStudent(_ context.Context, tenantID string, tea
 	return ok
 }
 
-func (s *Store) RecordOperationalAudit(_ context.Context, tenantID string, actorUserID string, action string, resourceType string, resourceID string, metadata string) {
+func (s *Store) RecordOperationalAudit(ctx context.Context, tenantID string, actorUserID string, action string, resourceType string, resourceID string, metadata string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if tenantID != s.tenant.ID {
-		return
-	}
-	s.appendOperationalAuditLocked(actorUserID, action, resourceType, resourceID, metadata)
+	metadata = platformaudit.MergeRequestDetails(ctx, metadata)
+	s.appendOperationalAuditLocked(tenantID, actorUserID, action, resourceType, resourceID, metadata)
 }
 
-func (s *Store) appendOperationalAuditLocked(actorUserID string, action string, resourceType string, resourceID string, metadata string) {
+func (s *Store) appendOperationalAuditLocked(tenantID string, actorUserID string, action string, resourceType string, resourceID string, metadata string) {
+	s.appendAuditLocked(tenantID, actorUserID, action, resourceType, resourceID, auditSensitivity(action), metadata)
+}
+
+func (s *Store) appendAuditLocked(tenantID string, actorUserID string, action string, resourceType string, resourceID string, sensitivity string, metadata string) {
 	actorName := actorUserID
+	actorEmail := ""
+	actorRole := ""
 	for _, user := range s.users {
 		if user.ID == actorUserID {
 			actorName = user.FullName
+			actorEmail = user.Email
+			actorRole = string(user.Role)
 			break
 		}
 	}
-	sensitivity := "operational"
-	if action == "guidance.view" {
-		sensitivity = "sensitive_student"
+	if actorName == "" {
+		actorName = "Sistem"
 	}
-	_ = metadata
+	tenantName := s.tenantNameLocked(tenantID)
+	if tenantName == "" {
+		tenantName = "ÖTS Platform"
+	}
+	if strings.TrimSpace(metadata) == "" {
+		metadata = "{}"
+	}
 	s.auditLogs = append(s.auditLogs, superadmindomain.AuditEntry{
 		ID:           fmt.Sprintf("audit-%d", len(s.auditLogs)+1),
-		Tenant:       s.tenant.Name,
+		TenantID:     tenantID,
+		Tenant:       tenantName,
+		ActorID:      actorUserID,
 		Actor:        actorName,
+		ActorEmail:   actorEmail,
+		ActorRole:    actorRole,
 		Action:       action,
 		ResourceType: resourceType,
+		ResourceID:   resourceID,
 		Sensitivity:  sensitivity,
+		Metadata:     metadata,
 		CreatedAt:    s.clock(),
 	})
+}
+
+func auditSensitivity(action string) string {
+	switch {
+	case action == "guidance.view":
+		return "sensitive_student"
+	default:
+		return "operational"
+	}
 }
 
 func (s *Store) lessonByID(id string) (scheduling.Lesson, bool) {
@@ -1952,6 +2153,9 @@ func (s *Store) teacherByUserID(userID string) (school.Teacher, bool) {
 }
 
 func (s *Store) tenantNameLocked(tenantID string) string {
+	if tenantID == "system" {
+		return "ÖTS Platform"
+	}
 	if tenantID == s.tenant.ID {
 		return s.tenant.Name
 	}

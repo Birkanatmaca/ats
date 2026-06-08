@@ -17,12 +17,14 @@ import (
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
 	identityapp "ots/backend/internal/app/identity"
+	lifeapp "ots/backend/internal/app/life"
 	observationapp "ots/backend/internal/app/observation"
 	pushapp "ots/backend/internal/app/push"
 	schedulingapp "ots/backend/internal/app/scheduling"
 	schoolapp "ots/backend/internal/app/school"
 	studentimportapp "ots/backend/internal/app/studentimport"
 	superadminapp "ots/backend/internal/app/superadmin"
+	transportapp "ots/backend/internal/app/transport"
 	httphandlers "ots/backend/internal/http/handlers"
 	"ots/backend/internal/http/middleware"
 	platformauth "ots/backend/internal/platform/auth"
@@ -52,13 +54,16 @@ func main() {
 	var guidanceRepo guidanceapp.Repository = memoryStore
 	var aiRepo aiapp.Repository = memoryStore
 	var billingRepo billingapp.Repository = memoryStore
+	var transportRepo transportapp.Repository = memoryStore
+	var lifeRepo lifeapp.Repository = memoryStore
 	var pushRepo pushapp.Repository = memoryStore
 	var announcementRepo announcementapp.Repository = memoryStore
 	var studentImportRepo studentimportapp.Repository = memoryStore
+	var auditWriter middleware.AuditWriter = memoryStore.RecordOperationalAudit
 
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {
-		if cfg.Environment == "production" {
+		if cfg.Environment == "production" || !cfg.AllowInMemoryFallback {
 			logger.Error("postgres connection failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
@@ -81,9 +86,12 @@ func main() {
 		guidanceRepo = postgresStore
 		aiRepo = postgresStore
 		billingRepo = postgresStore
+		transportRepo = postgresStore
+		lifeRepo = postgresStore
 		pushRepo = postgresStore
 		announcementRepo = postgresStore
 		studentImportRepo = postgresStore
+		auditWriter = postgresStore.RecordOperationalAudit
 		logger.Info("postgres repository connected")
 	}
 
@@ -118,6 +126,8 @@ func main() {
 	})
 
 	billingService := billingapp.NewService(billingRepo, time.Now)
+	transportService := transportapp.NewService(transportRepo, time.Now)
+	lifeService := lifeapp.NewService(lifeRepo, time.Now)
 	var pushSender platformpush.Sender = platformpush.NewExpoSender(os.Getenv("EXPO_ACCESS_TOKEN"), logger)
 	if strings.TrimSpace(os.Getenv("EXPO_PUSH_ENABLED")) == "false" {
 		pushSender = platformpush.NewNoopSender(logger)
@@ -138,6 +148,8 @@ func main() {
 		Dashboard:     dashboardapp.NewService(dashboardRepo),
 		SuperAdmin:    superadminapp.NewService(superAdminRepo),
 		Billing:       billingService,
+		Transport:     transportService,
+		Life:          lifeService,
 		AI:            aiService,
 		Push:          pushService,
 		Announcements: announcementService,
@@ -208,9 +220,9 @@ func main() {
 	if postgresStore != nil {
 		middlewares = append(middlewares,
 			middleware.UserScopes(postgresStore),
-			middleware.OperationalAudit(postgresStore.RecordOperationalAudit),
 		)
 	}
+	middlewares = append(middlewares, middleware.OperationalAudit(auditWriter))
 	stack := middleware.Chain(middlewares...)
 
 	server := &http.Server{

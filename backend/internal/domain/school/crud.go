@@ -111,6 +111,21 @@ type ProvisionTeacherResult struct {
 	TemporaryPassword string  `json:"temporaryPassword"`
 }
 
+type ProvisionServiceDriverInput struct {
+	Email     string `json:"email"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Phone     string `json:"phone,omitempty"`
+	Title     string `json:"title,omitempty"`
+}
+
+type ProvisionServiceDriverResult struct {
+	UserID            string `json:"userId"`
+	ServiceStaffID    string `json:"serviceStaffId"`
+	Email             string `json:"email"`
+	TemporaryPassword string `json:"temporaryPassword"`
+}
+
 type ProvisionGuardianInput struct {
 	Email      string   `json:"email"`
 	FirstName  string   `json:"firstName"`

@@ -16,11 +16,11 @@ test.describe("ogta.ai teacher smoke", () => {
     await expect(page.getByRole("dialog", { name: /ogta\.ai/i })).toBeVisible();
 
     const prompt = "Defne Yılmaz adlı öğrenciye dikkat gözlemi eklemeni istiyorum. Derste dikkati dağılıyor.";
-    await page.getByPlaceholder(/doğal dille komut/i).fill(prompt);
+    await page.getByRole("textbox", { name: /defne yılmaz.*dikkat gözlemi/i }).fill(prompt);
     await page.getByRole("button", { name: /gönder/i }).click();
 
     await expect(page.getByText(/onay bekleyen işlem/i)).toBeVisible({ timeout: 20_000 });
-    await page.getByRole("button", { name: /onayla/i }).click();
+    await page.getByRole("button", { name: /kaydı oluştur/i }).click();
     await expect(page.getByText(/gözlem kaydı oluşturuldu/i)).toBeVisible({ timeout: 20_000 });
   });
 });

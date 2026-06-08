@@ -1,5 +1,7 @@
 import type { MobileRoleShell } from "@/shared/auth/roleRoutes";
 
+export type TabbedRoleShell = Exclude<MobileRoleShell, "driver" | "super_admin_blocked">;
+
 export type TabConfig = {
   name: string;
   title: string;
@@ -29,7 +31,7 @@ export const TAB_ICONS = {
 } as const;
 
 /** Görünür tab bar: sol 2 + ortada ogta.ai + sağ 2 */
-export const roleTabConfigs: Record<Exclude<MobileRoleShell, "super_admin_blocked">, TabConfig[]> = {
+export const roleTabConfigs: Record<TabbedRoleShell, TabConfig[]> = {
   principal: [
     { name: "index", title: "Genel", icon: "home" },
     { name: "students", title: "Öğrenciler", icon: "users" },
@@ -58,7 +60,7 @@ export const roleTabConfigs: Record<Exclude<MobileRoleShell, "super_admin_blocke
 
 /** Tab bar'dan gizlenen ekranlar — Daha Fazla menüsünden erişilir */
 export const roleHiddenTabScreens: Record<
-  Exclude<MobileRoleShell, "super_admin_blocked">,
+  TabbedRoleShell,
   { name: string; title: string }[]
 > = {
   principal: [],
@@ -74,7 +76,11 @@ const commonMore: Omit<MoreMenuItem, "route">[] = [
   { key: "profile", label: "Profil", section: "account", description: "Hesap ve tema ayarları" }
 ];
 
-export function getMoreMenuItems(shell: Exclude<MobileRoleShell, "super_admin_blocked">): MoreMenuItem[] {
+export function isTabbedRoleShell(shell: MobileRoleShell | null | undefined): shell is TabbedRoleShell {
+  return shell === "principal" || shell === "teacher" || shell === "guardian" || shell === "guidance";
+}
+
+export function getMoreMenuItems(shell: TabbedRoleShell): MoreMenuItem[] {
   const base = `/(app)/${shell}`;
   const items: MoreMenuItem[] = commonMore.map((item) => ({ ...item, route: `${base}/${item.key}` }));
 
@@ -97,6 +103,20 @@ export function getMoreMenuItems(shell: Exclude<MobileRoleShell, "super_admin_bl
 
   if (shell === "principal") {
     return [
+      {
+        key: "life",
+        label: "Okul yaşamı",
+        route: `${base}/life`,
+        section: "operations" as const,
+        description: "Yemek, etüt ve kulüp yönetimi"
+      },
+      {
+        key: "services",
+        label: "Servis",
+        route: `${base}/services`,
+        section: "operations" as const,
+        description: "Servis rota, araç ve öğrenci atamaları"
+      },
       {
         key: "attendance",
         label: "Yoklama",
@@ -131,6 +151,20 @@ export function getMoreMenuItems(shell: Exclude<MobileRoleShell, "super_admin_bl
         route: `${base}/student-imports`,
         section: "school",
         description: "Toplu öğrenci aktarım geçmişi"
+      },
+      ...items
+    ];
+  }
+
+  if (shell === "teacher") {
+    return [
+      ...hiddenItems,
+      {
+        key: "life",
+        label: "Etüt & kulüp",
+        route: `${base}/life`,
+        section: "operations" as const,
+        description: "Etüt katılımı ve danışman kulüpleri"
       },
       ...items
     ];

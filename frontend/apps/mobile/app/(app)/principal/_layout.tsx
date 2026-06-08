@@ -11,6 +11,8 @@ export default function PrincipalRootLayout() {
         <Stack.Screen name="classes/[classId]/[sectionId]" options={swipeDetailScreenOptions} />
         <Stack.Screen name="attendance/index" options={swipeDetailScreenOptions} />
         <Stack.Screen name="attendance/[classId]" options={swipeDetailScreenOptions} />
+        <Stack.Screen name="life" options={swipeDetailScreenOptions} />
+        <Stack.Screen name="services" options={swipeDetailScreenOptions} />
         <Stack.Screen name="risks" options={swipeDetailScreenOptions} />
         <Stack.Screen name="teachers" options={swipeDetailScreenOptions} />
         <Stack.Screen name="schedule" options={swipeDetailScreenOptions} />

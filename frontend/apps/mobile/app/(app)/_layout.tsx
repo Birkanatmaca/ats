@@ -34,6 +34,7 @@ export default function AppLayout() {
       <Stack.Screen name="teacher" />
       <Stack.Screen name="guardian" />
       <Stack.Screen name="guidance" />
+      <Stack.Screen name="driver" />
       <Stack.Screen name="super-admin-blocked" options={{ headerShown: true, title: "Web panel" }} />
     </Stack>
   );

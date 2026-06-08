@@ -14,6 +14,7 @@ import { PrincipalClassStudentsPage } from "./pages/PrincipalClassStudentsPage";
 import { PrincipalClassesPage } from "./pages/PrincipalClassesPage";
 import { PrincipalOperationsPage } from "./pages/PrincipalOperationsPage";
 import { PrincipalOverviewPage } from "./pages/PrincipalOverviewPage";
+import { PrincipalServiceDriversPage } from "./pages/PrincipalServiceDriversPage";
 import { PrincipalSchedulePage } from "./pages/PrincipalSchedulePage";
 import { PrincipalStudentsPage } from "./pages/PrincipalStudentsPage";
 import { PrincipalTeachersPage } from "./pages/PrincipalTeachersPage";
@@ -484,6 +485,7 @@ export function PrincipalConsole({
               }
             />
             <Route path="operations" element={<PrincipalOperationsPage data={data} />} />
+            <Route path="services" element={<PrincipalServiceDriversPage />} />
             <Route
               path="announcements"
               element={<PrincipalAnnouncementsPage data={data} classes={classes} onAnnouncementCreated={() => void refreshAnnouncements()} />}
