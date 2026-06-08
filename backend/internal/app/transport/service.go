@@ -257,6 +257,36 @@ func (s *Service) UpdateRoute(ctx context.Context, tenantID, routeID, actorUserI
 	return route, nil
 }
 
+func (s *Service) ReportRouteDelay(ctx context.Context, tenantID, routeID, actorUserID string, input transportdomain.ServiceDelayInput) (transportdomain.ServiceDelayNotification, error) {
+	route, ok, err := s.repo.GetServiceRoute(ctx, tenantID, strings.TrimSpace(routeID))
+	if err != nil {
+		return transportdomain.ServiceDelayNotification{}, err
+	}
+	if !ok {
+		return transportdomain.ServiceDelayNotification{}, ErrNotFound
+	}
+	if input.DelayMinutes <= 0 || input.DelayMinutes > 240 {
+		return transportdomain.ServiceDelayNotification{}, ErrInvalidInput
+	}
+	note := strings.TrimSpace(input.Note)
+	body := fmt.Sprintf("%s servisinde yaklaşık %d dakika gecikme bekleniyor.", route.Name, input.DelayMinutes)
+	if note != "" {
+		body = body + " " + note
+	}
+	kind := fmt.Sprintf("service_delay:%s:%d:%d", route.ID, input.DelayMinutes, s.clock().Unix()/300)
+	delivered, err := s.repo.NotifyServiceRouteGuardians(ctx, tenantID, route.ID, "Servis gecikme bildirimi", body, kind)
+	if err != nil {
+		return transportdomain.ServiceDelayNotification{}, err
+	}
+	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.route.delay_notify", "service_route", route.ID, fmt.Sprintf(`{"delayMinutes":%d,"deliveredCount":%d}`, input.DelayMinutes, delivered))
+	return transportdomain.ServiceDelayNotification{
+		RouteID:        route.ID,
+		RouteName:      route.Name,
+		DelayMinutes:   input.DelayMinutes,
+		DeliveredCount: delivered,
+	}, nil
+}
+
 func (s *Service) DeleteRoute(ctx context.Context, tenantID, routeID, actorUserID string) error {
 	routeID = strings.TrimSpace(routeID)
 	if routeID == "" {

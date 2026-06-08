@@ -208,6 +208,20 @@ func (s *Store) MarkAnnouncementRead(_ context.Context, tenantID, announcementID
 	return nil
 }
 
+func (s *Store) GetAnnouncementRead(_ context.Context, tenantID, announcementID, userID string) (*time.Time, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.announcementReads == nil {
+		return nil, nil
+	}
+	readAt, ok := s.announcementReads[tenantID+":"+announcementID+":"+userID]
+	if !ok {
+		return nil, nil
+	}
+	copy := readAt
+	return &copy, nil
+}
+
 func (s *Store) CountAnnouncementReads(_ context.Context, tenantID, announcementID string) (int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -218,6 +232,19 @@ func (s *Store) CountAnnouncementReads(_ context.Context, tenantID, announcement
 	count := 0
 	for key := range s.announcementReads {
 		if strings.HasPrefix(key, prefix) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (s *Store) CountAnnouncementDeliveries(_ context.Context, tenantID, announcementID string) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	prefix := "announcement:" + announcementID + ":"
+	count := 0
+	for _, item := range s.notifications {
+		if item.TenantID == tenantID && strings.HasPrefix(item.Kind, prefix) {
 			count++
 		}
 	}

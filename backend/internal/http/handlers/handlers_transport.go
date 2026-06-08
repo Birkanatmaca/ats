@@ -15,6 +15,7 @@ func (h *Handler) registerTransportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/services/routes", h.createServiceRoute)
 	mux.HandleFunc("GET /api/v1/services/routes/{id}", h.getServiceRoute)
 	mux.HandleFunc("PATCH /api/v1/services/routes/{id}", h.updateServiceRoute)
+	mux.HandleFunc("POST /api/v1/services/routes/{id}/delay", h.reportServiceRouteDelay)
 	mux.HandleFunc("DELETE /api/v1/services/routes/{id}", h.deleteServiceRoute)
 	mux.HandleFunc("GET /api/v1/services/vehicles", h.listServiceVehicles)
 	mux.HandleFunc("POST /api/v1/services/vehicles", h.createServiceVehicle)
@@ -89,6 +90,23 @@ func (h *Handler) updateServiceRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, route, nil)
+}
+
+func (h *Handler) reportServiceRouteDelay(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireTransportOperator(w, r)
+	if !ok {
+		return
+	}
+	var input transportdomain.ServiceDelayInput
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Servis gecikme verisi okunamadı.", nil)
+		return
+	}
+	result, err := h.transport.ReportRouteDelay(r.Context(), principal.TenantID, r.PathValue("id"), principal.UserID, input)
+	if writeTransportError(w, err) {
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, result, nil)
 }
 
 func (h *Handler) deleteServiceRoute(w http.ResponseWriter, r *http.Request) {

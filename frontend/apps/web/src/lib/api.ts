@@ -572,10 +572,26 @@ export type PrincipalSchoolRoster = {
 
 export type Announcement = {
   id: string;
+  tenantId?: string;
   title: string;
   body: string;
+  status?: "draft" | "scheduled" | "published" | "archived";
   audience: string;
+  audiences?: AnnouncementAudienceTarget[];
   publishedAt: string;
+  scheduledAt?: string;
+  readAt?: string;
+  readCount?: number;
+  targetCount?: number;
+  deliveryCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AnnouncementAudienceTarget = {
+  type: "all" | "role" | "class" | "section" | "student" | "user";
+  id?: string;
+  role?: string;
 };
 
 export type SuperAdminOverview = {
@@ -939,6 +955,13 @@ export type ServiceRouteInput = {
   attendantId?: string;
   status?: ServiceStatus;
   stops?: Array<{ name: string; plannedTime: string; sortOrder?: number }>;
+};
+
+export type ServiceDelayNotification = {
+  routeId: string;
+  routeName: string;
+  delayMinutes: number;
+  deliveredCount: number;
 };
 
 export type ServiceAssignmentInput = {
@@ -1636,6 +1659,11 @@ export const api = {
     request<ServiceRoute>("/api/v1/services/routes", { method: "POST", body: JSON.stringify(payload) }),
   updateServiceRoute: (routeId: string, payload: Partial<ServiceRouteInput>) =>
     request<ServiceRoute>(`/api/v1/services/routes/${routeId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  reportServiceRouteDelay: (routeId: string, payload: { delayMinutes: number; note?: string }) =>
+    request<ServiceDelayNotification>(`/api/v1/services/routes/${routeId}/delay`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   deleteServiceRoute: (routeId: string) =>
     request<void>(`/api/v1/services/routes/${routeId}`, { method: "DELETE" }),
   serviceVehicles: () => request<ServiceVehicle[] | null>("/api/v1/services/vehicles").then(asArray),
@@ -1690,7 +1718,10 @@ export const api = {
   teacherCalendar: () => request<Lesson[] | null>("/api/v1/teachers/me/calendar").then(asArray),
   teacherStudents: () => request<SchoolStudentRecord[] | null>("/api/v1/teachers/me/students").then(asArray),
   currentLesson: () => request<CurrentLesson>("/api/v1/attendance/current-lesson"),
-  announcements: () => request<Announcement[] | null>("/api/v1/announcements").then(asArray),
+  announcements: (params?: { manage?: boolean }) => {
+    const query = params?.manage ? "?manage=true" : "";
+    return request<Announcement[] | null>(`/api/v1/announcements${query}`).then(asArray);
+  },
   observations: () => request<Observation[] | null>("/api/v1/observations").then(asArray),
   createAttendanceSession: (lessonId: string) =>
     request<AttendanceSession>("/api/v1/attendance/sessions", {
@@ -1921,19 +1952,30 @@ export const api = {
         body: JSON.stringify(payload)
       }
     ),
-  createAnnouncement: (payload: { title: string; body: string; audience: string }) =>
+  createAnnouncement: (payload: {
+    title: string;
+    body: string;
+    audience?: string;
+    audiences?: AnnouncementAudienceTarget[];
+    scheduledAt?: string;
+    publish?: boolean;
+  }) =>
     request<Announcement>("/api/v1/announcements", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateAnnouncement: (
     announcementId: string,
-    payload: { title?: string; body?: string; audience?: string }
+    payload: { title?: string; body?: string; audience?: string; audiences?: AnnouncementAudienceTarget[]; scheduledAt?: string }
   ) =>
     request<Announcement>(`/api/v1/announcements/${announcementId}`, {
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
+  publishAnnouncement: (announcementId: string) =>
+    request<Announcement>(`/api/v1/announcements/${announcementId}/publish`, { method: "POST", body: "{}" }),
+  markAnnouncementRead: (announcementId: string) =>
+    request<void>(`/api/v1/announcements/${announcementId}/read`, { method: "PATCH", body: "{}" }),
   classSummary: (classId: string, date?: string) =>
     request<ClassSummary>(
       `/api/v1/dashboard/classes/${classId}/summary${date ? `?date=${encodeURIComponent(date)}` : ""}`

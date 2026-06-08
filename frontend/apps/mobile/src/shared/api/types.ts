@@ -143,8 +143,10 @@ export type Announcement = {
   status?: "draft" | "scheduled" | "published" | "archived";
   publishedAt?: string;
   scheduledAt?: string;
+  readAt?: string;
   readCount?: number;
   targetCount?: number;
+  deliveryCount?: number;
 };
 
 export type AnnouncementTemplate = {

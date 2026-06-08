@@ -133,7 +133,7 @@ export function PrincipalConsole({
       api.tenant(),
       api.dashboard(),
       api.schedule(),
-      api.announcements(),
+      api.announcements({ manage: true }),
       api.principalTeachers(),
       api.principalRoster()
     ]);
@@ -172,7 +172,7 @@ export function PrincipalConsole({
 
   async function refreshAnnouncements() {
     try {
-      const announcements = await api.announcements();
+      const announcements = await api.announcements({ manage: true });
       setData((current) => ({ ...current, announcements }));
     } catch {
       setError("Duyurular yenilenemedi.");
@@ -488,7 +488,15 @@ export function PrincipalConsole({
             <Route path="services" element={<PrincipalServiceDriversPage />} />
             <Route
               path="announcements"
-              element={<PrincipalAnnouncementsPage data={data} classes={classes} onAnnouncementCreated={() => void refreshAnnouncements()} />}
+              element={
+                <PrincipalAnnouncementsPage
+                  data={data}
+                  classes={classes}
+                  sections={sections}
+                  students={students}
+                  onAnnouncementCreated={() => void refreshAnnouncements()}
+                />
+              }
             />
             <Route path="profile" element={<ProfilePage session={session} onSessionUpdate={onSessionUpdate} />} />
             <Route path="*" element={<Navigate to="overview" replace />} />

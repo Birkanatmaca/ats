@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../../lib/api";
+import type { ServiceRoute } from "../../../lib/api";
 
 type ProvisionResult = {
   userId: string;
@@ -15,8 +16,22 @@ export function PrincipalServiceDriversPage() {
   const [phone, setPhone] = useState("+90 555 000 0101");
   const [title, setTitle] = useState("Servis Şoförü");
   const [busy, setBusy] = useState(false);
+  const [routes, setRoutes] = useState<ServiceRoute[]>([]);
+  const [delayRouteId, setDelayRouteId] = useState("");
+  const [delayMinutes, setDelayMinutes] = useState("10");
+  const [delayNote, setDelayNote] = useState("");
+  const [delayBusy, setDelayBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [delayMessage, setDelayMessage] = useState<string | null>(null);
   const [result, setResult] = useState<ProvisionResult | null>(null);
+
+  useEffect(() => {
+    void api.serviceRoutes().then((items) => {
+      const list = items ?? [];
+      setRoutes(list);
+      setDelayRouteId((current) => current || list[0]?.id || "");
+    }).catch(() => undefined);
+  }, []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -36,6 +51,29 @@ export function PrincipalServiceDriversPage() {
       setError(submitError instanceof Error ? submitError.message : "Şoför oluşturulamadı.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function submitDelay(event: React.FormEvent) {
+    event.preventDefault();
+    setDelayBusy(true);
+    setError(null);
+    setDelayMessage(null);
+    try {
+      const parsed = Number.parseInt(delayMinutes, 10);
+      if (!delayRouteId || !Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error("Rota ve gecikme dakikası zorunludur.");
+      }
+      const notification = await api.reportServiceRouteDelay(delayRouteId, {
+        delayMinutes: parsed,
+        note: delayNote.trim()
+      });
+      setDelayMessage(`${notification.routeName} için ${notification.deliveredCount} veliye gecikme bildirimi oluşturuldu.`);
+      setDelayNote("");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Gecikme bildirimi gönderilemedi.");
+    } finally {
+      setDelayBusy(false);
     }
   }
 
@@ -92,6 +130,42 @@ export function PrincipalServiceDriversPage() {
           </div>
         </article>
       ) : null}
+
+      <article className="guidance-data-card">
+        <header className="guidance-data-card-head">
+          <h2>Servis gecikmesi bildir</h2>
+          <span>Seçilen rotadaki öğrencilerin velilerine olay bazlı bildirim oluşturulur</span>
+        </header>
+        <form className="guidance-data-form" onSubmit={submitDelay}>
+          <div className="guidance-data-field-grid">
+            <label className="guidance-data-field">
+              <span>Rota</span>
+              <select value={delayRouteId} onChange={(event) => setDelayRouteId(event.target.value)}>
+                <option value="">Rota seç</option>
+                {routes.map((route) => (
+                  <option key={route.id} value={route.id}>
+                    {route.name} · {route.assignments.length} öğrenci
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="guidance-data-field">
+              <span>Gecikme dakikası</span>
+              <input inputMode="numeric" value={delayMinutes} onChange={(event) => setDelayMinutes(event.target.value)} />
+            </label>
+            <label className="guidance-data-field guidance-data-field--wide">
+              <span>Not</span>
+              <input value={delayNote} onChange={(event) => setDelayNote(event.target.value)} placeholder="Trafik yoğunluğu nedeniyle" />
+            </label>
+          </div>
+
+          {delayMessage ? <p className="form-success">{delayMessage}</p> : null}
+
+          <button className="primary-action" disabled={delayBusy || routes.length === 0} type="submit">
+            {delayBusy ? "Gönderiliyor..." : "Gecikme bildirimi gönder"}
+          </button>
+        </form>
+      </article>
     </section>
   );
 }

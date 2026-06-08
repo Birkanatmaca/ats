@@ -199,11 +199,35 @@ ON CONFLICT (tenant_id, announcement_id, user_id) DO UPDATE SET read_at = EXCLUD
 	return err
 }
 
+func (s *Store) GetAnnouncementRead(ctx context.Context, tenantID, announcementID, userID string) (*time.Time, error) {
+	var readAt time.Time
+	err := s.db.QueryRowContext(ctx, `
+SELECT read_at FROM announcement_reads
+WHERE tenant_id = $1 AND announcement_id = $2 AND user_id = $3`,
+		tenantID, announcementID, userID).Scan(&readAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &readAt, nil
+}
+
 func (s *Store) CountAnnouncementReads(ctx context.Context, tenantID, announcementID string) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx, `
 SELECT COUNT(*) FROM announcement_reads WHERE tenant_id = $1 AND announcement_id = $2`,
 		tenantID, announcementID).Scan(&count)
+	return count, err
+}
+
+func (s *Store) CountAnnouncementDeliveries(ctx context.Context, tenantID, announcementID string) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM notifications
+WHERE tenant_id = $1 AND kind LIKE $2`,
+		tenantID, "announcement:"+announcementID+":%").Scan(&count)
 	return count, err
 }
 

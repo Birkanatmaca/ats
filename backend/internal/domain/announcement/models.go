@@ -29,21 +29,22 @@ type AudienceTarget struct {
 }
 
 type Announcement struct {
-	ID              string           `json:"id"`
-	TenantID        string           `json:"tenantId"`
-	Title           string           `json:"title"`
-	Body            string           `json:"body"`
-	Status          Status           `json:"status"`
-	Audience        string           `json:"audience"`
-	Audiences       []AudienceTarget `json:"audiences"`
-	PublishedAt     *time.Time       `json:"publishedAt,omitempty"`
-	ScheduledAt     *time.Time       `json:"scheduledAt,omitempty"`
-	CreatedBy       string           `json:"createdBy,omitempty"`
-	CreatedAt       time.Time        `json:"createdAt"`
-	UpdatedAt       time.Time        `json:"updatedAt"`
-	ReadAt          *time.Time       `json:"readAt,omitempty"`
-	ReadCount       int              `json:"readCount,omitempty"`
-	TargetCount     int              `json:"targetCount,omitempty"`
+	ID            string           `json:"id"`
+	TenantID      string           `json:"tenantId"`
+	Title         string           `json:"title"`
+	Body          string           `json:"body"`
+	Status        Status           `json:"status"`
+	Audience      string           `json:"audience"`
+	Audiences     []AudienceTarget `json:"audiences"`
+	PublishedAt   *time.Time       `json:"publishedAt,omitempty"`
+	ScheduledAt   *time.Time       `json:"scheduledAt,omitempty"`
+	CreatedBy     string           `json:"createdBy,omitempty"`
+	CreatedAt     time.Time        `json:"createdAt"`
+	UpdatedAt     time.Time        `json:"updatedAt"`
+	ReadAt        *time.Time       `json:"readAt,omitempty"`
+	ReadCount     int              `json:"readCount,omitempty"`
+	TargetCount   int              `json:"targetCount,omitempty"`
+	DeliveryCount int              `json:"deliveryCount,omitempty"`
 }
 
 type Template struct {

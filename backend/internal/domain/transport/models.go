@@ -220,6 +220,18 @@ type UpdateRouteInput struct {
 	Stops       *[]RouteStopInput `json:"stops,omitempty"`
 }
 
+type ServiceDelayInput struct {
+	DelayMinutes int    `json:"delayMinutes"`
+	Note         string `json:"note,omitempty"`
+}
+
+type ServiceDelayNotification struct {
+	RouteID        string `json:"routeId"`
+	RouteName      string `json:"routeName"`
+	DelayMinutes   int    `json:"delayMinutes"`
+	DeliveredCount int    `json:"deliveredCount"`
+}
+
 type AssignmentInput struct {
 	StudentID string    `json:"studentId"`
 	RouteID   string    `json:"routeId"`
