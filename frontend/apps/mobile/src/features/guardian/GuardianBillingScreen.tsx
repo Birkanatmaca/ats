@@ -5,12 +5,12 @@ import { useGuardian } from "@/features/guardian/GuardianContext";
 import { Screen } from "@/shared/ui/Screen";
 
 export function GuardianBillingScreen() {
-  const { selectedChild, children } = useGuardian();
+    const { selectedChild, children } = useGuardian();
 
-  return (
-    <Screen title="Tahsilat" subtitle={selectedChild?.fullName}>
-      <ChildSelector />
-      {selectedChild ? <GuardianBillingCard studentId={selectedChild.id} /> : <Text>Öğrenci seçin ({children.length} kayıt).</Text>}
-    </Screen>
-  );
+    return (
+        <Screen title="Tahsilat" subtitle={selectedChild?.fullName}>
+            <ChildSelector />
+            {selectedChild ? <GuardianBillingCard studentId={selectedChild.id} /> : <Text>Öğrenci seçin ({children.length} kayıt).</Text>}
+        </Screen>
+    );
 }

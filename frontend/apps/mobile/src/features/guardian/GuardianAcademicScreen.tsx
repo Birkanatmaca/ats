@@ -5,12 +5,12 @@ import { useGuardian } from "@/features/guardian/GuardianContext";
 import { Screen } from "@/shared/ui/Screen";
 
 export function GuardianAcademicScreen() {
-  const { selectedChild, children } = useGuardian();
+    const { selectedChild, children } = useGuardian();
 
-  return (
-    <Screen title="Akademik" subtitle={selectedChild?.fullName}>
-      <ChildSelector />
-      {selectedChild ? <GuardianAcademicReportCard studentId={selectedChild.id} /> : <Text>Öğrenci seçin ({children.length} kayıt).</Text>}
-    </Screen>
-  );
+    return (
+        <Screen title="Akademik" subtitle={selectedChild?.fullName}>
+            <ChildSelector />
+            {selectedChild ? <GuardianAcademicReportCard studentId={selectedChild.id} /> : <Text>Öğrenci seçin ({children.length} kayıt).</Text>}
+        </Screen>
+    );
 }

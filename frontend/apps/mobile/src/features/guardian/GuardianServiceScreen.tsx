@@ -5,12 +5,12 @@ import { GuardianServiceCard } from "@/features/guardian/GuardianServiceCard";
 import { Screen } from "@/shared/ui/Screen";
 
 export function GuardianServiceScreen() {
-  const { selectedChild, children } = useGuardian();
+    const { selectedChild, children } = useGuardian();
 
-  return (
-    <Screen title="Servis" subtitle={selectedChild?.fullName}>
-      <ChildSelector />
-      {selectedChild ? <GuardianServiceCard studentId={selectedChild.id} /> : <Text>Öğrenci seçin ({children.length} kayıt).</Text>}
-    </Screen>
-  );
+    return (
+        <Screen title="Servis" subtitle={selectedChild?.fullName}>
+            <ChildSelector />
+            {selectedChild ? <GuardianServiceCard studentId={selectedChild.id} /> : <Text>Öğrenci seçin ({children.length} kayıt).</Text>}
+        </Screen>
+    );
 }

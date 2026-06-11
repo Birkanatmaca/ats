@@ -105,11 +105,11 @@ export function getMoreMenuItems(shell: TabbedRoleShell): MoreMenuItem[] {
             ? "Ödeme planı ve gecikmiş taksitler"
             : tab.name === "academic"
               ? "Akademik rapor ve destek sinyalleri"
-        : tab.name === "observations"
-          ? "Öğretmen gözlem kayıtları"
-          : tab.name === "plans"
-            ? "Destek ve takip planları"
-            : "Rehberlik notları ve kayıtlar"
+              : tab.name === "observations"
+                ? "Öğretmen gözlem kayıtları"
+                : tab.name === "plans"
+                  ? "Destek ve takip planları"
+                  : "Rehberlik notları ve kayıtlar"
   }));
 
   if (shell === "principal") {
