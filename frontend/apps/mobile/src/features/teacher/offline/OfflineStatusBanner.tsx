@@ -4,9 +4,9 @@ import { colors } from "@/shared/theme/colors";
 import { useOfflineAttendance } from "./OfflineAttendanceContext";
 
 export function OfflineStatusBanner() {
-  const { online, pendingCount, syncing, syncNow } = useOfflineAttendance();
+  const { online, pendingCount, prefetching, cachedLessonCount, syncing, syncNow } = useOfflineAttendance();
 
-  if (online && pendingCount === 0 && !syncing) {
+  if (online && pendingCount === 0 && !syncing && !prefetching) {
     return null;
   }
 
@@ -29,10 +29,16 @@ export function OfflineStatusBanner() {
         </Text>
         <Text style={styles.body}>
           {online
-            ? pendingCount > 0
-              ? `${pendingCount} yoklama sunucuya gönderilmeyi bekliyor.`
-              : "Kayıtlar senkronize ediliyor…"
-            : "Bağlantı yok. Yoklama cihazınızda saklanır; bağlantı gelince otomatik gönderilir."}
+            ? prefetching
+              ? "Bugünkü ders listeleri çevrimdışı kullanım için hazırlanıyor…"
+              : pendingCount > 0
+                ? `${pendingCount} yoklama sunucuya gönderilmeyi bekliyor.`
+                : syncing
+                  ? "Kayıtlar senkronize ediliyor…"
+                  : "Bağlantı kontrol ediliyor…"
+            : cachedLessonCount > 0
+              ? `Bağlantı yok. ${cachedLessonCount} ders cihazda hazır; işaretlemeler saklanır.`
+              : "Bağlantı yok. Yoklama cihazınızda saklanır; bağlantı gelince otomatik gönderilir."}
         </Text>
       </View>
       {online && pendingCount > 0 && !syncing ? (

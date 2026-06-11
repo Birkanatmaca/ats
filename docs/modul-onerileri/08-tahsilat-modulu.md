@@ -2,6 +2,19 @@
 
 > Amaç: Okulun öğrenci ödeme planı, taksit, gecikme ve tahsilat raporlarını yönetmek.
 
+## Durum (Haziran 2026)
+
+| Alan | Durum |
+|------|-------|
+| Veri modeli + migration | Tamam |
+| Backend API (tüm endpoint'ler) | Tamam |
+| Mobil müdür + veli kartları | Tamam |
+| Web müdür tahsilat sayfası | Tamam |
+| Web veli özet kartı | Tamam |
+| Geciken taksit CSV export | Tamam |
+| Bildirimler (yaklaşan/gecikme/ödeme kaydı) | Tamam |
+| Paket/lisans modül gating | Tamam (super admin kurum detayı) |
+
 ---
 
 ## 1. Ürün Kararı

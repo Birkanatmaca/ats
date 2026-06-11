@@ -23,6 +23,7 @@ type Repository interface {
 	ListGuardianNotifications(ctx context.Context, tenantID string, userID string) []domain.Notification
 	MarkGuardianNotificationRead(ctx context.Context, tenantID string, userID string, notificationID string) (domain.Notification, bool)
 	DeleteGuardianNotification(ctx context.Context, tenantID string, userID string, notificationID string) bool
+	ListGuardianGuidanceUpdates(ctx context.Context, tenantID string, guardianUserID string, studentID string) []domain.GuidanceUpdate
 }
 
 type Service struct {
@@ -67,6 +68,14 @@ func (s *Service) StudentAttendance(ctx context.Context, tenantID string, guardi
 		return domain.StudentAttendance{}, ErrForbidden
 	}
 	return attendance, nil
+}
+
+func (s *Service) StudentGuidanceUpdates(ctx context.Context, tenantID string, guardianUserID string, studentID string) ([]domain.GuidanceUpdate, error) {
+	studentID = strings.TrimSpace(studentID)
+	if studentID == "" || !s.repo.GuardianHasStudent(ctx, tenantID, guardianUserID, studentID) {
+		return nil, ErrForbidden
+	}
+	return s.repo.ListGuardianGuidanceUpdates(ctx, tenantID, guardianUserID, studentID), nil
 }
 
 func (s *Service) ListAnnouncements(ctx context.Context, tenantID string) []schooldomain.Announcement {

@@ -1,6 +1,7 @@
-import { BrainCircuit, Coins, Loader2, MessageSquare, RefreshCw, Sparkles, Trash2, UsersRound } from "lucide-react";
+import { BrainCircuit, Coins, KeyRound, Link2, Loader2, MessageSquare, RefreshCw, Sparkles, Trash2, UsersRound, Zap } from "lucide-react";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -13,12 +14,21 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import type { AIPlatformAnalytics, AICostSettings, AiTenantQuota } from "../../lib/api";
+import type { AIPlatformAnalytics, AICostSettings, AIProviderSettings, AIProviderStatus, AiTenantQuota } from "../../lib/api";
 import { api } from "../../lib/api";
 import { formatTRY } from "../utils/labels";
 import "./AiUsagePage.css";
 
 const periodOptions = [7, 30, 90];
+
+const roleLabels: Record<string, string> = {
+  teacher: "Öğretmen",
+  guidance: "Rehberlik",
+  principal: "Müdür",
+  guardian: "Veli",
+  system_admin: "Sistem yöneticisi",
+  unknown: "Diğer"
+};
 
 function formatUSD(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -48,6 +58,12 @@ export function AiUsagePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, AiTenantQuota>>({});
   const [savingQuotaFor, setSavingQuotaFor] = useState<string | null>(null);
+  const [providerStatus, setProviderStatus] = useState<AIProviderStatus | null>(null);
+  const [providerDraft, setProviderDraft] = useState<AIProviderSettings>({ model: "gpt-4o-mini", useLlm: true });
+  const [modelOptions, setModelOptions] = useState<string[]>(["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"]);
+  const [savingProvider, setSavingProvider] = useState(false);
+  const [testingProvider, setTestingProvider] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   const load = useCallback(async (periodDays: number) => {
     setLoading(true);
@@ -56,13 +72,18 @@ export function AiUsagePage() {
       const data = await api.superAdminAIOverview(periodDays);
       setAnalytics(data);
       setCostSettings(data.costSettings);
+      setProviderStatus(data.provider);
+      setProviderDraft({
+        model: data.provider?.model ?? "gpt-4o-mini",
+        useLlm: data.provider?.useLlm ?? true
+      });
       setQuotaDrafts(
         Object.fromEntries(
           data.byTenant.map((row) => [
             row.tenantId,
             {
-              dailyMessageLimit: null,
-              monthlyTokenLimit: null
+              dailyMessageLimit: row.dailyMessageLimit ?? null,
+              monthlyTokenLimit: row.monthlyTokenLimit ?? null
             }
           ])
         )
@@ -109,6 +130,52 @@ export function AiUsagePage() {
     }
   }
 
+  useEffect(() => {
+    void api.superAdminAIProvider().then((payload) => {
+      setModelOptions(payload.models);
+      if (!analytics) {
+        setProviderStatus(payload.status);
+        setProviderDraft({ model: payload.status.model, useLlm: payload.status.useLlm });
+      }
+    }).catch(() => undefined);
+  }, [analytics]);
+
+  async function saveProviderSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingProvider(true);
+    setNotice(null);
+    setError(null);
+    setTestResult(null);
+    try {
+      const updated = await api.updateSuperAdminAIProvider(providerDraft);
+      setProviderStatus(updated.status);
+      setProviderDraft({ model: updated.settings.model, useLlm: updated.settings.useLlm });
+      setNotice("AI sağlayıcı ayarları kaydedildi.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "AI sağlayıcı ayarları kaydedilemedi.");
+    } finally {
+      setSavingProvider(false);
+    }
+  }
+
+  async function testProvider() {
+    setTestingProvider(true);
+    setTestResult(null);
+    setError(null);
+    try {
+      const result = await api.testSuperAdminAIProvider();
+      if (result.ok) {
+        setTestResult(`Bağlantı başarılı (${result.latencyMs} ms) — ${result.responseHint ?? "yanıt alındı"}`);
+      } else {
+        setTestResult(result.error ?? "Bağlantı testi başarısız.");
+      }
+    } catch (testError) {
+      setTestResult(testError instanceof Error ? testError.message : "Bağlantı testi çalıştırılamadı.");
+    } finally {
+      setTestingProvider(false);
+    }
+  }
+
   async function runRetention() {
     setRunningRetention(true);
     setNotice(null);
@@ -135,6 +202,11 @@ export function AiUsagePage() {
     name: row.tenantName.length > 16 ? `${row.tenantName.slice(0, 14)}…` : row.tenantName,
     mesaj: row.userMessages,
     maliyet: row.estCostTry
+  }));
+  const roleChart = (analytics?.byRole ?? []).map((row) => ({
+    name: roleLabels[row.role] ?? row.role,
+    mesaj: row.userMessages,
+    token: row.tokenInput + row.tokenOutput
   }));
 
   return (
@@ -175,6 +247,91 @@ export function AiUsagePage() {
         </div>
       ) : (
         <>
+          <div className="sa-card sa-ai-provider-card">
+            <div className="sa-panel-header compact">
+              <div>
+                <span className="sa-kicker">Sağlayıcı</span>
+                <h2>OpenAI & anahtar yönetimi</h2>
+              </div>
+              <KeyRound size={20} color="var(--sa-accent)" />
+            </div>
+            <div className="sa-card-body sa-ai-provider-grid">
+              <div className="sa-ai-provider-status">
+                <div className={`sa-ai-status-pill ${providerStatus?.llmReady ? "is-ready" : "is-off"}`}>
+                  <Zap size={16} />
+                  {providerStatus?.llmReady ? "LLM aktif" : "LLM pasif / anahtar yok"}
+                </div>
+                <ul className="sa-ai-provider-meta">
+                  <li>
+                    <span>Anahtar kaynağı</span>
+                    <strong>
+                      {providerStatus?.keySource === "env"
+                        ? "Sunucu ortam değişkeni"
+                        : providerStatus?.keySource === "platform"
+                          ? "Platform ayarları"
+                          : "Tanımlı değil"}
+                    </strong>
+                  </li>
+                  <li>
+                    <span>Anahtar</span>
+                    <strong>{providerStatus?.keyConfigured ? providerStatus.keyHint : "Eksik"}</strong>
+                  </li>
+                  <li>
+                    <span>Model</span>
+                    <strong>{providerStatus?.model ?? providerDraft.model}</strong>
+                  </li>
+                  <li>
+                    <span>Yedek mod</span>
+                    <strong>{providerStatus?.fallbackRuleEngine ? "Kural motoru açık" : "Kapalı"}</strong>
+                  </li>
+                </ul>
+                {providerStatus?.envOverridesKey ? (
+                  <p className="sa-ai-provider-note">
+                    Sunucuda <code>OPENAI_API_KEY</code> tanımlı; paneldeki anahtar yedek olarak duruyor.
+                  </p>
+                ) : null}
+                <Link className="ghost-button sa-ai-settings-link" to="/admin/settings">
+                  <Link2 size={16} />
+                  API anahtarını Ayarlar &gt; AI sekmesinden yönet
+                </Link>
+              </div>
+
+              <form className="sa-ai-provider-form" onSubmit={(event) => void saveProviderSettings(event)}>
+                <label>
+                  Model
+                  <select
+                    onChange={(event) => setProviderDraft((current) => ({ ...current, model: event.target.value }))}
+                    value={providerDraft.model}
+                  >
+                    {modelOptions.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="toggle-row sa-ai-toggle">
+                  <input
+                    checked={providerDraft.useLlm}
+                    onChange={(event) => setProviderDraft((current) => ({ ...current, useLlm: event.target.checked }))}
+                    type="checkbox"
+                  />
+                  <span />
+                  <strong>LLM (ChatGPT) kullan</strong>
+                </label>
+                <div className="sa-ai-provider-actions">
+                  <button className="primary-button" disabled={savingProvider} type="submit">
+                    {savingProvider ? <Loader2 className="spin" size={16} /> : "Sağlayıcı ayarlarını kaydet"}
+                  </button>
+                  <button className="ghost-button" disabled={testingProvider} onClick={() => void testProvider()} type="button">
+                    {testingProvider ? <Loader2 className="spin" size={16} /> : "Bağlantıyı test et"}
+                  </button>
+                </div>
+                {testResult ? <p className="sa-ai-test-result">{testResult}</p> : null}
+              </form>
+            </div>
+          </div>
+
           <div className="sa-kpi-row">
             <article className="sa-kpi sa-kpi--blue">
               <div className="sa-kpi-icon">
@@ -257,6 +414,34 @@ export function AiUsagePage() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="sa-card">
+            <div className="sa-panel-header compact">
+              <div>
+                <span className="sa-kicker">Rol</span>
+                <h2>Rol bazlı kullanım</h2>
+              </div>
+            </div>
+            <div className="sa-card-body">
+              <div className="sa-chart-frame sa-chart-frame--tall">
+                {roleChart.length === 0 ? (
+                  <p className="muted-copy">Henüz rol bazlı kullanım kaydı yok.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={roleChart} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e2" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#919a9f" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#919a9f" }} />
+                      <Tooltip contentStyle={{ borderRadius: 10, borderColor: "#dbdbd9" }} />
+                      <Legend />
+                      <Bar dataKey="mesaj" fill="#6366f1" name="Mesaj" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="token" fill="#f59e0b" name="Token" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
           </div>

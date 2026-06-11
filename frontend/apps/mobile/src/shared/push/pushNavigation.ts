@@ -8,6 +8,8 @@ export type PushRouteData = {
   announcementId?: string;
   ticketId?: string;
   planId?: string;
+  tripId?: string;
+  routeId?: string;
   sessionId?: string;
 };
 
@@ -48,6 +50,25 @@ export function resolvePushRoute(shell: MobileRoleShell, data: PushRouteData): H
         return "/(app)/teacher/lessons" as Href;
       }
       return "/(app)/principal/schedule" as Href;
+    case "billing":
+      if (shell === "guardian") {
+        return "/(app)/guardian/(tabs)/billing" as Href;
+      }
+      if (shell === "principal") {
+        return "/(app)/principal/more" as Href;
+      }
+      return `/(app)/${shell}/notifications` as Href;
+    case "transport":
+      if (shell === "guardian") {
+        return "/(app)/guardian/(tabs)/service" as Href;
+      }
+      if (shell === "driver") {
+        return "/(app)/driver" as Href;
+      }
+      if (shell === "principal") {
+        return "/(app)/principal/live-trips" as Href;
+      }
+      return `/(app)/${shell}/notifications` as Href;
     default:
       return `/(app)/${shell}/notifications` as Href;
   }
@@ -62,6 +83,8 @@ export function parsePushData(raw: Record<string, unknown> | undefined): PushRou
     announcementId: typeof raw.announcementId === "string" ? raw.announcementId : undefined,
     ticketId: typeof raw.ticketId === "string" ? raw.ticketId : undefined,
     planId: typeof raw.planId === "string" ? raw.planId : undefined,
-    sessionId: typeof raw.sessionId === "string" ? raw.sessionId : undefined
+    sessionId: typeof raw.sessionId === "string" ? raw.sessionId : undefined,
+    tripId: typeof raw.tripId === "string" ? raw.tripId : undefined,
+    routeId: typeof raw.routeId === "string" ? raw.routeId : undefined
   };
 }

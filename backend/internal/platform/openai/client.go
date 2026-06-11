@@ -87,6 +87,13 @@ func (c *HTTPClient) Available() bool {
 	return c != nil && strings.TrimSpace(c.cfg.APIKey) != ""
 }
 
+func (c *HTTPClient) APIKey() string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.cfg.APIKey)
+}
+
 func (c *HTTPClient) Complete(ctx context.Context, systemPrompt string, userMessage string) (string, error) {
 	result, err := c.CompleteChat(ctx, []ChatMessage{
 		{Role: "system", Content: systemPrompt},

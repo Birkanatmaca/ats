@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	ErrInvalidInput        = errors.New("invalid announcement input")
-	ErrNotFound            = errors.New("announcement not found")
-	ErrForbidden           = errors.New("announcement forbidden")
-	ErrPublishedImmutable  = errors.New("published announcement cannot change audiences")
-	ErrTemplateNotFound    = errors.New("announcement template not found")
+	ErrInvalidInput       = errors.New("invalid announcement input")
+	ErrNotFound           = errors.New("announcement not found")
+	ErrForbidden          = errors.New("announcement forbidden")
+	ErrPublishedImmutable = errors.New("published announcement cannot change audiences")
+	ErrTemplateNotFound   = errors.New("announcement template not found")
 )
 
 type Repository interface {
@@ -26,9 +26,12 @@ type Repository interface {
 	SetTargetedAnnouncementStatus(ctx context.Context, tenantID, announcementID string, status domain.Status, publishedAt *time.Time) (domain.Announcement, error)
 	ListDueScheduled(ctx context.Context, now time.Time) ([]domain.Announcement, error)
 	MarkAnnouncementRead(ctx context.Context, tenantID, announcementID, userID string, readAt time.Time) error
+	GetAnnouncementRead(ctx context.Context, tenantID, announcementID, userID string) (*time.Time, error)
 	GetUserTargetContext(ctx context.Context, tenantID, userID string) (domain.UserTargetContext, error)
 	ResolveTargetUserIDs(ctx context.Context, tenantID string, audiences []domain.AudienceTarget) ([]string, error)
 	CountAnnouncementReads(ctx context.Context, tenantID, announcementID string) (int, error)
+	CountAnnouncementDeliveries(ctx context.Context, tenantID, announcementID string) (int, error)
+	CountAnnouncementPushDeliveries(ctx context.Context, tenantID, announcementID string) (domain.PushDeliveryStats, error)
 
 	ListTemplates(ctx context.Context, tenantID string) ([]domain.Template, error)
 	GetTemplate(ctx context.Context, tenantID, templateID string) (domain.Template, bool, error)
@@ -71,6 +74,11 @@ func (s *Service) ListForUser(ctx context.Context, tenantID, userID string, mana
 		if !UserMatchesAudience(ctxData, item.Audiences) {
 			continue
 		}
+		readAt, err := s.repo.GetAnnouncementRead(ctx, tenantID, item.ID, userID)
+		if err != nil {
+			return nil, err
+		}
+		item.ReadAt = readAt
 		out = append(out, item)
 	}
 	return out, nil
@@ -313,6 +321,18 @@ func (s *Service) EnrichManageStats(ctx context.Context, tenantID string, items 
 			return nil, err
 		}
 		item.ReadCount = readCount
+		deliveryCount, err := s.repo.CountAnnouncementDeliveries(ctx, tenantID, item.ID)
+		if err != nil {
+			return nil, err
+		}
+		pushStats, err := s.repo.CountAnnouncementPushDeliveries(ctx, tenantID, item.ID)
+		if err != nil {
+			return nil, err
+		}
+		item.DeliveryCount = deliveryCount
+		item.PushSentCount = pushStats.Sent
+		item.PushDroppedCount = pushStats.Dropped
+		item.PushFailedCount = pushStats.Failed
 		item.TargetCount = len(targetIDs)
 		out = append(out, item)
 	}

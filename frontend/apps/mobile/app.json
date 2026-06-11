@@ -12,15 +12,21 @@
       "bundleIdentifier": "com.ogtasis.mobile",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Profil fotoğrafı seçmek için galeri erişimi gereklidir.",
-        "NSCameraUsageDescription": "Profil fotoğrafı çekmek için kamera erişimi gereklidir."
-      }
+        "NSCameraUsageDescription": "Profil fotoğrafı çekmek için kamera erişimi gereklidir.",
+        "NSLocationWhenInUseUsageDescription": "Servis canlı takibi için konum paylaşımı gereklidir.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Servis canlı takibi için konum paylaşımı gereklidir."
+      },
+      "appleTeamId": "4DL7NJUS52"
     },
     "android": {
       "package": "com.ogtasis.mobile",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -59,6 +65,12 @@
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Servis canlı takibi için konum paylaşımı gereklidir."
         }
       ]
     ],

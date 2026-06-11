@@ -1,0 +1,113 @@
+.principal-billing-page {
+	gap: 16px;
+}
+
+.principal-billing-hero {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.principal-billing-hero h1 {
+	margin: 0;
+	font-size: 1.45rem;
+}
+
+.principal-billing-hero p {
+	margin: 6px 0 0;
+	color: var(--text-muted, #64748b);
+}
+
+.principal-billing-kpis {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.principal-billing-kpis article {
+	display: grid;
+	gap: 6px;
+	padding: 14px;
+	border-radius: 14px;
+	border: 1px solid var(--sa-border, #e2e8f0);
+	background: var(--sa-surface, #fff);
+}
+
+.principal-billing-kpis small {
+	color: var(--text-muted, #64748b);
+	font-size: 0.78rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.principal-billing-kpis strong {
+	font-size: 1.2rem;
+}
+
+.principal-billing-kpis article.is-danger strong {
+	color: #dc2626;
+}
+
+.principal-billing-card-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.principal-billing-filters {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.principal-billing-filters label {
+	display: grid;
+	gap: 6px;
+	font-size: 0.82rem;
+	color: var(--text-muted, #64748b);
+}
+
+.principal-billing-filters select,
+.principal-billing-student-select select,
+.principal-billing-search input {
+	border: 1px solid var(--sa-border, #e2e8f0);
+	border-radius: 10px;
+	padding: 10px 12px;
+	background: #fff;
+	color: var(--sa-ink, #0f172a);
+}
+
+.principal-billing-search-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px solid var(--sa-border, #e2e8f0);
+	border-radius: 10px;
+	padding: 0 12px;
+	background: #fff;
+}
+
+.principal-billing-search-field input {
+	border: 0;
+	padding: 10px 0;
+	width: 100%;
+}
+
+.principal-billing-student-select {
+	display: grid;
+	gap: 6px;
+	margin-bottom: 12px;
+	font-size: 0.82rem;
+	color: var(--text-muted, #64748b);
+}
+
+@media (max-width: 960px) {
+	.principal-billing-kpis,
+	.principal-billing-filters {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}

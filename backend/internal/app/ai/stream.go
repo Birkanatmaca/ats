@@ -91,7 +91,8 @@ func (s *Service) orchestrateMessage(
 		if llmResult, llmUsage, used, llmErr := s.tryLLMOrchestration(ctx, principal, conversation, content); llmErr != nil {
 			return aidomain.SendMessageResult{}, "", 0, 0, llmErr
 		} else if used {
-			return llmResult, s.cfg.Model, llmUsage.Input, llmUsage.Output, nil
+			model, _ := s.effectiveProviderSettings(ctx)
+			return llmResult, model, llmUsage.Input, llmUsage.Output, nil
 		}
 	}
 
@@ -110,8 +111,9 @@ func (s *Service) orchestrateMessage(
 	if err != nil {
 		return aidomain.SendMessageResult{}, "", 0, 0, err
 	}
-	if s.openai.Available() {
-		model = s.cfg.Model + "+rules"
+	if s.ResolveOpenAIClient(ctx).Available() {
+		effectiveModel, _ := s.effectiveProviderSettings(ctx)
+		model = effectiveModel + "+rules"
 	}
 	return result, model, tokenInput, tokenOutput, nil
 }
@@ -163,7 +165,8 @@ func (s *Service) streamLLMResponse(
 			if text == "" {
 				return ErrInvalidMessage
 			}
-			saved, err := s.saveMessageWithUsage(ctx, principal.TenantID, conversation.ID, "", "assistant", text, s.cfg.Model, completion.Usage.PromptTokens, completion.Usage.CompletionTokens)
+			effectiveModel, _ := s.effectiveProviderSettings(ctx)
+			saved, err := s.saveMessageWithUsage(ctx, principal.TenantID, conversation.ID, "", "assistant", text, effectiveModel, completion.Usage.PromptTokens, completion.Usage.CompletionTokens)
 			if err != nil {
 				return err
 			}
@@ -181,7 +184,8 @@ func (s *Service) streamLLMResponse(
 				if result.Message.Content == "" {
 					result.Message.Content = strings.TrimSpace(builder.String())
 				}
-				saved, err := s.saveMessageWithUsage(ctx, principal.TenantID, conversation.ID, "", result.Message.Role, result.Message.Content, s.cfg.Model, completion.Usage.PromptTokens, completion.Usage.CompletionTokens)
+				effectiveModel, _ := s.effectiveProviderSettings(ctx)
+				saved, err := s.saveMessageWithUsage(ctx, principal.TenantID, conversation.ID, "", result.Message.Role, result.Message.Content, effectiveModel, completion.Usage.PromptTokens, completion.Usage.CompletionTokens)
 				if err != nil {
 					return err
 				}

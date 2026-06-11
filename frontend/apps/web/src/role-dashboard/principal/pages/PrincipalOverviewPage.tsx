@@ -2,6 +2,7 @@ import { AlertTriangle, ClipboardCheck, GraduationCap, UsersRound } from "lucide
 import { NavLink } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { CSSProperties } from "react";
+import { PrincipalPendingAttendancePanel } from "../components/PrincipalPendingAttendancePanel";
 import type { PrincipalConsoleData } from "../types";
 
 export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) {
@@ -41,6 +42,8 @@ export function PrincipalOverviewPage({ data }: { data: PrincipalConsoleData }) 
           </NavLink>
         </div>
       ) : null}
+
+      <PrincipalPendingAttendancePanel summary={summary} showClassList />
 
       <div className="principal-kpi-grid">
         <article className="principal-kpi-card">

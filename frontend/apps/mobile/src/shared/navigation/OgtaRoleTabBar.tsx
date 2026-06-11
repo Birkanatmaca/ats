@@ -3,9 +3,8 @@ import { Sparkles } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useOgtaAi } from "@/features/ai/OgtaAiContext";
-import type { MobileRoleShell } from "@/shared/auth/roleRoutes";
 import { RoleTabIcon } from "@/shared/navigation/RoleTabIcon";
-import { roleTabConfigs, type TabConfig } from "@/shared/navigation/roleTabs";
+import { roleTabConfigs, type TabbedRoleShell, type TabConfig } from "@/shared/navigation/roleTabs";
 import {
   TAB_BAR_CENTER_CIRCLE,
   TAB_BAR_CENTER_OVERHANG,
@@ -29,7 +28,7 @@ type Props = {
     emit: (event: { type: "tabPress"; target: string; canPreventDefault: true }) => { defaultPrevented?: boolean };
     navigate: (name: string, params?: object) => void;
   };
-  shell: Exclude<MobileRoleShell, "super_admin_blocked">;
+  shell: TabbedRoleShell;
 };
 
 export function OgtaRoleTabBar(props: Props) {

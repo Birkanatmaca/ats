@@ -4,7 +4,8 @@ export type Role =
   | "principal"
   | "guidance"
   | "teacher"
-  | "guardian";
+  | "guardian"
+  | "driver";
 
 export type NotificationPreferences = {
   attendance: boolean;
@@ -12,6 +13,8 @@ export type NotificationPreferences = {
   support: boolean;
   guidance: boolean;
   schedule: boolean;
+  transport: boolean;
+  billing: boolean;
 };
 
 export type Principal = {
@@ -142,8 +145,13 @@ export type Announcement = {
   status?: "draft" | "scheduled" | "published" | "archived";
   publishedAt?: string;
   scheduledAt?: string;
+  readAt?: string;
   readCount?: number;
   targetCount?: number;
+  deliveryCount?: number;
+  pushSentCount?: number;
+  pushDroppedCount?: number;
+  pushFailedCount?: number;
 };
 
 export type AnnouncementTemplate = {
@@ -601,6 +609,430 @@ export type ClassAcademicSummary = {
     signal: string;
   }>;
   aiWeeklySummary: string;
+};
+
+export type BillingAccountStatus = "active" | "paused" | "closed";
+export type PaymentPlanStatus = "active" | "completed" | "cancelled";
+export type PaymentInstallmentStatus = "pending" | "partial" | "paid" | "overdue" | "cancelled";
+export type PaymentMethod = "cash" | "bank_transfer" | "card" | "other";
+
+export type Payment = {
+  id: string;
+  tenantId: string;
+  installmentId: string;
+  amount: number;
+  method: PaymentMethod;
+  paidAt: string;
+  recordedBy?: string;
+  note?: string;
+  void: boolean;
+  voidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentInstallment = {
+  id: string;
+  tenantId: string;
+  paymentPlanId: string;
+  billingAccountId: string;
+  studentId?: string;
+  studentName?: string;
+  classId?: string;
+  className?: string;
+  planName?: string;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: PaymentInstallmentStatus;
+  payments?: Payment[];
+};
+
+export type PaymentPlan = {
+  id: string;
+  tenantId: string;
+  billingAccountId: string;
+  name: string;
+  totalAmount: number;
+  currency: string;
+  startDate: string;
+  status: PaymentPlanStatus;
+  createdAt: string;
+  updatedAt: string;
+  installments: PaymentInstallment[];
+};
+
+export type BillingAccount = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  classId?: string;
+  className?: string;
+  guardianUserId?: string;
+  status: BillingAccountStatus;
+  createdAt: string;
+  plans: PaymentPlan[];
+};
+
+export type CreatePaymentPlanInput = {
+  name: string;
+  totalAmount: number;
+  currency?: string;
+  startDate: string;
+  installmentCount?: number;
+  installments?: Array<{ dueDate: string; amount: number }>;
+};
+
+export type UpdatePaymentPlanInput = {
+  name?: string;
+  status?: PaymentPlanStatus;
+};
+
+export type CreatePaymentInput = {
+  amount: number;
+  method: PaymentMethod;
+  paidAt?: string;
+  note?: string;
+};
+
+export type UpdatePaymentInput = Partial<CreatePaymentInput>;
+
+export type BillingDashboard = {
+  totalReceivable: number;
+  collectedAmount: number;
+  outstandingAmount: number;
+  overdueAmount: number;
+  overdueCount: number;
+  activePlanCount: number;
+  overdueInstallments: PaymentInstallment[];
+  updatedAt: string;
+};
+
+export type GuardianBillingSummary = {
+  account: BillingAccount;
+  upcomingInstallments: PaymentInstallment[];
+  overdueInstallments: PaymentInstallment[];
+  paymentHistory: Payment[];
+  outstandingAmount: number;
+  overdueAmount: number;
+};
+
+export type ServiceDirection = "morning" | "evening" | "both";
+export type ServiceStatus = "active" | "passive" | "archived";
+export type ServiceStaffRole = "driver" | "attendant";
+export type ServiceTripStatus = "active" | "completed" | "canceled";
+
+export type ServiceVehicle = {
+  id: string;
+  tenantId: string;
+  plate: string;
+  capacity: number;
+  brand?: string;
+  model?: string;
+  status: ServiceStatus;
+  assignedCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceStaff = {
+  id: string;
+  tenantId: string;
+  userId?: string;
+  fullName: string;
+  phone?: string;
+  role: ServiceStaffRole;
+  status: ServiceStatus;
+  sharingStatus?: string;
+  lastSeenAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRouteStop = {
+  id: string;
+  tenantId: string;
+  routeId: string;
+  name: string;
+  plannedTime: string;
+  sortOrder: number;
+  latitude?: number;
+  longitude?: number;
+};
+
+export type ServiceAssignment = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  routeId: string;
+  routeName?: string;
+  stopId?: string;
+  stopName?: string;
+  direction: ServiceDirection;
+  status: ServiceStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRoute = {
+  id: string;
+  tenantId: string;
+  name: string;
+  direction: ServiceDirection;
+  vehicleId?: string;
+  vehiclePlate?: string;
+  vehicleCapacity?: number;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  driverSharingStatus?: string;
+  driverLastSeenAt?: string;
+  attendantId?: string;
+  attendantName?: string;
+  attendantPhone?: string;
+  status: ServiceStatus;
+  stops: ServiceRouteStop[];
+  assignments: ServiceAssignment[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRouteInput = {
+  name: string;
+  direction: ServiceDirection;
+  vehicleId?: string;
+  driverId?: string;
+  attendantId?: string;
+  status?: ServiceStatus;
+  stops?: Array<{
+    id?: string;
+    name: string;
+    plannedTime: string;
+    sortOrder?: number;
+    latitude?: number;
+    longitude?: number;
+  }>;
+};
+
+export type ServiceAssignmentInput = {
+  studentId: string;
+  routeId: string;
+  stopId?: string;
+  direction: ServiceDirection;
+  status?: ServiceStatus;
+};
+
+export type ServiceLiveStatus = {
+  active: boolean;
+  lastLocationAt?: string;
+  speedKph?: number;
+  etaMinutes?: number | null;
+  distanceKm?: number | null;
+  locationStale?: boolean;
+  stopLatitude?: number;
+  stopLongitude?: number;
+};
+
+export type ServiceTripEvent = {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  eventType: string;
+  payload?: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type GuardianServiceSummary = {
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  className?: string;
+  assignments: ServiceAssignment[];
+  routes: ServiceRoute[];
+  activeTrip?: ServiceTrip;
+  liveStatus?: ServiceLiveStatus;
+  updatedAt: string;
+  hasAssignment: boolean;
+};
+
+export type DriverServiceSummary = {
+  userId: string;
+  staff: ServiceStaff;
+  routes: ServiceRoute[];
+  activeTrip?: ServiceTrip;
+  updatedAt: string;
+  isSharing: boolean;
+  lastSeenAt?: string;
+};
+
+export type ServiceTripLocation = {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  speedKph?: number;
+  headingDegrees?: number;
+  capturedAt: string;
+  createdAt: string;
+};
+
+export type ServiceTrip = {
+  id: string;
+  tenantId: string;
+  routeId: string;
+  routeName?: string;
+  driverUserId: string;
+  driverId: string;
+  driverName?: string;
+  direction: ServiceDirection;
+  status: ServiceTripStatus;
+  startedAt: string;
+  endedAt?: string;
+  lastLocation?: ServiceTripLocation;
+  liveStatus?: ServiceLiveStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LifeMealType = "breakfast" | "lunch" | "snack";
+export type LifeStatus = "active" | "passive" | "archived";
+export type StudyAttendanceStatus = "attended" | "absent" | "excused";
+export type ClubMembershipStatus = "active" | "waitlisted" | "left";
+
+export type MealMenu = {
+  id: string;
+  tenantId: string;
+  date: string;
+  mealType: LifeMealType;
+  title: string;
+  description?: string;
+  allergens: string[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StudyAttendance = {
+  id: string;
+  tenantId: string;
+  sessionId: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  status: StudyAttendanceStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StudySession = {
+  id: string;
+  tenantId: string;
+  subjectId?: string;
+  subjectName?: string;
+  teacherUserId?: string;
+  teacherName?: string;
+  classId?: string;
+  className?: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  status: LifeStatus;
+  attendance: StudyAttendance[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ClubMembership = {
+  id: string;
+  tenantId: string;
+  clubId: string;
+  clubName?: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  status: ClubMembershipStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Club = {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  advisorUserId?: string;
+  advisorName?: string;
+  capacity: number;
+  status: LifeStatus;
+  memberships: ClubMembership[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GuardianLifeSummary = {
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  className?: string;
+  meals: MealMenu[];
+  studySessions: StudySession[];
+  clubMemberships: ClubMembership[];
+  clubs: Club[];
+  updatedAt: string;
+};
+
+export type MealMenuInput = {
+  date: string;
+  mealType: LifeMealType;
+  title: string;
+  description?: string;
+  allergens?: string[];
+};
+
+export type StudySessionInput = {
+  subjectId?: string;
+  teacherUserId?: string;
+  classId?: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  status?: LifeStatus;
+};
+
+export type StudyAttendanceInput = {
+  studentId: string;
+  status: StudyAttendanceStatus;
+};
+
+export type ClubInput = {
+  name: string;
+  description?: string;
+  advisorUserId?: string;
+  capacity: number;
+  status?: LifeStatus;
+};
+
+export type ClubMembershipInput = {
+  studentId: string;
+  status?: ClubMembershipStatus;
 };
 
 export type SchedulingRequirement = {

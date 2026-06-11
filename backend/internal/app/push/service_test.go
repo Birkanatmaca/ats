@@ -66,6 +66,30 @@ func (r *pushTestRepo) ListDeliveryLogs(context.Context, string, int) ([]pushdom
 	return nil, nil
 }
 func (r *pushTestRepo) ListActiveTenantIDs(context.Context) ([]string, error) { return []string{"tenant-1"}, nil }
+func (r *pushTestRepo) ListServiceRouteGuardianTargets(context.Context, string, string) ([]pushdomain.TransportRecipient, error) {
+	return []pushdomain.TransportRecipient{{UserID: "guardian-1", StudentID: "student-1"}}, nil
+}
+func (r *pushTestRepo) GetPrincipalAttendancePendingSummary(context.Context, string) (pushdomain.PrincipalAttendancePending, error) {
+	return pushdomain.PrincipalAttendancePending{
+		TodayLessons:   5,
+		FinalizedToday: 2,
+		PendingClasses: []string{"5-A", "6-B"},
+		DateKey:        "2026-06-08",
+	}, nil
+}
+func (r *pushTestRepo) ListPrincipalNotifyUserIDs(context.Context, string) ([]string, error) {
+	return []string{"principal-1"}, nil
+}
+func (r *pushTestRepo) TenantHasModule(context.Context, string, string) bool { return true }
+func (r *pushTestRepo) ListBillingUpcomingReminders(context.Context, string, int) ([]pushdomain.BillingInstallmentReminder, error) {
+	return nil, nil
+}
+func (r *pushTestRepo) ListBillingOverdueReminders(context.Context, string) ([]pushdomain.BillingInstallmentReminder, error) {
+	return nil, nil
+}
+func (r *pushTestRepo) GetBillingOverdueSummary(context.Context, string) (pushdomain.BillingOverdueSummary, error) {
+	return pushdomain.BillingOverdueSummary{}, nil
+}
 
 type recordingSender struct {
 	count int
@@ -122,5 +146,23 @@ func TestCategoryEnabled(t *testing.T) {
 	prefs := pushdomain.Preferences{Guidance: false}
 	if CategoryEnabled(prefs, pushdomain.CategoryGuidance) {
 		t.Fatal("expected guidance disabled")
+	}
+}
+
+func TestNotifyPrincipalAttendanceGaps(t *testing.T) {
+	repo := &pushTestRepo{
+		prefs: pushdomain.DefaultPreferences(),
+		tokens: map[string][]pushdomain.DeviceToken{
+			"principal-1": {{ID: "token-1", Token: "ExponentPushToken[principal]"}},
+		},
+	}
+	sender := &recordingSender{}
+	svc := NewService(repo, sender)
+	svc.NotifyPrincipalAttendanceGaps(context.Background(), "tenant-1")
+	if sender.count != 1 {
+		t.Fatalf("expected one push, got %d", sender.count)
+	}
+	if repo.logs == 0 {
+		t.Fatal("expected delivery log")
 	}
 }

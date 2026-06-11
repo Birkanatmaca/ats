@@ -48,6 +48,57 @@ export function SolutionPageLayout({ config }: { config: SolutionPageConfig }) {
             </section>
           ))}
 
+          {config.highlights && config.highlights.length > 0 ? (
+            <section aria-labelledby="solution-highlights" className="solution-highlights">
+              <h2 id="solution-highlights">Öne çıkan başlıklar</h2>
+              <ul className="solution-highlights__list">
+                {config.highlights.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {config.useCases && config.useCases.length > 0 ? (
+            <section aria-labelledby="solution-usecases" className="solution-usecases">
+              <h2 id="solution-usecases">Günlük kullanım senaryoları</h2>
+              <ul className="solution-usecases__grid">
+                {config.useCases.map((item) => (
+                  <li className="solution-usecase-card" key={item.title}>
+                    <h3>{item.title}</h3>
+                    <p>{item.description}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {config.comparisonRows && config.comparisonRows.length > 0 ? (
+            <section aria-labelledby="solution-compare" className="solution-compare">
+              <h2 id="solution-compare">OGTA vs geleneksel yöntemler</h2>
+              <div className="solution-compare__table-wrap">
+                <table className="solution-compare__table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Alan</th>
+                      <th scope="col">OGTA</th>
+                      <th scope="col">Geleneksel</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {config.comparisonRows.map((row) => (
+                      <tr key={row.label}>
+                        <th scope="row">{row.label}</th>
+                        <td>{row.ogta}</td>
+                        <td>{row.legacy}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
           <section aria-labelledby="solution-features" className="solution-features">
             <h2 id="solution-features">Öne çıkan özellikler</h2>
             <ul className="solution-features__grid">

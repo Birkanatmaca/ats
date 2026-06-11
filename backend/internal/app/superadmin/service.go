@@ -2,8 +2,10 @@ package superadmin
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	identitydomain "ots/backend/internal/domain/identity"
 	domain "ots/backend/internal/domain/superadmin"
@@ -33,6 +35,7 @@ type Repository interface {
 	ListInstitutions(ctx context.Context) ([]domain.Institution, error)
 	GetInstitution(ctx context.Context, tenantID string) (domain.InstitutionDetail, bool, error)
 	CreateInstitution(ctx context.Context, actor identitydomain.Principal, input domain.CreateInstitutionInput) (domain.InstitutionDetail, error)
+	UpdateInstitutionModules(ctx context.Context, actor identitydomain.Principal, tenantID string, modules []string) (domain.InstitutionDetail, bool, error)
 	ListUserAccounts(ctx context.Context) ([]domain.UserAccount, error)
 	CreateUser(ctx context.Context, actor identitydomain.Principal, input domain.CreateUserInput) (domain.CreatedUserCredential, error)
 	UpdateUser(ctx context.Context, actor identitydomain.Principal, userID string, input domain.UpdateUserInput) (domain.UserAccount, bool, error)
@@ -41,7 +44,9 @@ type Repository interface {
 	GetUserProfile(ctx context.Context, tenantID string, userID string) (identitydomain.UserProfile, bool, error)
 	UpdateSelfProfile(ctx context.Context, principal identitydomain.Principal, input domain.UpdateSelfProfileInput) (identitydomain.UserProfile, error)
 	CreateInstitutionUser(ctx context.Context, actor identitydomain.Principal, tenantID string, input domain.CreateInstitutionUserInput) (domain.CreatedUserCredential, error)
-	ListAuditEntries(ctx context.Context) ([]domain.AuditEntry, error)
+	ListAuditEntries(ctx context.Context, query domain.AuditLogQuery) ([]domain.AuditEntry, error)
+	PurgeAuditEntries(ctx context.Context, before time.Time, tenantID string) (int, error)
+	RecordOperationalAudit(ctx context.Context, tenantID, actorUserID, action, resourceType, resourceID, metadata string)
 }
 
 type Service struct {
@@ -124,6 +129,13 @@ func (s *Service) CreateInstitution(ctx context.Context, actor identitydomain.Pr
 	return s.repo.CreateInstitution(ctx, actor, input)
 }
 
+func (s *Service) UpdateInstitutionModules(ctx context.Context, actor identitydomain.Principal, tenantID string, input domain.UpdateInstitutionModulesInput) (domain.InstitutionDetail, bool, error) {
+	if strings.TrimSpace(tenantID) == "" || len(input.EnabledModules) == 0 {
+		return domain.InstitutionDetail{}, false, ErrInvalidInstitution
+	}
+	return s.repo.UpdateInstitutionModules(ctx, actor, tenantID, input.EnabledModules)
+}
+
 func (s *Service) Users(ctx context.Context) ([]domain.UserAccount, error) {
 	return s.repo.ListUserAccounts(ctx)
 }
@@ -196,8 +208,24 @@ func (s *Service) CreateInstitutionUser(ctx context.Context, actor identitydomai
 	return s.repo.CreateInstitutionUser(ctx, actor, tenantID, input)
 }
 
-func (s *Service) AuditLogs(ctx context.Context) ([]domain.AuditEntry, error) {
-	return s.repo.ListAuditEntries(ctx)
+func (s *Service) AuditLogs(ctx context.Context, query domain.AuditLogQuery) ([]domain.AuditEntry, error) {
+	if query.Limit <= 0 {
+		query.Limit = 100
+	}
+	if query.Limit > 250 {
+		query.Limit = 250
+	}
+	return s.repo.ListAuditEntries(ctx, query)
+}
+
+func (s *Service) PurgeAuditLogs(ctx context.Context, actor identitydomain.Principal, before time.Time, tenantID string) (domain.AuditPurgeResult, error) {
+	deleted, err := s.repo.PurgeAuditEntries(ctx, before, tenantID)
+	if err != nil {
+		return domain.AuditPurgeResult{}, err
+	}
+	result := domain.AuditPurgeResult{DeletedCount: deleted, Before: before, TenantID: tenantID}
+	s.repo.RecordOperationalAudit(ctx, actor.TenantID, actor.UserID, "audit_logs.purge", "audit_log", "", fmt.Sprintf(`{"deletedCount":%d,"before":"%s","tenantId":"%s"}`, deleted, before.UTC().Format(time.RFC3339), tenantID))
+	return result, nil
 }
 
 func validTicketType(value string) bool {

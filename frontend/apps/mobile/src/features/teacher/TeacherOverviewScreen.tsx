@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TeacherActiveLessonCard } from "@/features/teacher/TeacherActiveLessonCard";
 import { TeacherOgtaAiStrip } from "@/features/teacher/TeacherOgtaAiStrip";
 import { TeacherOverviewStats } from "@/features/teacher/TeacherOverviewStats";
+import { TeacherOfflineSyncCard } from "@/features/teacher/TeacherOfflineSyncCard";
 import { TeacherQuickActions } from "@/features/teacher/TeacherQuickActions";
 import { TeacherRecentObservationsPanel } from "@/features/teacher/TeacherRecentObservationsPanel";
 import { TeacherTodayLessonsPanel } from "@/features/teacher/TeacherTodayLessonsPanel";
@@ -93,6 +94,8 @@ export function TeacherOverviewScreen() {
         reason={lessonQ.data?.reason}
         totalCount={attendanceTotal}
       />
+
+      <TeacherOfflineSyncCard />
 
       <TeacherOgtaAiStrip />
       <TeacherTodayLessonsPanel activeLessonId={activeLesson?.id} lessons={todayLessons} />

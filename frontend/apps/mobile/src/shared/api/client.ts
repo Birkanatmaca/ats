@@ -14,8 +14,12 @@ import type {
   AttendanceRecord,
   AttendanceSession,
   AuthSession,
+  BillingAccount,
+  BillingDashboard,
   ClassAttendanceSheet,
   ClassAcademicSummary,
+  CreatePaymentInput,
+  CreatePaymentPlanInput,
   CurrentLesson,
   GuidanceNote,
   GuidanceCase,
@@ -28,6 +32,7 @@ import type {
   GuidanceSupportPlan,
   GuidanceStudent,
   GuardianAttendanceRecord,
+  GuardianBillingSummary,
   GuardianNotification,
   GuardianStudent,
   Lesson,
@@ -37,13 +42,38 @@ import type {
   PrincipalRosterStudent,
   PrincipalSchoolRoster,
   PrincipalSummary,
+  Payment,
+  PaymentInstallment,
+  PaymentPlan,
   Schedule,
   ScheduleGenerationResult,
   ScheduleValidationResult,
   ScheduleConflictsResult,
   ScheduleChangeLog,
   SchedulingRequirement,
+  GuardianServiceSummary,
+  DriverServiceSummary,
   RequirementInput,
+  Club,
+  ClubInput,
+  ClubMembership,
+  ClubMembershipInput,
+  GuardianLifeSummary,
+  MealMenu,
+  MealMenuInput,
+  ServiceAssignment,
+  ServiceAssignmentInput,
+  ServiceRoute,
+  ServiceRouteInput,
+  ServiceStaff,
+  ServiceTrip,
+  ServiceTripEvent,
+  ServiceTripLocation,
+  ServiceVehicle,
+  StudyAttendance,
+  StudyAttendanceInput,
+  StudySession,
+  StudySessionInput,
   TeacherAvailability,
   UpdateScheduleLessonInput,
   SchoolStudentRecord,
@@ -56,6 +86,8 @@ import type {
   StudentImportRow,
   SupportTicket,
   Tenant,
+  UpdatePaymentInput,
+  UpdatePaymentPlanInput,
   UserAccount,
   UserNotification,
   UserProfile
@@ -225,7 +257,7 @@ export const api = {
       body: JSON.stringify({ lessonId })
     }),
   getAttendanceSessionByLesson: (lessonId: string) =>
-    request<AttendanceSession>(`/api/v1/attendance/sessions/by-lesson/${lessonId}`),
+    request<AttendanceSession>(`/api/v1/attendance/lessons/${lessonId}/session`),
   getAttendanceSession: (sessionId: string) =>
     request<AttendanceSession>(`/api/v1/attendance/sessions/${sessionId}`),
   getAttendanceSessionVersion: (sessionId: string) =>
@@ -264,6 +296,12 @@ export const api = {
     request<{ studentId: string; records: GuardianAttendanceRecord[] }>(
       `/api/v1/guardian/students/${studentId}/attendance`
     ),
+  guardianBilling: (studentId: string) =>
+    request<GuardianBillingSummary>(`/api/v1/guardian/students/${studentId}/billing`),
+  guardianService: (studentId: string) =>
+    request<GuardianServiceSummary>(`/api/v1/guardian/students/${studentId}/service`),
+  guardianLife: (studentId: string) =>
+    request<GuardianLifeSummary>(`/api/v1/guardian/students/${studentId}/life`),
 
   guidanceStudents: () => request<GuidanceStudent[] | null>("/api/v1/guidance/students").then(asArray),
   guidanceNotes: (studentId?: string) => {
@@ -429,6 +467,125 @@ export const api = {
     }),
   studentAttendanceSummary: (studentId: string) =>
     request<StudentAttendanceSummary>(`/api/v1/students/${studentId}/attendance-summary`),
+  billingStudentAccount: (studentId: string) =>
+    request<BillingAccount>(`/api/v1/billing/students/${studentId}/account`),
+  createBillingPlan: (studentId: string, payload: CreatePaymentPlanInput) =>
+    request<BillingAccount>(`/api/v1/billing/students/${studentId}/plans`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateBillingPlan: (planId: string, payload: UpdatePaymentPlanInput) =>
+    request<PaymentPlan>(`/api/v1/billing/plans/${planId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  billingInstallments: (params?: { studentId?: string; classId?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.studentId) query.set("studentId", params.studentId);
+    if (params?.classId) query.set("classId", params.classId);
+    if (params?.status) query.set("status", params.status);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<PaymentInstallment[] | null>(`/api/v1/billing/installments${suffix}`).then(asArray);
+  },
+  createBillingPayment: (installmentId: string, payload: CreatePaymentInput) =>
+    request<PaymentInstallment>(`/api/v1/billing/installments/${installmentId}/payments`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateBillingPayment: (paymentId: string, payload: UpdatePaymentInput) =>
+    request<Payment>(`/api/v1/billing/payments/${paymentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  voidBillingPayment: (paymentId: string) =>
+    request<Payment>(`/api/v1/billing/payments/${paymentId}`, { method: "DELETE" }),
+  billingDashboard: () => request<BillingDashboard>("/api/v1/billing/dashboard"),
+  billingOverdueReport: () =>
+    request<PaymentInstallment[] | null>("/api/v1/billing/reports/overdue").then(asArray),
+  serviceRoutes: () => request<ServiceRoute[] | null>("/api/v1/services/routes").then(asArray),
+  serviceRoute: (routeId: string) => request<ServiceRoute>(`/api/v1/services/routes/${routeId}`),
+  createServiceRoute: (payload: ServiceRouteInput) =>
+    request<ServiceRoute>("/api/v1/services/routes", { method: "POST", body: JSON.stringify(payload) }),
+  updateServiceRoute: (routeId: string, payload: Partial<ServiceRouteInput>) =>
+    request<ServiceRoute>(`/api/v1/services/routes/${routeId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteServiceRoute: (routeId: string) =>
+    request<void>(`/api/v1/services/routes/${routeId}`, { method: "DELETE" }),
+  serviceVehicles: () => request<ServiceVehicle[] | null>("/api/v1/services/vehicles").then(asArray),
+  createServiceVehicle: (payload: { plate: string; capacity: number; brand?: string; model?: string }) =>
+    request<ServiceVehicle>("/api/v1/services/vehicles", { method: "POST", body: JSON.stringify(payload) }),
+  serviceStaff: () => request<ServiceStaff[] | null>("/api/v1/services/staff").then(asArray),
+  createServiceStaff: (payload: { fullName: string; phone?: string; role: "driver" | "attendant" }) =>
+    request<ServiceStaff>("/api/v1/services/staff", { method: "POST", body: JSON.stringify(payload) }),
+  activeServiceTrips: () => request<ServiceTrip[] | null>("/api/v1/services/trips/active").then(asArray),
+  serviceTripLocations: (tripId: string, limit = 20) =>
+    request<ServiceTripLocation[] | null>(
+      `/api/v1/services/trips/${tripId}/locations?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
+  serviceTripEvents: (tripId: string, limit = 20) =>
+    request<ServiceTripEvent[] | null>(
+      `/api/v1/services/trips/${tripId}/events?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
+  driverSession: () => request<DriverServiceSummary>("/api/v1/driver/me"),
+  startDriverSharing: () => request<ServiceStaff>("/api/v1/driver/sharing/start", { method: "POST", body: "{}" }),
+  stopDriverSharing: () => request<ServiceStaff>("/api/v1/driver/sharing/stop", { method: "POST", body: "{}" }),
+  recordDriverTripLocation: (
+    tripId: string,
+    payload: {
+      latitude: number;
+      longitude: number;
+      accuracyMeters?: number;
+      speedKph?: number;
+      headingDegrees?: number;
+      capturedAt?: string;
+    }
+  ) =>
+    request<ServiceTripLocation>(`/api/v1/driver/trips/${tripId}/locations`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  guardianStudentServiceTrip: (studentId: string) =>
+    request<ServiceTrip>(`/api/v1/guardian/students/${studentId}/service/trip`),
+  guardianStudentServiceTripLocations: (studentId: string, limit = 20) =>
+    request<ServiceTripLocation[] | null>(
+      `/api/v1/guardian/students/${studentId}/service/trip/locations?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
+  assignServiceStudent: (payload: ServiceAssignmentInput) =>
+    request<ServiceAssignment>("/api/v1/services/assignments", { method: "POST", body: JSON.stringify(payload) }),
+  lifeMeals: (params?: { fromDate?: string; toDate?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.fromDate) query.set("fromDate", params.fromDate);
+    if (params?.toDate) query.set("toDate", params.toDate);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<MealMenu[] | null>(`/api/v1/life/meals${suffix}`).then(asArray);
+  },
+  createLifeMeal: (payload: MealMenuInput) =>
+    request<MealMenu>("/api/v1/life/meals", { method: "POST", body: JSON.stringify(payload) }),
+  updateLifeMeal: (mealId: string, payload: Partial<MealMenuInput>) =>
+    request<MealMenu>(`/api/v1/life/meals/${mealId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteLifeMeal: (mealId: string) => request<void>(`/api/v1/life/meals/${mealId}`, { method: "DELETE" }),
+  studySessions: () => request<StudySession[] | null>("/api/v1/life/study-sessions").then(asArray),
+  createStudySession: (payload: StudySessionInput) =>
+    request<StudySession>("/api/v1/life/study-sessions", { method: "POST", body: JSON.stringify(payload) }),
+  updateStudySession: (sessionId: string, payload: Partial<StudySessionInput>) =>
+    request<StudySession>(`/api/v1/life/study-sessions/${sessionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  recordStudyAttendance: (sessionId: string, records: StudyAttendanceInput[]) =>
+    request<StudyAttendance[]>(`/api/v1/life/study-sessions/${sessionId}/attendance`, {
+      method: "POST",
+      body: JSON.stringify({ records })
+    }),
+  clubs: () => request<Club[] | null>("/api/v1/life/clubs").then(asArray),
+  createClub: (payload: ClubInput) =>
+    request<Club>("/api/v1/life/clubs", { method: "POST", body: JSON.stringify(payload) }),
+  updateClub: (clubId: string, payload: Partial<ClubInput>) =>
+    request<Club>(`/api/v1/life/clubs/${clubId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  addClubMembership: (clubId: string, payload: ClubMembershipInput) =>
+    request<ClubMembership>(`/api/v1/life/clubs/${clubId}/memberships`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   attendanceToday: (date?: string) =>
     request<AttendanceDayReport>(
       `/api/v1/dashboard/attendance/today${date ? `?date=${encodeURIComponent(date)}` : ""}`

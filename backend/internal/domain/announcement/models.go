@@ -1,6 +1,17 @@
 package announcement
 
-import "time"
+import (
+	"strings"
+	"time"
+)
+
+func SectionClassID(sectionID string) string {
+	sectionID = strings.TrimSpace(sectionID)
+	if strings.HasSuffix(sectionID, "-default") {
+		return strings.TrimSuffix(sectionID, "-default")
+	}
+	return sectionID
+}
 
 type Status string
 
@@ -29,21 +40,31 @@ type AudienceTarget struct {
 }
 
 type Announcement struct {
-	ID              string           `json:"id"`
-	TenantID        string           `json:"tenantId"`
-	Title           string           `json:"title"`
-	Body            string           `json:"body"`
-	Status          Status           `json:"status"`
-	Audience        string           `json:"audience"`
-	Audiences       []AudienceTarget `json:"audiences"`
-	PublishedAt     *time.Time       `json:"publishedAt,omitempty"`
-	ScheduledAt     *time.Time       `json:"scheduledAt,omitempty"`
-	CreatedBy       string           `json:"createdBy,omitempty"`
-	CreatedAt       time.Time        `json:"createdAt"`
-	UpdatedAt       time.Time        `json:"updatedAt"`
-	ReadAt          *time.Time       `json:"readAt,omitempty"`
-	ReadCount       int              `json:"readCount,omitempty"`
-	TargetCount     int              `json:"targetCount,omitempty"`
+	ID            string           `json:"id"`
+	TenantID      string           `json:"tenantId"`
+	Title         string           `json:"title"`
+	Body          string           `json:"body"`
+	Status        Status           `json:"status"`
+	Audience      string           `json:"audience"`
+	Audiences     []AudienceTarget `json:"audiences"`
+	PublishedAt   *time.Time       `json:"publishedAt,omitempty"`
+	ScheduledAt   *time.Time       `json:"scheduledAt,omitempty"`
+	CreatedBy     string           `json:"createdBy,omitempty"`
+	CreatedAt     time.Time        `json:"createdAt"`
+	UpdatedAt     time.Time        `json:"updatedAt"`
+	ReadAt        *time.Time       `json:"readAt,omitempty"`
+	ReadCount        int `json:"readCount,omitempty"`
+	TargetCount      int `json:"targetCount,omitempty"`
+	DeliveryCount    int `json:"deliveryCount,omitempty"`
+	PushSentCount    int `json:"pushSentCount,omitempty"`
+	PushDroppedCount int `json:"pushDroppedCount,omitempty"`
+	PushFailedCount  int `json:"pushFailedCount,omitempty"`
+}
+
+type PushDeliveryStats struct {
+	Sent    int
+	Dropped int
+	Failed  int
 }
 
 type Template struct {
@@ -90,8 +111,9 @@ type UpdateTemplateInput struct {
 }
 
 type UserTargetContext struct {
-	UserID             string
-	RoleCodes          []string
-	GuardianStudentIDs []string
-	StudentClassIDs    map[string]string
+	UserID              string
+	RoleCodes           []string
+	GuardianStudentIDs  []string
+	StudentClassIDs     map[string]string
+	StudentSectionIDs   map[string]string
 }

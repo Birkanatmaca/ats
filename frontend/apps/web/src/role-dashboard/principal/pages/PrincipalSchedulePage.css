@@ -227,6 +227,80 @@
   padding: 6px;
 }
 
+.principal-schedule-board-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.principal-schedule-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #f4f4f2;
+}
+
+.principal-schedule-view-toggle button {
+  border: 0;
+  background: transparent;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  color: var(--sa-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.principal-schedule-view-toggle button.is-active {
+  background: #fff;
+  color: var(--sa-text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.principal-schedule-drag-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #475569;
+}
+
+.principal-schedule-drag-handle {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: grab;
+}
+
+.principal-schedule-drag-handle:active {
+  cursor: grabbing;
+}
+
+.principal-schedule-slot.is-drop-target {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.25);
+}
+
+.principal-schedule-slot.is-dragging {
+  opacity: 0.55;
+}
+
+@media (min-width: 900px) {
+  .principal-schedule-board.is-editable .principal-schedule-slot {
+    min-height: 78px;
+  }
+
+  .principal-schedule-preview-card .principal-schedule-board {
+    max-height: min(52vh, 520px);
+  }
+}
+
 .principal-schedule-control-card {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);

@@ -7,9 +7,14 @@ import { queryKeys } from "@/shared/api/queryKeys";
 import type { AnnouncementAudienceTarget } from "@/shared/api/types";
 import { colors } from "@/shared/theme/colors";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
-import { announcementAudienceOptions } from "@/shared/utils/labels";
 
-type AudienceMode = "all" | "teachers" | "guardians" | "class" | "student";
+const roleOptions = [
+  { value: "all", label: "Tüm kurum" },
+  { value: "teacher", label: "Öğretmenler" },
+  { value: "guardian", label: "Veliler" },
+  { value: "guidance", label: "Rehberlik" },
+  { value: "driver", label: "Servis şoförleri" }
+] as const;
 
 type Props = {
   visible: boolean;
@@ -24,27 +29,29 @@ type Props = {
   }) => Promise<void>;
 };
 
-function buildAudiences(mode: AudienceMode, classId: string, studentId: string): AnnouncementAudienceTarget[] {
-  switch (mode) {
-    case "teachers":
-      return [{ type: "role", role: "teacher" }];
-    case "guardians":
-      return [{ type: "role", role: "guardian" }];
-    case "class":
-      return classId ? [{ type: "class", id: classId }] : [];
-    case "student":
-      return studentId ? [{ type: "student", id: studentId }] : [];
-    default:
-      return [{ type: "all" }];
+function buildAudiences(roleTargets: string[], classTargets: string[], sectionTargets: string[], studentTargets: string[]): AnnouncementAudienceTarget[] {
+  if (roleTargets.includes("all")) {
+    return [{ type: "all" }];
   }
+  return [
+    ...roleTargets.map((role) => ({ type: "role" as const, role })),
+    ...classTargets.map((id) => ({ type: "class" as const, id })),
+    ...sectionTargets.map((id) => ({ type: "section" as const, id })),
+    ...studentTargets.map((id) => ({ type: "student" as const, id }))
+  ];
+}
+
+function toggleValue(value: string, selected: string[]) {
+  return selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value];
 }
 
 export function AnnouncementCreateSheet({ visible, saving, error, onClose, onSubmit }: Props) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [mode, setMode] = useState<AudienceMode>("all");
-  const [classId, setClassId] = useState("");
-  const [studentId, setStudentId] = useState("");
+  const [roleTargets, setRoleTargets] = useState<string[]>(["guardian"]);
+  const [classTargets, setClassTargets] = useState<string[]>([]);
+  const [sectionTargets, setSectionTargets] = useState<string[]>([]);
+  const [studentTargets, setStudentTargets] = useState<string[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const rosterQ = useQuery({
@@ -54,42 +61,46 @@ export function AnnouncementCreateSheet({ visible, saving, error, onClose, onSub
   });
 
   const classes = rosterQ.data?.classes ?? [];
+  const sections = rosterQ.data?.sections ?? [];
   const students = rosterQ.data?.students ?? [];
 
   useEffect(() => {
     if (!visible) return;
     setTitle("");
     setBody("");
-    setMode("all");
-    setClassId("");
-    setStudentId("");
+    setRoleTargets(["guardian"]);
+    setClassTargets([]);
+    setSectionTargets([]);
+    setStudentTargets([]);
     setLocalError(null);
   }, [visible]);
 
-  const studentLabel = (studentId: string) => {
-    const selected = students.find((item) => item.id === studentId);
-    if (!selected) return "Öğrenci seçin";
-    const classLabel = classes.find((item) => item.id === selected.classId)?.name ?? selected.classId;
-    return `${selected.firstName} ${selected.lastName} · ${classLabel}`;
-  };
-
   const previewAudience = useMemo(() => {
-    const audiences = buildAudiences(mode, classId, studentId);
+    const audiences = buildAudiences(roleTargets, classTargets, sectionTargets, studentTargets);
     if (audiences.length === 0) return "Hedef seçin";
-    if (mode === "class") {
-      const selected = classes.find((item) => item.id === classId);
-      return selected ? `${selected.name} velileri` : "Sınıf seçin";
-    }
-    if (mode === "student") {
-      return studentId ? `${studentLabel(studentId).split(" · ")[0]} velileri` : "Öğrenci seçin";
-    }
-    return announcementAudienceOptions.find((item) => item.value === mode)?.label ?? mode;
-  }, [mode, classId, studentId, classes, students]);
+    if (audiences.length === 1 && audiences[0].type === "all") return "Tüm kurum";
+    return audiences
+      .map((target) => {
+        if (target.type === "role") return roleOptions.find((item) => item.value === target.role)?.label ?? target.role;
+        if (target.type === "class") return `${classes.find((item) => item.id === target.id)?.name ?? "Sınıf"} velileri`;
+        if (target.type === "section") {
+          const section = sections.find((item) => item.id === target.id);
+          const className = classes.find((item) => item.id === section?.classId)?.name ?? "";
+          return section ? `${className} / ${section.name} velileri` : "Şube velileri";
+        }
+        if (target.type === "student") {
+          const student = students.find((item) => item.id === target.id);
+          return student ? `${student.firstName} ${student.lastName} velileri` : "Öğrenci velileri";
+        }
+        return "Hedef";
+      })
+      .join(", ");
+  }, [roleTargets, classTargets, sectionTargets, studentTargets, classes, sections, students]);
 
   async function handleSubmit(publish: boolean) {
     const trimmedTitle = title.trim();
     const trimmedBody = body.trim();
-    const audiences = buildAudiences(mode, classId, studentId);
+    const audiences = buildAudiences(roleTargets, classTargets, sectionTargets, studentTargets);
     if (!trimmedTitle || !trimmedBody) {
       setLocalError("Başlık ve içerik zorunludur.");
       return;
@@ -158,59 +169,65 @@ export function AnnouncementCreateSheet({ visible, saving, error, onClose, onSub
         <View style={styles.formSection}>
           <Text style={styles.formSectionTitle}>Hedef kitle</Text>
           <View style={styles.audienceGrid}>
-            {(["all", "teachers", "guardians", "class", "student"] as AudienceMode[]).map((option) => {
-              const active = mode === option;
-              const label =
-                option === "all"
-                  ? "Tüm kurum"
-                  : option === "teachers"
-                    ? "Öğretmenler"
-                    : option === "guardians"
-                      ? "Veliler"
-                      : option === "class"
-                        ? "Sınıf"
-                        : "Öğrenci velileri";
+            {roleOptions.map((option) => {
+              const active = roleTargets.includes(option.value);
               return (
                 <Pressable
-                  key={option}
-                  onPress={() => setMode(option)}
+                  key={option.value}
+                  onPress={() => {
+                    if (option.value === "all") {
+                      setRoleTargets(roleTargets.includes("all") ? [] : ["all"]);
+                      return;
+                    }
+                    const withoutAll = roleTargets.filter((item) => item !== "all");
+                    setRoleTargets(toggleValue(option.value, withoutAll));
+                  }}
                   style={({ pressed }) => [styles.audienceChip, active && styles.audienceChipActive, pressed && styles.btnPressed]}
                 >
-                  <Text style={[styles.audienceChipText, active && styles.audienceChipTextActive]}>{label}</Text>
+                  <Text style={[styles.audienceChipText, active && styles.audienceChipTextActive]}>{option.label}</Text>
                 </Pressable>
               );
             })}
           </View>
 
-          {mode === "class" ? (
-            <View style={styles.pickerList}>
-              {classes.map((item) => (
+          <View style={styles.pickerList}>
+            {classes.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => setClassTargets((current) => toggleValue(item.id, current))}
+                style={[styles.pickerItem, classTargets.includes(item.id) && styles.pickerItemActive]}
+              >
+                <Text style={[styles.pickerItemText, classTargets.includes(item.id) && styles.pickerItemTextActive]}>
+                  Sınıf: {item.name}
+                </Text>
+              </Pressable>
+            ))}
+            {sections.map((item) => {
+              const className = classes.find((c) => c.id === item.classId)?.name ?? "";
+              return (
                 <Pressable
                   key={item.id}
-                  onPress={() => setClassId(item.id)}
-                  style={[styles.pickerItem, classId === item.id && styles.pickerItemActive]}
+                  onPress={() => setSectionTargets((current) => toggleValue(item.id, current))}
+                  style={[styles.pickerItem, sectionTargets.includes(item.id) && styles.pickerItemActive]}
                 >
-                  <Text style={[styles.pickerItemText, classId === item.id && styles.pickerItemTextActive]}>{item.name}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-
-          {mode === "student" ? (
-            <View style={styles.pickerList}>
-              {students.slice(0, 40).map((item) => (
-                <Pressable
-                  key={item.id}
-                  onPress={() => setStudentId(item.id)}
-                  style={[styles.pickerItem, studentId === item.id && styles.pickerItemActive]}
-                >
-                  <Text style={[styles.pickerItemText, studentId === item.id && styles.pickerItemTextActive]}>
-                    {item.firstName} {item.lastName} · {classes.find((c) => c.id === item.classId)?.name ?? item.classId}
+                  <Text style={[styles.pickerItemText, sectionTargets.includes(item.id) && styles.pickerItemTextActive]}>
+                    Şube: {className} / {item.name}
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-          ) : null}
+              );
+            })}
+            {students.slice(0, 40).map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => setStudentTargets((current) => toggleValue(item.id, current))}
+                style={[styles.pickerItem, studentTargets.includes(item.id) && styles.pickerItemActive]}
+              >
+                <Text style={[styles.pickerItemText, studentTargets.includes(item.id) && styles.pickerItemTextActive]}>
+                  Veli: {item.firstName} {item.lastName} · {classes.find((c) => c.id === item.classId)?.name ?? item.classId}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         <View style={styles.formSection}>

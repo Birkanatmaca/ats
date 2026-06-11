@@ -105,6 +105,14 @@ func (r *testRepo) MarkAnnouncementRead(_ context.Context, _, announcementID, us
 	return nil
 }
 
+func (r *testRepo) GetAnnouncementRead(_ context.Context, _, announcementID, userID string) (*time.Time, error) {
+	readAt, ok := r.reads[announcementID+":"+userID]
+	if !ok {
+		return nil, nil
+	}
+	return &readAt, nil
+}
+
 func (r *testRepo) GetUserTargetContext(context.Context, string, string) (domain.UserTargetContext, error) {
 	return r.userCtx, nil
 }
@@ -121,6 +129,14 @@ func (r *testRepo) CountAnnouncementReads(_ context.Context, _, announcementID s
 		}
 	}
 	return count, nil
+}
+
+func (r *testRepo) CountAnnouncementDeliveries(context.Context, string, string) (int, error) {
+	return len(r.targetUsers), nil
+}
+
+func (r *testRepo) CountAnnouncementPushDeliveries(context.Context, string, string) (domain.PushDeliveryStats, error) {
+	return domain.PushDeliveryStats{Sent: 2, Dropped: 1}, nil
 }
 
 func (r *testRepo) ListTemplates(context.Context, string) ([]domain.Template, error) { return nil, nil }
@@ -212,5 +228,55 @@ func TestCreateDraftByDefault(t *testing.T) {
 	}
 	if created.Status != domain.StatusDraft {
 		t.Fatalf("expected draft, got %s", created.Status)
+	}
+}
+
+func TestListForUserIncludesReadAt(t *testing.T) {
+	readAt := time.Date(2026, 6, 8, 10, 30, 0, 0, time.UTC)
+	repo := &testRepo{
+		announcements: map[string]domain.Announcement{
+			"ann-1": {
+				ID:        "ann-1",
+				TenantID:  "tenant-1",
+				Status:    domain.StatusPublished,
+				Audiences: []domain.AudienceTarget{{Type: domain.AudienceRole, Role: "guardian"}},
+			},
+		},
+		reads: map[string]time.Time{"ann-1:guardian-1": readAt},
+		userCtx: domain.UserTargetContext{
+			UserID:    "guardian-1",
+			RoleCodes: []string{"guardian"},
+		},
+	}
+	svc := NewService(repo, time.Now)
+	items, err := svc.ListForUser(context.Background(), "tenant-1", "guardian-1", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(items) != 1 || items[0].ReadAt == nil || !items[0].ReadAt.Equal(readAt) {
+		t.Fatalf("expected readAt on announcement, got %#v", items)
+	}
+}
+
+func TestEnrichManageStatsIncludesDeliveryCount(t *testing.T) {
+	repo := &testRepo{
+		announcements: map[string]domain.Announcement{},
+		reads:         map[string]time.Time{"ann-1:user-1": time.Now()},
+		targetUsers:   []string{"user-1", "user-2", "user-3"},
+	}
+	svc := NewService(repo, time.Now)
+	items, err := svc.EnrichManageStats(context.Background(), "tenant-1", []domain.Announcement{{
+		ID:        "ann-1",
+		TenantID:  "tenant-1",
+		Audiences: []domain.AudienceTarget{{Type: domain.AudienceAll}},
+	}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(items) != 1 || items[0].TargetCount != 3 || items[0].DeliveryCount != 3 || items[0].ReadCount != 1 {
+		t.Fatalf("unexpected stats: %#v", items)
+	}
+	if items[0].PushSentCount != 2 || items[0].PushDroppedCount != 1 {
+		t.Fatalf("unexpected push stats: %#v", items[0])
 	}
 }

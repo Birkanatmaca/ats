@@ -2,6 +2,8 @@
 
 Bu doküman seti projeyi kodlamaya başlamadan önce kapsam, mimari, veri modeli, güvenlik, ana modüller ve geliştirme sırası açısından düzenlemek için hazırlanmıştır.
 
+Not: Bazı analiz dosyalarında tarihsel dosya numarası çakışması var (`15-ogta-ai-komut-asistani.md` ve `15-sistem-detayli-analiz-ve-modul-onerileri.md`). Kanonik okuma sırası bu indeks dosyasındaki listedir.
+
 Okuma sırası:
 
 1. [Proje Vizyonu](00-proje-vizyonu.md)
@@ -24,6 +26,8 @@ Okuma sırası:
 18. [ogta.ai Durum ve Eksikler](17-ogta-ai-durum-ve-eksikler.md)
 19. [Sistem Detaylı Analiz ve Modül Önerileri](15-sistem-detayli-analiz-ve-modul-onerileri.md)
 20. [Mobil Frontend Devam Analizi ve Future Yol Haritası](19-mobile-frontend-devam-analizi.md)
+21. [Mobil, Frontend ve Backend Guncel Analizi](20-mobil-frontend-backend-guncel-analizi.md)
+22. [Moduller Gelistirme ve Canli Servis Takip Plani](21-moduller-gelistirme-ve-canli-servis-takip-plani.md)
 
 Modül önerileri detay dokümanları:
 

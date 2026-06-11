@@ -10,17 +10,20 @@ import (
 	dashboarddomain "ots/backend/internal/domain/dashboard"
 	observationdomain "ots/backend/internal/domain/observation"
 	schooldomain "ots/backend/internal/domain/school"
+	platformaudit "ots/backend/internal/platform/audit"
 )
 
 func (s *Store) CurrentTenant(ctx context.Context, tenantID string) (schooldomain.Tenant, bool) {
 	var tenant schooldomain.Tenant
+	var modulesRaw []byte
 	err := s.db.QueryRowContext(ctx, `
-SELECT id::text, name, plan, timezone
+SELECT id::text, name, plan, timezone, enabled_modules
 FROM tenants
-WHERE id = $1 AND deleted_at IS NULL`, tenantID).Scan(&tenant.ID, &tenant.Name, &tenant.Plan, &tenant.Timezone)
+WHERE id = $1 AND deleted_at IS NULL`, tenantID).Scan(&tenant.ID, &tenant.Name, &tenant.Plan, &tenant.Timezone, &modulesRaw)
 	if err != nil {
 		return schooldomain.Tenant{}, false
 	}
+	tenant.EnabledModules = s.scanTenantModules(modulesRaw)
 	return tenant, true
 }
 
@@ -499,6 +502,7 @@ func (s *Store) RecordOperationalAudit(ctx context.Context, tenantID string, act
 	if action == "guidance.view" {
 		sensitivity = "sensitive_student"
 	}
+	metadata = platformaudit.MergeRequestDetails(ctx, metadata)
 	_, _ = s.db.ExecContext(ctx, `
 INSERT INTO audit_logs (tenant_id, actor_user_id, action, resource_type, resource_id, sensitivity, metadata)
 VALUES ($1, NULLIF($2, '')::uuid, $3, $4, NULLIF($5, '')::uuid, $6, $7::jsonb)`,

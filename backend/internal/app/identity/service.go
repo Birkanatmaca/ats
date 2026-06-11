@@ -23,6 +23,7 @@ type Repository interface {
 	GetUserPrincipal(ctx context.Context, userID string) (domain.Principal, bool, error)
 	RequestPasswordReset(ctx context.Context, email string) (string, error)
 	ResetPasswordWithToken(ctx context.Context, token string, newPassword string) error
+	RecordAuthenticationAudit(ctx context.Context, principal domain.Principal, action string, metadata string)
 }
 
 type Service struct {
@@ -51,6 +52,7 @@ func (s *Service) Login(ctx context.Context, input domain.LoginInput) (domain.Au
 	if !ok {
 		return domain.AuthSession{}, ErrInvalidCredentials
 	}
+	s.repo.RecordAuthenticationAudit(ctx, principal, "auth.login", "{}")
 
 	return s.newSession(principal)
 }

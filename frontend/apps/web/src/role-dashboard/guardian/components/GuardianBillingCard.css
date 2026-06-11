@@ -1,0 +1,78 @@
+.guardian-billing-card {
+	display: grid;
+	gap: 10px;
+	padding: 14px;
+	border-radius: 14px;
+	border: 1px solid var(--sa-border, #e2e8f0);
+	background: var(--sa-surface, #fff);
+}
+
+.guardian-billing-card-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.guardian-billing-card-icon {
+	width: 36px;
+	height: 36px;
+	border-radius: 12px;
+	display: grid;
+	place-items: center;
+	background: #ecfdf5;
+	color: #059669;
+}
+
+.guardian-billing-card-head h3 {
+	margin: 0;
+	font-size: 0.95rem;
+}
+
+.guardian-billing-card-head p {
+	margin: 2px 0 0;
+	font-size: 0.8rem;
+	color: var(--text-muted, #64748b);
+}
+
+.guardian-billing-card-head strong {
+	margin-left: auto;
+	font-size: 1rem;
+	color: #059669;
+}
+
+.guardian-billing-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.guardian-billing-row > div {
+	flex: 1;
+	display: grid;
+	gap: 2px;
+}
+
+.guardian-billing-row strong {
+	font-size: 0.86rem;
+}
+
+.guardian-billing-row span {
+	font-size: 0.78rem;
+	color: var(--text-muted, #64748b);
+}
+
+.guardian-billing-row em {
+	font-style: normal;
+	font-weight: 800;
+	font-size: 0.84rem;
+}
+
+.guardian-billing-row.is-danger em {
+	color: #dc2626;
+}
+
+.guardian-billing-history {
+	margin: 0;
+	font-size: 0.8rem;
+	color: var(--text-muted, #64748b);
+}

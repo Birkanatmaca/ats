@@ -14,10 +14,12 @@ import {
   UsersRound,
   Wand2
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Lesson } from "../../../lib/api";
+import type { Lesson, ScheduleChangeLog, ScheduleConflictsResult } from "../../../lib/api";
 import { api } from "../../../lib/api";
+import { ScheduleChangeLogPanel } from "../schedule/ScheduleChangeLogPanel";
+import { ScheduleConflictsPanel } from "../schedule/ScheduleConflictsPanel";
 import { createClientId } from "../../../lib/id";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, PrincipalManagedTeacher, SchoolClass } from "../types";
 import "./PrincipalSchedulePage.css";
@@ -154,6 +156,14 @@ export function PrincipalSchedulePage({
   const [builderMessage, setBuilderMessage] = useState<string | null>(null);
   const [apiGenerating, setApiGenerating] = useState(false);
   const [apiPublishing, setApiPublishing] = useState(false);
+  const [scheduleConflicts, setScheduleConflicts] = useState<ScheduleConflictsResult | null>(null);
+  const [scheduleChangeLog, setScheduleChangeLog] = useState<ScheduleChangeLog[]>([]);
+  const [scheduleOpsLoading, setScheduleOpsLoading] = useState(false);
+  const [builderViewMode, setBuilderViewMode] = useState<"section" | "teacher">("section");
+  const [previewTeacherId, setPreviewTeacherId] = useState("");
+  const [apiLessonSaving, setApiLessonSaving] = useState(false);
+  const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
+  const isTabletLayout = useTabletLayout();
 
   const classNameById = useMemo(() => new Map(classes.map((item) => [item.id, item.name])), [classes]);
   const teacherById = useMemo(() => new Map(teachers.map((item) => [item.id, item])), [teachers]);
@@ -194,7 +204,33 @@ export function PrincipalSchedulePage({
     [subjectPlans, teacherById]
   );
 
+  const apiDraftSchedule = data.schedule?.status === "draft" ? data.schedule : null;
   const publishedApiSchedule = data.schedule?.status === "published" ? data.schedule : null;
+  const apiScheduleId = data.schedule?.id ?? null;
+  const apiEditableDraft = Boolean(apiDraftSchedule);
+
+  useEffect(() => {
+    if (!apiScheduleId || mode !== "overview") {
+      setScheduleConflicts(null);
+      setScheduleChangeLog([]);
+      return;
+    }
+
+    let cancelled = false;
+    setScheduleOpsLoading(true);
+    void Promise.allSettled([api.scheduleConflicts(apiScheduleId), api.scheduleChangeLog(apiScheduleId)]).then((results) => {
+      if (cancelled) {
+        return;
+      }
+      setScheduleConflicts(results[0].status === "fulfilled" ? results[0].value : null);
+      setScheduleChangeLog(results[1].status === "fulfilled" ? results[1].value : []);
+      setScheduleOpsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiScheduleId, mode]);
   const activeSchedule = useMemo(
     () =>
       savedSchedules.find((schedule) => schedule.id === activeScheduleId && schedule.status === "active") ??
@@ -202,7 +238,18 @@ export function PrincipalSchedulePage({
       null,
     [activeScheduleId, savedSchedules]
   );
-  const displayedSchedule = activeSchedule ?? draft ?? (publishedApiSchedule ? mapApiScheduleToDraft(publishedApiSchedule, settings, activeSubjectPlans, sectionOptions, teachers) : null);
+  const displayedSchedule =
+    activeSchedule ??
+    draft ??
+    (publishedApiSchedule || apiDraftSchedule
+      ? mapApiScheduleToDraft(
+          (publishedApiSchedule ?? apiDraftSchedule)!,
+          settings,
+          activeSubjectPlans,
+          sectionOptions,
+          teachers
+        )
+      : null);
   const displayedSettings = displayedSchedule?.settings ?? settings;
   const displayedSubjects = displayedSchedule?.subjects ?? activeSubjectPlans;
   const displayedSlots = useMemo(() => buildTimeSlots(displayedSettings), [displayedSettings]);
@@ -218,6 +265,18 @@ export function PrincipalSchedulePage({
     () => lessonMapForSection(draft?.lessons ?? [], previewSection?.id ?? ""),
     [draft, previewSection]
   );
+  const previewTeacher =
+    teachers.find((item) => item.id === previewTeacherId) ?? teachers.find((item) => Number(item.weeklyLessonHours) > 0) ?? teachers[0] ?? null;
+  const previewTeacherLessonBySlot = useMemo(
+    () => lessonMapForTeacher(draft?.lessons ?? [], previewTeacher?.id ?? ""),
+    [draft, previewTeacher]
+  );
+  const overviewLessonBySlot = useMemo(() => {
+    if (builderViewMode === "teacher" && previewTeacher) {
+      return lessonMapForTeacher(displayedSchedule?.lessons ?? [], previewTeacher.id);
+    }
+    return displayedLessonBySlot;
+  }, [builderViewMode, displayedLessonBySlot, displayedSchedule, previewTeacher]);
 
   const displayTeacherLoadRows = useMemo(
     () => buildTeacherLoadRows(teachers, displayedSubjects, displayedSchedule, sectionOptions.length),
@@ -273,7 +332,10 @@ export function PrincipalSchedulePage({
     if (!previewSectionId || !sectionOptions.some((item) => item.id === previewSectionId)) {
       setPreviewSectionId(sectionOptions[0].id);
     }
-  }, [previewSectionId, sectionOptions, selectedSectionId]);
+    if (!previewTeacherId || !teachers.some((item) => item.id === previewTeacherId)) {
+      setPreviewTeacherId(teachers[0]?.id ?? "");
+    }
+  }, [previewSectionId, previewTeacherId, sectionOptions, selectedSectionId, teachers]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -491,6 +553,109 @@ export function PrincipalSchedulePage({
     setDraft(recalculateDraft({ ...draft, lessons: nextLessons }));
   }
 
+  function slotForLesson(lesson: GeneratedLesson, slotSettings = settings) {
+    const slots = buildTimeSlots(slotSettings);
+    return slots.find((item) => item.slotIndex === lesson.slotIndex) ?? slots[0];
+  }
+
+  function movePreviewLesson(section: SectionOption, dayId: DayId, slot: TimeSlot, lessonId: string) {
+    if (!draft) {
+      return;
+    }
+    const moving = draft.lessons.find((lesson) => lesson.id === lessonId);
+    if (!moving || moving.sectionId !== section.id) {
+      return;
+    }
+    if (moving.dayId === dayId && moving.slotIndex === slot.slotIndex) {
+      return;
+    }
+
+    const target = draft.lessons.find(
+      (lesson) => lesson.sectionId === section.id && lesson.dayId === dayId && lesson.slotIndex === slot.slotIndex
+    );
+    const movedLesson: GeneratedLesson = {
+      ...moving,
+      dayId,
+      slotIndex: slot.slotIndex,
+      startTime: slot.startTime,
+      endTime: slot.endTime
+    };
+
+    if (hasTeacherSlotConflict(draft.lessons, movedLesson, moving.id)) {
+      setBuilderMessage(`${movedLesson.teacherName} aynı saatte başka bir derste. Taşıma uygulanmadı.`);
+      return;
+    }
+
+    let nextLessons = draft.lessons;
+    if (target) {
+      const originSlot = slotForLesson(moving);
+      const swappedLesson: GeneratedLesson = {
+        ...target,
+        dayId: moving.dayId,
+        slotIndex: moving.slotIndex,
+        startTime: originSlot.startTime,
+        endTime: originSlot.endTime
+      };
+      if (hasTeacherSlotConflict(draft.lessons, swappedLesson, target.id)) {
+        setBuilderMessage(`${swappedLesson.teacherName} kaynak slotta çakışıyor. Yer değiştirme uygulanmadı.`);
+        return;
+      }
+      nextLessons = draft.lessons.map((lesson) => {
+        if (lesson.id === moving.id) {
+          return movedLesson;
+        }
+        if (lesson.id === target.id) {
+          return swappedLesson;
+        }
+        return lesson;
+      });
+    } else {
+      nextLessons = draft.lessons.map((lesson) => (lesson.id === moving.id ? movedLesson : lesson));
+    }
+
+    setBuilderMessage(null);
+    setDraft(recalculateDraft({ ...draft, lessons: nextLessons }));
+  }
+
+  const moveApiDraftLesson = useCallback(
+    async (lessonId: string, dayId: DayId, slot: TimeSlot) => {
+      if (!apiDraftSchedule || !displayedSchedule) {
+        return;
+      }
+      const moving = displayedSchedule.lessons.find((lesson) => lesson.id === lessonId);
+      if (!moving) {
+        return;
+      }
+      if (moving.dayId === dayId && moving.slotIndex === slot.slotIndex) {
+        return;
+      }
+      setApiLessonSaving(true);
+      setScheduleNotice(null);
+      try {
+        await api.updateScheduleLesson(apiDraftSchedule.id, lessonId, {
+          dayOfWeek: dayId,
+          startTime: slot.startTime,
+          endTime: slot.endTime
+        });
+        onScheduleChange?.();
+        if (apiScheduleId) {
+          const [conflicts, changeLog] = await Promise.all([
+            api.scheduleConflicts(apiScheduleId),
+            api.scheduleChangeLog(apiScheduleId)
+          ]);
+          setScheduleConflicts(conflicts);
+          setScheduleChangeLog(changeLog);
+        }
+        setScheduleNotice("Ders taşındı ve sunucuya kaydedildi.");
+      } catch (moveError) {
+        setScheduleNotice(moveError instanceof Error ? moveError.message : "Ders taşınamadı.");
+      } finally {
+        setApiLessonSaving(false);
+      }
+    },
+    [apiDraftSchedule, apiScheduleId, displayedSchedule, onScheduleChange]
+  );
+
   function updatePreviewTeacher(lessonId: string, teacherId: string) {
     if (!draft) {
       return;
@@ -605,6 +770,10 @@ export function PrincipalSchedulePage({
               <ReadinessItem ok={activeSubjectPlans.length > 0} label={`${activeSubjectPlans.length} ders yükü hazır`} />
               <ReadinessItem ok={builderWarnings.every((warning) => !warning.includes("kapasitesi aşılıyor"))} label="Öğretmen kapasite kontrolü" />
             </div>
+            <button className="ghost-action small-action" onClick={() => navigate("/dashboard/schedule/inputs")} type="button">
+              <BookOpenCheck size={15} />
+              API veri girişi ve eksik kontrol
+            </button>
             <button
               className="primary-action principal-schedule-generate"
               type="button"
@@ -714,30 +883,73 @@ export function PrincipalSchedulePage({
                 </div>
                 <CalendarDays size={18} />
               </div>
-              <select value={previewSection?.id ?? ""} onChange={(event) => setPreviewSectionId(event.target.value)} disabled={sectionOptions.length === 0}>
-                {sectionOptions.length === 0 ? <option value="">Şube yok</option> : null}
-                {sectionOptions.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.label}
-                  </option>
-                ))}
-              </select>
+              <div className="principal-schedule-board-controls">
+                <div className="principal-schedule-view-toggle" role="tablist" aria-label="Program görünümü">
+                  <button
+                    className={builderViewMode === "section" ? "is-active" : undefined}
+                    onClick={() => setBuilderViewMode("section")}
+                    type="button"
+                  >
+                    Şube
+                  </button>
+                  <button
+                    className={builderViewMode === "teacher" ? "is-active" : undefined}
+                    onClick={() => setBuilderViewMode("teacher")}
+                    type="button"
+                  >
+                    Öğretmen
+                  </button>
+                </div>
+                {builderViewMode === "section" ? (
+                  <select value={previewSection?.id ?? ""} onChange={(event) => setPreviewSectionId(event.target.value)} disabled={sectionOptions.length === 0}>
+                    {sectionOptions.length === 0 ? <option value="">Şube yok</option> : null}
+                    {sectionOptions.map((section) => (
+                      <option key={section.id} value={section.id}>
+                        {section.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select value={previewTeacher?.id ?? ""} onChange={(event) => setPreviewTeacherId(event.target.value)} disabled={teachers.length === 0}>
+                    {teachers.length === 0 ? <option value="">Öğretmen yok</option> : null}
+                    {teachers.map((teacher) => (
+                      <option key={teacher.id} value={teacher.id}>
+                        {teacherFullName(teacher)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
 
             {!draft ? (
               <p className="empty-text">Önizleme için otomatik program oluşturun.</p>
             ) : (
-              <ScheduleBoard
-                editable
-                settings={settings}
-                slots={builderSlots}
-                lessonsBySlot={previewLessonBySlot}
-                section={previewSection}
-                subjectPlans={activeSubjectPlans}
-                teachers={teachers}
-                onSubjectChange={updatePreviewCell}
-                onTeacherChange={updatePreviewTeacher}
-              />
+              <>
+                {isTabletLayout ? (
+                  <p className="principal-schedule-drag-hint">Geniş ekranda dersleri sürükleyip bırakarak taşıyabilirsiniz. Dar ekranda açılır menüleri kullanın.</p>
+                ) : null}
+                <ScheduleBoard
+                  dragDropEnabled={isTabletLayout}
+                  editable
+                  settings={settings}
+                  slots={builderSlots}
+                  lessonsBySlot={builderViewMode === "teacher" ? previewTeacherLessonBySlot : previewLessonBySlot}
+                  section={builderViewMode === "section" ? previewSection : null}
+                  subjectPlans={activeSubjectPlans}
+                  teachers={teachers}
+                  viewMode={builderViewMode}
+                  onLessonMove={(lessonId, dayId, slotIndex) => {
+                    const slot = builderSlots.find((item) => item.slotIndex === slotIndex);
+                    if (!slot || !previewSection || builderViewMode !== "section") {
+                      return;
+                    }
+                    movePreviewLesson(previewSection, dayId, slot, lessonId);
+                  }}
+                  onSubjectChange={updatePreviewCell}
+                  onTeacherChange={updatePreviewTeacher}
+                />
+              </>
             )}
           </article>
 
@@ -779,20 +991,73 @@ export function PrincipalSchedulePage({
               </div>
               <CalendarDays size={18} />
             </div>
-            <select value={selectedSection?.id ?? ""} onChange={(event) => setSelectedSectionId(event.target.value)} disabled={sectionOptions.length === 0}>
-              {sectionOptions.length === 0 ? <option value="">Şube yok</option> : null}
-              {sectionOptions.map((section) => (
-                <option key={section.id} value={section.id}>
-                  {section.label} · {studentsBySection.get(section.id) ?? 0} öğrenci
-                </option>
-              ))}
-            </select>
+            <div className="principal-schedule-board-controls">
+              {apiEditableDraft ? (
+                <div className="principal-schedule-view-toggle" role="tablist" aria-label="Program görünümü">
+                  <button
+                    className={builderViewMode === "section" ? "is-active" : undefined}
+                    onClick={() => setBuilderViewMode("section")}
+                    type="button"
+                  >
+                    Şube
+                  </button>
+                  <button
+                    className={builderViewMode === "teacher" ? "is-active" : undefined}
+                    onClick={() => setBuilderViewMode("teacher")}
+                    type="button"
+                  >
+                    Öğretmen
+                  </button>
+                </div>
+              ) : null}
+              {builderViewMode === "teacher" && apiEditableDraft ? (
+                <select value={previewTeacher?.id ?? ""} onChange={(event) => setPreviewTeacherId(event.target.value)} disabled={teachers.length === 0}>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacherFullName(teacher)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select value={selectedSection?.id ?? ""} onChange={(event) => setSelectedSectionId(event.target.value)} disabled={sectionOptions.length === 0}>
+                  {sectionOptions.length === 0 ? <option value="">Şube yok</option> : null}
+                  {sectionOptions.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.label} · {studentsBySection.get(section.id) ?? 0} öğrenci
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
 
           {!displayedSchedule ? (
             <p className="empty-text">Aktif program bulunmuyor. Ders programı yenileme sayfasından yeni program oluşturun.</p>
           ) : (
-            <ScheduleBoard settings={displayedSettings} slots={displayedSlots} lessonsBySlot={displayedLessonBySlot} section={selectedSection} subjectPlans={displayedSubjects} teachers={teachers} />
+            <>
+              {apiEditableDraft && isTabletLayout ? (
+                <p className="principal-schedule-drag-hint">
+                  {apiLessonSaving ? "Ders kaydediliyor…" : scheduleNotice ?? "Taslak program: dersleri sürükleyerek taşıyın."}
+                </p>
+              ) : null}
+              <ScheduleBoard
+                dragDropEnabled={apiEditableDraft && isTabletLayout && builderViewMode === "section"}
+                settings={displayedSettings}
+                slots={displayedSlots}
+                lessonsBySlot={overviewLessonBySlot}
+                section={builderViewMode === "section" ? selectedSection : null}
+                subjectPlans={displayedSubjects}
+                teachers={teachers}
+                viewMode={builderViewMode}
+                onLessonMove={(lessonId, dayId, slotIndex) => {
+                  const slot = displayedSlots.find((item) => item.slotIndex === slotIndex);
+                  if (!slot) {
+                    return;
+                  }
+                  void moveApiDraftLesson(lessonId, dayId, slot);
+                }}
+              />
+            </>
           )}
         </article>
 
@@ -804,6 +1069,11 @@ export function PrincipalSchedulePage({
             </div>
             <CheckCircle2 size={18} />
           </div>
+
+          <button className="ghost-action principal-schedule-refresh" type="button" onClick={() => navigate("/dashboard/schedule/inputs")}>
+            <BookOpenCheck size={16} />
+            Veri girişi ve kontrol
+          </button>
 
           <button className="primary-action principal-schedule-refresh" type="button" onClick={() => navigate("/dashboard/schedule/builder")}>
             <RefreshCw size={16} />
@@ -836,6 +1106,11 @@ export function PrincipalSchedulePage({
             )}
           </div>
         </article>
+      </div>
+
+      <div className="schedule-ops-grid">
+        <ScheduleConflictsPanel loading={scheduleOpsLoading} result={scheduleConflicts} />
+        <ScheduleChangeLogPanel items={scheduleChangeLog} loading={scheduleOpsLoading} />
       </div>
 
       <div className="principal-schedule-bottom-grid">
@@ -945,8 +1220,11 @@ function ScheduleBoard({
   subjectPlans,
   teachers,
   editable = false,
+  dragDropEnabled = false,
+  viewMode = "section",
   onSubjectChange,
-  onTeacherChange
+  onTeacherChange,
+  onLessonMove
 }: {
   settings: ScheduleSettings;
   slots: TimeSlot[];
@@ -955,9 +1233,15 @@ function ScheduleBoard({
   subjectPlans: SubjectPlan[];
   teachers: PrincipalManagedTeacher[];
   editable?: boolean;
+  dragDropEnabled?: boolean;
+  viewMode?: "section" | "teacher";
   onSubjectChange?: (section: SectionOption, dayId: DayId, slot: TimeSlot, subjectPlanId: string) => void;
   onTeacherChange?: (lessonId: string, teacherId: string) => void;
+  onLessonMove?: (lessonId: string, dayId: DayId, slotIndex: number) => void;
 }) {
+  const [draggingLessonId, setDraggingLessonId] = useState<string | null>(null);
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
+
   return (
     <div
       className={editable ? "principal-schedule-board is-editable" : "principal-schedule-board is-compact"}
@@ -982,10 +1266,66 @@ function ScheduleBoard({
           <strong>{dayName(dayId)}</strong>
           {slots.map((slot) => {
             const lesson = lessonsBySlot.get(`${dayId}-${slot.slotIndex}`);
+            const slotKey = `${dayId}-${slot.slotIndex}`;
+            const isDropTarget = dropTargetKey === slotKey;
+            const slotClassName = [
+              "principal-schedule-slot",
+              lesson ? "is-filled" : "",
+              dragDropEnabled && isDropTarget ? "is-drop-target" : "",
+              dragDropEnabled && lesson && draggingLessonId === lesson.id ? "is-dragging" : ""
+            ]
+              .filter(Boolean)
+              .join(" ");
             return (
-              <div className={lesson ? "principal-schedule-slot is-filled" : "principal-schedule-slot"} key={slot.slotIndex}>
+              <div
+                className={slotClassName}
+                key={slot.slotIndex}
+                onDragEnd={() => {
+                  setDraggingLessonId(null);
+                  setDropTargetKey(null);
+                }}
+                onDragLeave={() => {
+                  if (dropTargetKey === slotKey) {
+                    setDropTargetKey(null);
+                  }
+                }}
+                onDragOver={(event) => {
+                  if (!dragDropEnabled || !onLessonMove) {
+                    return;
+                  }
+                  event.preventDefault();
+                  setDropTargetKey(slotKey);
+                }}
+                onDrop={(event) => {
+                  if (!dragDropEnabled || !onLessonMove) {
+                    return;
+                  }
+                  event.preventDefault();
+                  const lessonId = event.dataTransfer.getData("text/plain");
+                  setDraggingLessonId(null);
+                  setDropTargetKey(null);
+                  if (lessonId) {
+                    onLessonMove(lessonId, dayId, slot.slotIndex);
+                  }
+                }}
+              >
                 {editable && section ? (
                   <>
+                    {dragDropEnabled && lesson ? (
+                      <button
+                        className="principal-schedule-drag-handle"
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData("text/plain", lesson.id);
+                          event.dataTransfer.effectAllowed = "move";
+                          setDraggingLessonId(lesson.id);
+                        }}
+                        type="button"
+                      >
+                        <b>{lesson.subjectName}</b>
+                        <span>{lesson.teacherName}</span>
+                      </button>
+                    ) : null}
                     <select
                       className="principal-schedule-slot-select"
                       value={lesson?.subjectPlanId ?? ""}
@@ -1011,9 +1351,27 @@ function ScheduleBoard({
                   </>
                 ) : lesson ? (
                   <>
-                    <b>{lesson.subjectName}</b>
-                    <span>{lesson.teacherName}</span>
-                    <small>{lesson.room}</small>
+                    {dragDropEnabled ? (
+                      <button
+                        className="principal-schedule-drag-handle"
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData("text/plain", lesson.id);
+                          event.dataTransfer.effectAllowed = "move";
+                          setDraggingLessonId(lesson.id);
+                        }}
+                        type="button"
+                      >
+                        <b>{lesson.subjectName}</b>
+                        <span>{viewMode === "teacher" ? `${lesson.className} / ${lesson.sectionName}` : lesson.teacherName}</span>
+                      </button>
+                    ) : (
+                      <>
+                        <b>{lesson.subjectName}</b>
+                        <span>{viewMode === "teacher" ? `${lesson.className} / ${lesson.sectionName}` : lesson.teacherName}</span>
+                      </>
+                    )}
+                    <small>{viewMode === "teacher" ? lesson.teacherName : lesson.room}</small>
                   </>
                 ) : (
                   <em>Boş</em>
@@ -1464,6 +1822,26 @@ function lessonMapForSection(lessons: GeneratedLesson[], sectionId: string) {
     }
   }
   return map;
+}
+
+function lessonMapForTeacher(lessons: GeneratedLesson[], teacherId: string) {
+  const map = new Map<string, GeneratedLesson>();
+  for (const lesson of lessons) {
+    if (lesson.teacherId === teacherId) {
+      map.set(`${lesson.dayId}-${lesson.slotIndex}`, lesson);
+    }
+  }
+  return map;
+}
+
+function useTabletLayout() {
+  const [isTablet, setIsTablet] = useState(() => (typeof window === "undefined" ? false : window.innerWidth >= 900));
+  useEffect(() => {
+    const onResize = () => setIsTablet(window.innerWidth >= 900);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return isTablet;
 }
 
 function clampNumber(value: number | undefined, min: number, max: number) {

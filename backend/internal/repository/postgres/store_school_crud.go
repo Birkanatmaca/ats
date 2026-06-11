@@ -847,6 +847,45 @@ func (s *Store) ProvisionTeacher(ctx context.Context, tenantID string, input sch
 	}, nil
 }
 
+func (s *Store) ProvisionServiceDriver(ctx context.Context, tenantID string, input schooldomain.ProvisionServiceDriverInput) (schooldomain.ProvisionServiceDriverResult, error) {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	fullName := schooldomain.JoinFullName(input.FirstName, input.LastName)
+	phone := strings.TrimSpace(input.Phone)
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		title = "Sofor"
+	}
+
+	cred, err := s.CreateInstitutionUser(ctx, identity.Principal{TenantID: tenantID}, tenantID, superadmindomain.CreateInstitutionUserInput{
+		Email:    email,
+		FullName: fullName,
+		Role:     string(identity.RoleDriver),
+	})
+	if errors.Is(err, superadmindomain.ErrUserAlreadyExists) {
+		return schooldomain.ProvisionServiceDriverResult{}, schooldomain.ErrDuplicateEmail
+	}
+	if err != nil {
+		return schooldomain.ProvisionServiceDriverResult{}, err
+	}
+
+	var staffID string
+	err = s.db.QueryRowContext(ctx, `
+INSERT INTO service_staff (tenant_id, user_id, full_name, phone, role, status, sharing_status)
+VALUES ($1::uuid, $2::uuid, $3, $4, 'driver', 'active', 'passive')
+RETURNING id::text`, tenantID, cred.User.ID, fullName, phone).Scan(&staffID)
+	if err != nil {
+		return schooldomain.ProvisionServiceDriverResult{}, err
+	}
+
+	_ = title
+	return schooldomain.ProvisionServiceDriverResult{
+		UserID:            cred.User.ID,
+		ServiceStaffID:    staffID,
+		Email:             email,
+		TemporaryPassword: cred.TemporaryPassword,
+	}, nil
+}
+
 func (s *Store) ProvisionGuardian(ctx context.Context, tenantID string, input schooldomain.ProvisionGuardianInput) (schooldomain.ProvisionGuardianResult, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 	fullName := schooldomain.JoinFullName(input.FirstName, input.LastName)

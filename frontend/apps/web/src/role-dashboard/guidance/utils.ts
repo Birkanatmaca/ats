@@ -209,3 +209,68 @@ function levelRank(level: string) {
   if (level === "medium") return 2;
   return 1;
 }
+
+export function caseStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    open: "Açık",
+    monitoring: "İzleniyor",
+    closed: "Kapalı"
+  };
+  return labels[status] ?? status;
+}
+
+export function casePriorityLabel(priority: string) {
+  const labels: Record<string, string> = {
+    low: "Düşük",
+    medium: "Orta",
+    high: "Yüksek",
+    critical: "Kritik"
+  };
+  return labels[priority] ?? priority;
+}
+
+export function casePriorityBadgeClass(priority: string) {
+  switch (priority) {
+    case "critical":
+      return "guidance-data-badge guidance-data-badge--rose";
+    case "high":
+      return "guidance-data-badge guidance-data-badge--amber";
+    case "low":
+      return "guidance-data-badge guidance-data-badge--slate";
+    default:
+      return "guidance-data-badge guidance-data-badge--sky";
+  }
+}
+
+export function caseEventTypeLabel(eventType: string) {
+  const labels: Record<string, string> = {
+    note: "Not",
+    meeting: "Görüşme",
+    plan: "Plan",
+    risk: "Risk",
+    status_change: "Durum",
+    file: "Dosya",
+    follow_up: "Takip"
+  };
+  return labels[eventType] ?? eventType;
+}
+
+export function caseTimelineSourceLabel(source: string) {
+  const labels: Record<string, string> = {
+    case_event: "Vaka olayı",
+    guidance_note: "Rehberlik notu",
+    support_plan: "Destek planı",
+    risk_tracking: "Risk takibi"
+  };
+  return labels[source] ?? source;
+}
+
+export function earlyWarningSeverityLabel(severity: string) {
+  return severity === "high" ? "Yüksek" : "Orta";
+}
+
+export function earlyWarningSeverityBadgeClass(severity: string) {
+  return severity === "high"
+    ? "guidance-data-badge guidance-data-badge--rose"
+    : "guidance-data-badge guidance-data-badge--amber";
+}

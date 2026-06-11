@@ -22,7 +22,8 @@ type toolExecutionOutcome struct {
 }
 
 func (s *Service) useLLM(ctx context.Context) bool {
-	if !s.cfg.UseLLM {
+	_, useLLM := s.effectiveProviderSettings(ctx)
+	if !useLLM {
 		return false
 	}
 	return s.ResolveOpenAIClient(ctx).Available()

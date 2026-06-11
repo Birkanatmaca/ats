@@ -1,195 +1,139 @@
 # 04 - Hedefli Duyuru ve İletişim Modülü
 
-> Amaç: Duyuruları doğru hedef kitleye, ölçülebilir ve denetlenebilir şekilde ulaştırmak.
+> Amaç: Duyuruları ve operasyonel bildirimleri doğru hedef kitleye, ölçülebilir ve denetlenebilir şekilde ulaştırmak.
 
 ---
 
 ## 1. Ürün Kararı
 
-Mevcut duyuru modeli `audience` string alanına dayanıyor. Bu, "tüm veliler" ve "öğretmenler" gibi basit hedefler için yeterli, fakat gerçek okul operasyonunda sınıf, şube, öğrenci, veli grubu ve rol kombinasyonları gerekir.
+Bu modül iki katmandan oluşur:
 
-Bu modül duyuruyu basit yayın aracından kontrollü iletişim sistemine dönüştürür.
+1. **Manuel hedefli duyuru** — müdürün rol/sınıf/şube/öğrenci bazlı mesaj yayınlaması.
+2. **Olay-tabanlı bildirim** — yoklama, servis, destek, program ve rehberlik olaylarının push + in-app olarak iletilmesi.
+
+İkinci katman ürün değerini tamamlar; servis ve yoklama olayları kilit ekrandan görünmelidir.
 
 ---
 
-## 2. Kapsam
+## 2. Güncel Durum (2026-06)
+
+### Tamamlanan
+
+- `announcement_audiences`, `announcement_reads`, `announcement_templates` şeması.
+- Backend audience resolver: `all`, `role`, `class`, `section`, `student`, `user`.
+- Listeleme güvenlik filtresi (`UserMatchesAudience`).
+- Duyuru publish + planlı yayın cron + push tetikleme.
+- Yoklama finalize → veli push.
+- Push tercihleri (mobil profil), delivery log, Expo sender.
+- Müdür paneli: çoklu hedef, teslim/okundu metrikleri.
+- Mobil müdür duyuru sheet: çoklu rol + sınıf + şube + öğrenci, taslak/yayınla.
+
+### Bu sprintte tamamlanan
+
+- **Tek bildirim boru hattı:** servis gecikme, trip başladı/bitti → `push.Service` (in-app + push + log + tercih).
+- **`transport` bildirim kategorisi** ve mobil tercih anahtarı.
+- Servis push deep link (veli → çocuk/servis ekranı).
+- Gerçek `section` hedefleme (şube ID çözümü).
+- Web veli/rehberlik duyuru okundu işaretleme.
+- Aynı `kind` için tekrar push engeli.
+
+### Sonraki faz
+
+- Rehberlik/yoklama olaylarının aynı dispatcher üzerinden standardizasyonu.
+- Harita/koordinat tabanlı gerçek ETA (durak lat/lng).
+- Web şablon CRUD ekranı (şu an sadece seçici var).
+
+---
+
+## 3. Kapsam
 
 ### Dahil
 
-- Rol hedefleme.
-- Sınıf/şube hedefleme.
-- Belirli öğrenci velilerine duyuru.
-- Öğretmen grubu hedefleme.
-- Okundu bilgisi.
-- Push + uygulama içi bildirim üretimi.
-- Duyuru taslağı.
-- Yayın zamanı planlama.
-- Duyuru şablonları.
+- Rol, sınıf, şube, öğrenci/veli hedefleme.
+- Okundu ve teslim metrikleri.
+- Push + uygulama içi bildirim.
+- Servis, yoklama, duyuru, destek, program, rehberlik kategorileri.
+- Bildirim tercihleri ve delivery log.
 
 ### Hariç
 
 - İki yönlü sohbet.
-- Öğrenci sosyal ağı.
-- Pazarlama kampanya motoru.
+- SMS / e-posta kampanya motoru.
 
 ---
 
-## 3. Veri Modeli
-
-```sql
-announcements
-- id
-- tenant_id
-- title
-- body
-- status              -- draft, scheduled, published, archived
-- published_at nullable
-- scheduled_at nullable
-- created_by
-- created_at
-- updated_at
-```
-
-```sql
-announcement_audiences
-- id
-- tenant_id
-- announcement_id
-- audience_type       -- role, class, section, student, user, all
-- audience_id nullable
-- role_code nullable
-```
-
-```sql
-announcement_reads
-- id
-- tenant_id
-- announcement_id
-- user_id
-- read_at
-```
-
-```sql
-announcement_templates
-- id
-- tenant_id
-- name
-- title_template
-- body_template
-- category
-- created_by
-```
-
----
-
-## 4. API Tasarımı
+## 4. Bildirim Boru Hattı
 
 ```text
-GET    /api/v1/announcements
-POST   /api/v1/announcements
-GET    /api/v1/announcements/{id}
-PATCH  /api/v1/announcements/{id}
-DELETE /api/v1/announcements/{id}
-POST   /api/v1/announcements/{id}/publish
-POST   /api/v1/announcements/{id}/archive
-PATCH  /api/v1/announcements/{id}/read
-
-GET    /api/v1/announcement-templates
-POST   /api/v1/announcement-templates
-PATCH  /api/v1/announcement-templates/{id}
-DELETE /api/v1/announcement-templates/{id}
+Domain olayı (duyuru publish, yoklama, servis trip, gecikme)
+  → push.Service.sendToUser
+    → tercih kontrolü
+    → in-app notification (kind dedup)
+    → Expo push
+    → delivery log
 ```
 
-Create payload:
+Transport olayları artık repository'den doğrudan `notifications` tablosuna yazılmaz.
+
+---
+
+## 5. Servis Bildirim Tetikleyicileri
+
+| Olay | Tetikleyici | Alıcı |
+|------|-------------|-------|
+| Trip başladı | `POST /driver/sharing/start` | Rota velileri |
+| Trip bitti | `POST /driver/sharing/stop` | Rota velileri |
+| Gecikme | `POST /services/routes/{id}/delay` | Rota velileri |
+
+Gürültü kuralları:
+
+- Rota PATCH otomatik bildirim göndermez.
+- Aynı `kind` tekrarlanmaz.
+- Gecikme bildirimi 5 dk bucket ile sınırlıdır.
+
+---
+
+## 6. API (özet)
+
+Duyuru API'leri değişmedi. Push tercihlerine `transport` alanı eklendi.
 
 ```json
 {
-  "title": "Veli toplantısı",
-  "body": "5-A velileri için toplantı...",
-  "audiences": [
-    { "type": "section", "id": "section-5a" },
-    { "type": "role", "role": "teacher" }
-  ],
-  "scheduledAt": null
+  "attendance": true,
+  "announcements": true,
+  "support": true,
+  "guidance": true,
+  "schedule": true,
+  "transport": true
 }
 ```
 
 ---
 
-## 5. Mobil Frontend
+## 7. Kabul Kriterleri
 
-### Müdür/System Admin
-
-- Duyuru listesi.
-- Yeni duyuru sheet.
-- Hedef kitle seçici:
-  - tüm kurum
-  - öğretmenler
-  - veliler
-  - sınıf
-  - şube
-  - belirli öğrenciler
-- Ön izleme.
-- Yayınla / taslak kaydet.
-
-### Öğretmen/Rehberlik/Veli
-
-- Kendi hedeflendiği duyuruları görür.
-- Okundu işaretleme.
-- Arama/filtre.
+- Müdür şube hedefli duyuru gönderdiğinde yalnızca ilgili veliler görür.
+- Şoför paylaşım başlattığında rota velileri push + in-app alır.
+- Gecikme bildirimi tercih kapalıysa `dropped` loglanır, tekrar spam yapmaz.
+- Veli/rehberlik duyuruyu açınca okundu kaydı oluşur.
+- Push tıklanınca guardian servis/çocuk ekranına gider.
 
 ---
 
-## 6. Backend Kuralları
+## 8. Test Planı
 
-- Listeleme endpoint'i kullanıcıya hedeflenmeyen duyuruyu döndürmemelidir.
-- Audience çözümü backend'de yapılmalıdır; frontend filtresi güvenlik değildir.
-- Duyuru publish olduğunda notification ve push event'i üretilir.
-- Scheduled duyurular job/cron ile yayınlanır.
-- Duyuru güncelleme published sonrası sınırlı olmalıdır.
-
----
-
-## 7. Yetki
-
-| İşlem | Roller |
-|-------|--------|
-| Duyuru oluştur | principal, system_admin, super_admin |
-| Duyuru taslak düzenle | oluşturan veya principal/system_admin |
-| Duyuru okuma | hedeflenen kullanıcı |
-| Template yönetimi | principal, system_admin |
-| Platform duyurusu | super_admin |
+- `UserMatchesAudience` section/class unit test.
+- `NotifyTransportRouteGuardians` preference + push test.
+- Transport handler: start/stop/delay smoke.
+- Tenant izolasyonu ve hedeflenmeyen kullanıcı 403 testi.
 
 ---
 
-## 8. Kabul Kriterleri
+## 9. Uygulama Sırası (güncel)
 
-- Müdür 5-A velilerine duyuru gönderdiğinde sadece ilgili veliler görür.
-- Öğretmen hedeflenmeyen veli duyurusunu göremez.
-- Duyuru publish sonrası push gönderimi tetiklenir.
-- Okundu oranı yönetici ekranında görünür.
-- Taslak duyuru hedef kullanıcılara görünmez.
-
----
-
-## 9. Test Planı
-
-- Audience resolver unit test.
-- Tenant izolasyon test.
-- Role/class/section/student hedefleme integration test.
-- Push event test.
-- Mobil hedef kitle seçici test.
-- Okundu oranı hesaplama test.
-
----
-
-## 10. İlk Uygulama Sırası
-
-1. `announcement_audiences` ve `announcement_reads` migration.
-2. Backend audience resolver.
-3. Listeleme güvenlik filtresi.
-4. Mobil hedef seçici.
-5. Push/in-app notification üretimi.
-6. Okundu oranı.
-7. Template desteği.
-
+1. [x] Hedefli duyuru şeması ve resolver.
+2. [x] Push altyapısı ve tercihler.
+3. [x] Servis olaylarını push boru hattına bağlama.
+4. [x] Şube hedefleme + mobil çoklu hedef.
+5. [x] Teslim raporu (sent/dropped) ve şablon seçici + planlı yayın UI (web).
+6. [x] Trip yaklaşıyor otomasyonu (planlı durak zamanı penceresi).

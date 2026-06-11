@@ -44,3 +44,14 @@ type StudentAttendance struct {
 	StudentID string             `json:"studentId"`
 	Records   []AttendanceRecord `json:"records"`
 }
+
+type GuidanceUpdate struct {
+	ID         string    `json:"id"`
+	CaseID     string    `json:"caseId"`
+	CaseTitle  string    `json:"caseTitle"`
+	EventType  string    `json:"eventType"`
+	Title      string    `json:"title"`
+	Body       string    `json:"body"`
+	ActorName  string    `json:"actorName"`
+	OccurredAt time.Time `json:"occurredAt"`
+}

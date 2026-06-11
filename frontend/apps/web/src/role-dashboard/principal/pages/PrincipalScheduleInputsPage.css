@@ -1,0 +1,243 @@
+.principal-schedule-inputs-page {
+  gap: 16px;
+}
+
+.principal-schedule-inputs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+}
+
+.principal-schedule-inputs-head h1 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e3a8a;
+}
+
+.principal-schedule-inputs-head p,
+.principal-schedule-inputs-head span {
+  color: #1d4ed8;
+  font-size: 13px;
+}
+
+.principal-schedule-inputs-head .primary-action {
+  margin-left: auto;
+}
+
+.principal-schedule-inputs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.principal-schedule-inputs-tabs button {
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.principal-schedule-inputs-tabs button.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.schedule-inputs-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.schedule-inputs-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.schedule-inputs-panel-head h2 {
+  margin: 4px 0;
+  font-size: 18px;
+}
+
+.schedule-inputs-panel-head p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.schedule-inputs-panel-head span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.schedule-inputs-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.schedule-inputs-loading {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.schedule-requirements-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schedule-requirements-group {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.schedule-requirements-group > header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.schedule-requirements-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-requirements-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 36px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.schedule-requirements-row input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.schedule-availability-teacher-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 360px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.schedule-availability-teacher-select select {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.schedule-availability-grid-wrap {
+  overflow-x: auto;
+}
+
+.schedule-availability-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.schedule-availability-grid th,
+.schedule-availability-grid td {
+  border: 1px solid #e2e8f0;
+  padding: 4px;
+  text-align: center;
+}
+
+.schedule-availability-grid tbody th {
+  text-align: left;
+  white-space: nowrap;
+  padding-left: 8px;
+  font-size: 12px;
+}
+
+.schedule-availability-cell {
+  width: 100%;
+  min-width: 34px;
+  min-height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.schedule-availability-cell.is-active {
+  background: #22c55e;
+}
+
+.schedule-availability-foot {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.schedule-readiness-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedule-readiness-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.schedule-readiness-item.is-ok {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.schedule-readiness-item strong {
+  display: block;
+  font-size: 13px;
+}
+
+.schedule-readiness-item span {
+  font-size: 12px;
+}
+
+.schedule-readiness-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.schedule-readiness-hint--ok {
+  color: #166534;
+}
+
+.schedule-inputs-ops-grid {
+  margin-top: 14px;
+}

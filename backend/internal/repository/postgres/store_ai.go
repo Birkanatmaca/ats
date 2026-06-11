@@ -195,6 +195,57 @@ func (s *Store) RecordAudit(ctx context.Context, tenantID, actorUserID, action, 
 	return nil
 }
 
+func (s *Store) GetAIProviderSettings(ctx context.Context) (aidomain.ProviderSettings, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT key, value FROM platform_settings
+WHERE key IN ('ai_model', 'ai_use_llm')`)
+	if err != nil {
+		return aidomain.ProviderSettings{}, err
+	}
+	defer rows.Close()
+
+	settings := aidomain.ProviderSettings{
+		Model:  "gpt-4o-mini",
+		UseLLM: true,
+	}
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			return aidomain.ProviderSettings{}, err
+		}
+		switch key {
+		case "ai_model":
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				settings.Model = trimmed
+			}
+		case "ai_use_llm":
+			settings.UseLLM = strings.EqualFold(strings.TrimSpace(value), "true")
+			settings.UseLLMSet = true
+		}
+	}
+	return settings, rows.Err()
+}
+
+func (s *Store) UpdateAIProviderSettings(ctx context.Context, input aidomain.ProviderSettings) (aidomain.ProviderSettings, error) {
+	model := strings.TrimSpace(input.Model)
+	if model == "" {
+		model = "gpt-4o-mini"
+	}
+	updates := map[string]string{
+		"ai_model":   model,
+		"ai_use_llm": strconv.FormatBool(input.UseLLM),
+	}
+	for key, value := range updates {
+		if _, err := s.db.ExecContext(ctx, `
+INSERT INTO platform_settings (key, value, is_secret, updated_at)
+VALUES ($1, $2, false, now())
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, key, value); err != nil {
+			return aidomain.ProviderSettings{}, err
+		}
+	}
+	return s.GetAIProviderSettings(ctx)
+}
+
 func (s *Store) GetAIProviderKey(ctx context.Context) (string, error) {
 	var value string
 	err := s.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'ai_provider_key'`).Scan(&value)
@@ -321,6 +372,7 @@ func (s *Store) GetAIPlatformAnalytics(ctx context.Context, since time.Time) (ai
 		DailyUsage: make([]aidomain.UsagePoint, 0),
 		ByTenant:   make([]aidomain.TenantUsageRow, 0),
 		ByModel:    make([]aidomain.ModelUsageRow, 0),
+		ByRole:     make([]aidomain.RoleUsageRow, 0),
 	}
 	err := s.db.QueryRowContext(ctx, `
 SELECT
@@ -368,23 +420,34 @@ ORDER BY 1`, since)
 	}
 
 	tenantRows, err := s.db.QueryContext(ctx, `
-SELECT m.tenant_id::text, COALESCE(t.name, 'Kurum'),
-  COUNT(*) FILTER (WHERE m.role = 'user'),
+SELECT t.id::text,
+  COALESCE(t.name, 'Kurum'),
+  COALESCE(COUNT(m.id) FILTER (WHERE m.role = 'user'), 0),
   COALESCE(SUM(m.token_input), 0),
-  COALESCE(SUM(m.token_output), 0)
-FROM ai_messages m
-LEFT JOIN tenants t ON t.id = m.tenant_id
-WHERE m.created_at >= $1
-GROUP BY m.tenant_id, t.name
-ORDER BY COUNT(*) FILTER (WHERE m.role = 'user') DESC`, since)
+  COALESCE(SUM(m.token_output), 0),
+  t.ai_daily_message_limit,
+  t.ai_monthly_token_limit
+FROM tenants t
+LEFT JOIN ai_messages m ON m.tenant_id = t.id AND m.created_at >= $1
+GROUP BY t.id, t.name, t.ai_daily_message_limit, t.ai_monthly_token_limit
+ORDER BY COALESCE(COUNT(m.id) FILTER (WHERE m.role = 'user'), 0) DESC, t.name`, since)
 	if err != nil {
 		return aidomain.PlatformAnalytics{}, err
 	}
 	defer tenantRows.Close()
 	for tenantRows.Next() {
 		var row aidomain.TenantUsageRow
-		if err := tenantRows.Scan(&row.TenantID, &row.TenantName, &row.UserMessages, &row.TokenInput, &row.TokenOutput); err != nil {
+		var daily, monthly sql.NullInt64
+		if err := tenantRows.Scan(&row.TenantID, &row.TenantName, &row.UserMessages, &row.TokenInput, &row.TokenOutput, &daily, &monthly); err != nil {
 			return aidomain.PlatformAnalytics{}, err
+		}
+		if daily.Valid {
+			value := int(daily.Int64)
+			row.DailyMessageLimit = &value
+		}
+		if monthly.Valid {
+			value := int(monthly.Int64)
+			row.MonthlyTokenLimit = &value
 		}
 		out.ByTenant = append(out.ByTenant, row)
 	}
@@ -412,7 +475,32 @@ ORDER BY COUNT(*) DESC`, since)
 		}
 		out.ByModel = append(out.ByModel, row)
 	}
-	return out, modelRows.Err()
+	if err := modelRows.Err(); err != nil {
+		return aidomain.PlatformAnalytics{}, err
+	}
+
+	roleRows, err := s.db.QueryContext(ctx, `
+SELECT COALESCE(NULLIF(c.role, ''), 'unknown'),
+  COUNT(*) FILTER (WHERE m.role = 'user'),
+  COALESCE(SUM(m.token_input), 0),
+  COALESCE(SUM(m.token_output), 0)
+FROM ai_messages m
+JOIN ai_conversations c ON c.id = m.conversation_id
+WHERE m.created_at >= $1
+GROUP BY 1
+ORDER BY COUNT(*) FILTER (WHERE m.role = 'user') DESC`, since)
+	if err != nil {
+		return aidomain.PlatformAnalytics{}, err
+	}
+	defer roleRows.Close()
+	for roleRows.Next() {
+		var row aidomain.RoleUsageRow
+		if err := roleRows.Scan(&row.Role, &row.UserMessages, &row.TokenInput, &row.TokenOutput); err != nil {
+			return aidomain.PlatformAnalytics{}, err
+		}
+		out.ByRole = append(out.ByRole, row)
+	}
+	return out, roleRows.Err()
 }
 
 func parseSettingFloat(raw string, fallback float64) float64 {

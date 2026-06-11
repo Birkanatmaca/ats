@@ -40,6 +40,8 @@ type Repository interface {
 	RecordToolCall(ctx context.Context, tenantID, conversationID, messageID, toolName string, arguments, resultSummary json.RawMessage) error
 	RecordAudit(ctx context.Context, tenantID, actorUserID, action, resourceType, resourceID string, metadata json.RawMessage) error
 	GetAIProviderKey(ctx context.Context) (string, error)
+	GetAIProviderSettings(ctx context.Context) (aidomain.ProviderSettings, error)
+	UpdateAIProviderSettings(ctx context.Context, input aidomain.ProviderSettings) (aidomain.ProviderSettings, error)
 	CountUserMessagesSince(ctx context.Context, tenantID, userID string, since time.Time) (int, error)
 	PurgeExpiredAIRecords(ctx context.Context, tenantID string, before, now time.Time) (aidomain.RetentionResult, error)
 	ListAITenantIDs(ctx context.Context) ([]string, error)
@@ -71,23 +73,25 @@ type Dependencies struct {
 	Attendance  *attendanceapp.Service
 	Scheduling  *schedulingapp.Service
 	OpenAI      openai.Client
+	EnvOpenAIKey string
 	Clock       func() time.Time
 	Config      Config
 }
 
 type Service struct {
-	repo        Repository
-	school      *schoolapp.Service
-	observation *observationapp.Service
-	guidance    *guidanceapp.Service
-	dashboard   *dashboardapp.Service
-	guardian    *guardianapp.Service
-	superAdmin  *superadminapp.Service
-	attendance  *attendanceapp.Service
-	scheduling  *schedulingapp.Service
-	openai      openai.Client
-	clock       func() time.Time
-	cfg         Config
+	repo         Repository
+	school       *schoolapp.Service
+	observation  *observationapp.Service
+	guidance     *guidanceapp.Service
+	dashboard    *dashboardapp.Service
+	guardian     *guardianapp.Service
+	superAdmin   *superadminapp.Service
+	attendance   *attendanceapp.Service
+	scheduling   *schedulingapp.Service
+	openai       openai.Client
+	envOpenAIKey string
+	clock        func() time.Time
+	cfg          Config
 }
 
 func NewService(deps Dependencies) *Service {
@@ -100,18 +104,19 @@ func NewService(deps Dependencies) *Service {
 		client = openai.NoopClient{}
 	}
 	return &Service{
-		repo:        deps.Repo,
-		school:      deps.School,
-		observation: deps.Observation,
-		guidance:    deps.Guidance,
-		dashboard:   deps.Dashboard,
-		guardian:    deps.Guardian,
-		superAdmin:  deps.SuperAdmin,
-		attendance:  deps.Attendance,
-		scheduling:  deps.Scheduling,
-		openai:      client,
-		clock:       clock,
-		cfg:         deps.Config,
+		repo:         deps.Repo,
+		school:       deps.School,
+		observation:  deps.Observation,
+		guidance:     deps.Guidance,
+		dashboard:    deps.Dashboard,
+		guardian:     deps.Guardian,
+		superAdmin:   deps.SuperAdmin,
+		attendance:   deps.Attendance,
+		scheduling:   deps.Scheduling,
+		openai:       client,
+		envOpenAIKey: strings.TrimSpace(deps.EnvOpenAIKey),
+		clock:        clock,
+		cfg:          deps.Config,
 	}
 }
 
@@ -476,18 +481,8 @@ func mustJSON(value any) json.RawMessage {
 }
 
 func (s *Service) ResolveOpenAIClient(ctx context.Context) openai.Client {
-	if s.openai.Available() {
-		return s.openai
-	}
-	key, err := s.repo.GetAIProviderKey(ctx)
-	if err != nil || strings.TrimSpace(key) == "" {
-		return openai.NoopClient{}
-	}
-	return openai.NewHTTPClient(openai.Config{
-		APIKey:        key,
-		Model:         s.cfg.Model,
-		StoreResponse: s.cfg.StoreResponse,
-	})
+	model, _ := s.effectiveProviderSettings(ctx)
+	return s.resolveOpenAIClientWithModel(ctx, model)
 }
 
 func (s *Service) SetOpenAIClientForTest(client openai.Client) {

@@ -1,1 +1,307 @@
 /* Loglar — temel stiller styles/super-admin.css */
+
+.sa-logs-page {
+	gap: 16px;
+}
+
+.sa-push-health-body {
+	display: grid;
+	gap: 14px;
+}
+
+.sa-push-tenant-filter {
+	display: grid;
+	gap: 8px;
+	max-width: 360px;
+	font-size: 0.84rem;
+	color: var(--text-muted, #64748b);
+}
+
+.sa-push-tenant-filter input {
+	border: 1px solid var(--sa-border, #e2e8f0);
+	border-radius: 10px;
+	padding: 10px 12px;
+	background: var(--sa-surface, #fff);
+	color: var(--sa-ink, #0f172a);
+}
+
+.sa-push-health-grid {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.sa-push-health-grid strong {
+	display: block;
+	margin-top: 6px;
+	font-size: 1.35rem;
+}
+
+.sa-push-log-table-wrap {
+	overflow-x: auto;
+}
+
+.sa-push-log-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.84rem;
+}
+
+.sa-push-log-table th,
+.sa-push-log-table td {
+	padding: 10px 12px;
+	border-bottom: 1px solid var(--sa-border, #e2e8f0);
+	text-align: left;
+	vertical-align: top;
+}
+
+.sa-push-log-table th {
+	color: var(--text-muted, #64748b);
+	font-weight: 700;
+}
+
+.sa-log-summary-grid,
+.sa-log-toolbar-grid,
+.sa-log-purge-grid {
+	display: grid;
+	gap: 14px;
+}
+
+.sa-log-summary-grid {
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.sa-log-toolbar-grid {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	align-items: end;
+}
+
+.sa-log-purge-grid {
+	grid-template-columns: minmax(0, 1.5fr) minmax(180px, 260px) auto;
+	align-items: end;
+}
+
+.sa-log-summary-grid strong {
+	display: block;
+	margin-top: 6px;
+	font-size: 1.5rem;
+}
+
+.sa-log-toolbar label,
+.sa-log-purge-card label {
+	display: grid;
+	gap: 8px;
+	font-size: 0.84rem;
+	color: var(--text-muted, #64748b);
+}
+
+.sa-log-toolbar input,
+.sa-log-toolbar select,
+.sa-log-purge-card input {
+	width: 100%;
+	border-radius: 12px;
+	border: 1px solid rgba(148, 163, 184, 0.35);
+	background: #fff;
+	color: var(--text-strong, #0f172a);
+	padding: 0.8rem 0.9rem;
+}
+
+.sa-log-toolbar-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.sa-primary-btn,
+.sa-secondary-btn,
+.sa-danger-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	border-radius: 12px;
+	border: 0;
+	padding: 0.85rem 1rem;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.sa-primary-btn {
+	background: linear-gradient(135deg, #0f172a, #1d4ed8);
+	color: #fff;
+}
+
+.sa-secondary-btn {
+	background: #e2e8f0;
+	color: #0f172a;
+}
+
+.sa-danger-btn {
+	background: linear-gradient(135deg, #b91c1c, #ef4444);
+	color: #fff;
+}
+
+.sa-log-purge-card h3 {
+	margin: 0 0 6px;
+	font-size: 1.05rem;
+}
+
+.sa-log-purge-card p {
+	margin: 0;
+	color: var(--text-muted, #64748b);
+}
+
+.sa-log-meta,
+.sa-log-resource small {
+	display: block;
+	color: var(--text-muted, #64748b);
+	margin-top: 4px;
+}
+
+.sa-log-resource {
+	display: grid;
+	gap: 4px;
+}
+
+.sa-logs-page .sa-log-table-head,
+.sa-logs-page .sa-log-table-row {
+	grid-template-columns:
+		minmax(210px, 1.2fr)
+		minmax(145px, 0.75fr)
+		minmax(190px, 1fr)
+		minmax(170px, 0.9fr)
+		minmax(118px, 0.62fr)
+		minmax(145px, 0.7fr)
+		minmax(126px, 0.65fr);
+}
+
+.sa-log-actor {
+	display: grid;
+	gap: 4px;
+	min-width: 0;
+}
+
+.sa-log-actor strong,
+.sa-log-resource span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sa-log-actor small {
+	color: var(--text-muted, #64748b);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sa-log-actor > span {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	min-width: 0;
+}
+
+.sa-log-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	border-radius: 999px;
+	background: #e0f2fe;
+	color: #075985;
+	padding: 2px 7px;
+	font-size: 0.72rem;
+	font-weight: 700;
+}
+
+.sa-log-actor code {
+	max-width: 150px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	border-radius: 6px;
+	background: #f1f5f9;
+	color: #334155;
+	padding: 2px 5px;
+	font-size: 0.68rem;
+}
+
+.sa-log-details {
+	min-width: 0;
+	color: var(--text-strong, #0f172a);
+}
+
+.sa-log-details summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+	font-weight: 700;
+	color: #1d4ed8;
+}
+
+.sa-log-details dl {
+	display: grid;
+	gap: 8px;
+	margin: 10px 0 0;
+	padding: 10px;
+	border-radius: 10px;
+	background: #f8fafc;
+	border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.sa-log-details dl div {
+	display: grid;
+	gap: 3px;
+}
+
+.sa-log-details dt {
+	color: var(--text-muted, #64748b);
+	font-size: 0.7rem;
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+.sa-log-details dd {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+	margin: 0;
+	overflow-wrap: anywhere;
+	line-height: 1.35;
+}
+
+.sa-alert {
+	border-radius: 16px;
+}
+
+@media (max-width: 1100px) {
+	.sa-log-summary-grid,
+	.sa-log-toolbar-grid,
+	.sa-log-purge-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.sa-log-purge-grid > :first-child {
+		grid-column: 1 / -1;
+	}
+
+	.sa-logs-page .sa-log-table-head,
+	.sa-logs-page .sa-log-table-row {
+		grid-template-columns: minmax(190px, 1fr) minmax(140px, 0.8fr) minmax(180px, 1fr) minmax(150px, 0.85fr) minmax(110px, 0.7fr) minmax(135px, 0.75fr) minmax(120px, 0.7fr);
+	}
+}
+
+@media (max-width: 720px) {
+	.sa-log-summary-grid,
+	.sa-log-toolbar-grid,
+	.sa-log-purge-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.sa-log-toolbar-actions {
+		flex-direction: column;
+	}
+}

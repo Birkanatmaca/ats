@@ -8,6 +8,7 @@ import (
 	"ots/backend/internal/domain/attendance"
 	"ots/backend/internal/domain/observation"
 	"ots/backend/internal/domain/scheduling"
+	superadmindomain "ots/backend/internal/domain/superadmin"
 )
 
 const demoTenantID = "00000000-0000-0000-0000-000000010001"
@@ -33,7 +34,7 @@ func TestSchedulePublishArchivesPreviousAndWritesAudit(t *testing.T) {
 	store := NewStore(func() time.Time { return fixed })
 	ctx := context.Background()
 
-	before, _ := store.ListAuditEntries(ctx)
+	before, _ := store.ListAuditEntries(ctx, superadmindomain.AuditLogQuery{})
 	beforePublishAudits := 0
 	for _, entry := range before {
 		if entry.Action == "schedule.publish" {
@@ -62,7 +63,7 @@ func TestSchedulePublishArchivesPreviousAndWritesAudit(t *testing.T) {
 		t.Fatalf("expected previous published schedule archived, got %v status=%s", ok, current.Status)
 	}
 
-	after, _ := store.ListAuditEntries(ctx)
+	after, _ := store.ListAuditEntries(ctx, superadmindomain.AuditLogQuery{})
 	afterPublishAudits := 0
 	for _, entry := range after {
 		if entry.Action == "schedule.publish" {
@@ -147,7 +148,7 @@ func TestGuidanceViewWritesAudit(t *testing.T) {
 	store := NewStore(func() time.Time { return fixed })
 	ctx := context.Background()
 
-	before, _ := store.ListAuditEntries(ctx)
+	before, _ := store.ListAuditEntries(ctx, superadmindomain.AuditLogQuery{})
 	beforeGuidanceAudits := 0
 	for _, entry := range before {
 		if entry.Action == "guidance.view" {
@@ -157,7 +158,7 @@ func TestGuidanceViewWritesAudit(t *testing.T) {
 
 	store.RecordOperationalAudit(ctx, demoTenantID, "00000000-0000-0000-0000-000000010111", "guidance.view", "student_observation", "", `{"count":2}`)
 
-	after, _ := store.ListAuditEntries(ctx)
+	after, _ := store.ListAuditEntries(ctx, superadmindomain.AuditLogQuery{})
 	afterGuidanceAudits := 0
 	for _, entry := range after {
 		if entry.Action == "guidance.view" {

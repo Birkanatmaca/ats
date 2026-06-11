@@ -1,4 +1,4 @@
-import type { Announcement, GuardianAttendanceRecord, GuardianNotification, Lesson, Tenant } from "../../lib/api";
+import type { Announcement, GuardianAttendanceRecord, GuardianGuidanceUpdate, GuardianNotification, Lesson, Tenant } from "../../lib/api";
 
 export type GuardianChild = {
   id: string;
@@ -22,6 +22,7 @@ export type GuardianData = {
   announcements: Announcement[];
   attendanceRecords: GuardianAttendanceRecord[];
   notifications: GuardianNotification[];
+  guidanceUpdates: GuardianGuidanceUpdate[];
 };
 
 export type { GuardianAttendanceRecord, GuardianNotification };

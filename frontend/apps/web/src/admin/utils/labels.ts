@@ -5,7 +5,8 @@ export function roleLabel(value: string) {
     principal: "Müdür",
     guidance: "Rehberlik",
     teacher: "Öğretmen",
-    guardian: "Veli"
+    guardian: "Veli",
+    driver: "Şoför"
   };
   return labels[value] ?? value;
 }

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { getClassTone, sortSections } from "@/features/principal/classUtils";
+import { PrincipalPendingAttendanceCard } from "@/features/principal/PrincipalPendingAttendanceCard";
 import { usePrincipalRoster } from "@/features/principal/usePrincipalRoster";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
@@ -46,6 +47,11 @@ export function PrincipalAttendanceScreen() {
   const reportQ = useQuery({
     queryKey: queryKeys.principalAttendanceToday(date),
     queryFn: () => api.attendanceToday(date)
+  });
+  const summaryQ = useQuery({
+    queryKey: queryKeys.principalSummary,
+    queryFn: () => api.dashboard(),
+    enabled: isToday(date)
   });
 
   const classNameById = useMemo(() => {
@@ -106,6 +112,9 @@ export function PrincipalAttendanceScreen() {
   const onRefresh = () => {
     void rosterQ.refetch();
     void reportQ.refetch();
+    if (isToday(date)) {
+      void summaryQ.refetch();
+    }
   };
 
   if (rosterQ.isLoading || reportQ.isLoading) {
@@ -120,6 +129,7 @@ export function PrincipalAttendanceScreen() {
   return (
     <Screen layout="stack" refreshing={refreshing} topInsetExtra={6} onRefresh={onRefresh}>
       <DetailBackBar label="Daha Fazla" />
+      {isToday(date) ? <PrincipalPendingAttendanceCard summary={summaryQ.data} /> : null}
       <View style={styles.statsShell}>
         <View
           style={[

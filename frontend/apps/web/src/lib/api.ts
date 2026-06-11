@@ -1,4 +1,4 @@
-export type Role = "super_admin" | "system_admin" | "principal" | "guidance" | "teacher" | "guardian";
+export type Role = "super_admin" | "system_admin" | "principal" | "guidance" | "teacher" | "guardian" | "driver";
 
 export type Principal = {
   userId: string;
@@ -176,6 +176,17 @@ export type GuardianNotification = {
   kind: string;
   readAt?: string;
   createdAt: string;
+};
+
+export type GuardianGuidanceUpdate = {
+  id: string;
+  caseId: string;
+  caseTitle: string;
+  eventType: GuidanceCaseEventType;
+  title: string;
+  body: string;
+  actorName: string;
+  occurredAt: string;
 };
 
 export type ClassSummary = {
@@ -368,6 +379,7 @@ export type Tenant = {
   name: string;
   plan: string;
   timezone: string;
+  enabledModules?: string[];
 };
 
 export type PrincipalSummary = {
@@ -543,6 +555,123 @@ export type GuidanceSupportPlan = {
   updatedAt: string;
 };
 
+export type GuidanceCaseStatus = "open" | "monitoring" | "closed";
+export type GuidanceCasePriority = "low" | "medium" | "high" | "critical";
+export type GuidanceCaseEventType =
+  | "note"
+  | "meeting"
+  | "plan"
+  | "risk"
+  | "status_change"
+  | "file"
+  | "follow_up";
+export type GuidanceCaseEventVisibility = "guidance_only" | "principal_summary" | "shared_with_guardian";
+
+export type GuidanceCase = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  ownerUserId: string;
+  ownerName: string;
+  status: GuidanceCaseStatus;
+  priority: GuidanceCasePriority;
+  title: string;
+  summary: string;
+  sensitivity: string;
+  openedAt: string;
+  closedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  masked?: boolean;
+};
+
+export type GuidanceCaseEvent = {
+  id: string;
+  tenantId: string;
+  caseId: string;
+  eventType: GuidanceCaseEventType;
+  title: string;
+  body: string;
+  actorUserId: string;
+  actorName: string;
+  visibility: GuidanceCaseEventVisibility;
+  occurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+  masked?: boolean;
+};
+
+export type GuidanceCaseTimelineItem = {
+  id: string;
+  source: "case_event" | "guidance_note" | "support_plan" | "risk_tracking";
+  eventType: string;
+  title: string;
+  body: string;
+  actorName: string;
+  occurredAt: string;
+  visibility?: GuidanceCaseEventVisibility;
+  masked?: boolean;
+};
+
+export type GuidanceCaseCloseResult = {
+  case: GuidanceCase;
+  warnings?: string[];
+};
+
+export type GuidanceCaseInboxStats = {
+  openCount: number;
+  monitoringCount: number;
+  criticalCount: number;
+  overduePlanCount: number;
+};
+
+export type GuidanceEarlyWarningSignal = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  signalType: "attendance_absent" | "observation_repeat" | "risk_without_case";
+  severity: "medium" | "high";
+  title: string;
+  summary: string;
+  suggestedAction: string;
+  hasOpenCase: boolean;
+  detectedAt: string;
+};
+
+export type ManagedGuardianStudent = {
+  studentId: string;
+  studentName: string;
+  className: string;
+  schoolNumber: string;
+  relation: string;
+  isPrimary: boolean;
+};
+
+export type ManagedGuardian = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone: string;
+  status: "active" | "passive";
+  mustChangePassword: boolean;
+  students: ManagedGuardianStudent[];
+  createdAt: string;
+};
+
+export type ProvisionGuardianResult = {
+  userId: string;
+  email: string;
+  temporaryPassword: string;
+  linkedStudents: number;
+};
+
 export type PrincipalSchoolRoster = {
   classes: Array<{ id: string; name: string; createdAt: string }>;
   sections: Array<{
@@ -572,10 +701,37 @@ export type PrincipalSchoolRoster = {
 
 export type Announcement = {
   id: string;
+  tenantId?: string;
   title: string;
   body: string;
+  status?: "draft" | "scheduled" | "published" | "archived";
   audience: string;
+  audiences?: AnnouncementAudienceTarget[];
   publishedAt: string;
+  scheduledAt?: string;
+  readAt?: string;
+  readCount?: number;
+  targetCount?: number;
+  deliveryCount?: number;
+  pushSentCount?: number;
+  pushDroppedCount?: number;
+  pushFailedCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type AnnouncementTemplate = {
+  id: string;
+  name: string;
+  titleTemplate: string;
+  bodyTemplate: string;
+  category: string;
+};
+
+export type AnnouncementAudienceTarget = {
+  type: "all" | "role" | "class" | "section" | "student" | "user";
+  id?: string;
+  role?: string;
 };
 
 export type SuperAdminOverview = {
@@ -587,6 +743,31 @@ export type SuperAdminOverview = {
   usage: UsagePoint[];
   incidents: Incident[];
   modules: ModuleStatus[];
+};
+
+export type PushHealth = {
+  activeTokens: number;
+  revokedTokens: number;
+  sentLast24h: number;
+  failedLast24h: number;
+  failureRate24h: number;
+};
+
+export type PushDeliveryLog = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  deviceTokenId?: string;
+  sourceKind?: string;
+  category: string;
+  title: string;
+  status: string;
+  provider: string;
+  providerReceiptId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  sentAt?: string;
+  createdAt: string;
 };
 
 export type UsagePoint = {
@@ -615,6 +796,51 @@ export type AITenantUsageRow = {
   tokenOutput: number;
   estCostUsd: number;
   estCostTry: number;
+  dailyMessageLimit?: number | null;
+  monthlyTokenLimit?: number | null;
+};
+
+export type AIRoleUsageRow = {
+  role: string;
+  userMessages: number;
+  tokenInput: number;
+  tokenOutput: number;
+};
+
+export type AIProviderStatus = {
+  keySource: "env" | "platform" | "none" | string;
+  keyConfigured: boolean;
+  keyHint?: string;
+  envOverridesKey: boolean;
+  model: string;
+  useLlm: boolean;
+  llmReady: boolean;
+  fallbackRuleEngine: boolean;
+};
+
+export type AIProviderSettings = {
+  model: string;
+  useLlm: boolean;
+};
+
+export type AIProviderTestResult = {
+  ok: boolean;
+  model: string;
+  latencyMs: number;
+  responseHint?: string;
+  error?: string;
+};
+
+export type AiUsageSummary = {
+  messagesLast24h: number;
+  messagesToday: number;
+  dailyLimit: number;
+  remainingToday: number;
+  tenantMessagesToday: number;
+  tenantDailyLimit: number;
+  tenantRemainingToday: number;
+  tenantTokensThisMonth: number;
+  tenantMonthlyTokenLimit: number;
 };
 
 export type AIModelUsageRow = {
@@ -639,6 +865,8 @@ export type AIPlatformAnalytics = {
   dailyUsage: AIUsagePoint[];
   byTenant: AITenantUsageRow[];
   byModel: AIModelUsageRow[];
+  byRole: AIRoleUsageRow[];
+  provider: AIProviderStatus;
 };
 
 export type AIRetentionResult = {
@@ -740,6 +968,428 @@ export type BillingQuotePreview = {
   companyEmail: string;
 };
 
+export type BillingAccountStatus = "active" | "paused" | "closed";
+export type PaymentPlanStatus = "active" | "completed" | "cancelled";
+export type PaymentInstallmentStatus = "pending" | "partial" | "paid" | "overdue" | "cancelled";
+export type PaymentMethod = "cash" | "bank_transfer" | "card" | "other";
+
+export type Payment = {
+  id: string;
+  tenantId: string;
+  installmentId: string;
+  amount: number;
+  method: PaymentMethod;
+  paidAt: string;
+  recordedBy?: string;
+  note?: string;
+  void: boolean;
+  voidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentInstallment = {
+  id: string;
+  tenantId: string;
+  paymentPlanId: string;
+  billingAccountId: string;
+  studentId?: string;
+  studentName?: string;
+  classId?: string;
+  className?: string;
+  planName?: string;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: PaymentInstallmentStatus;
+  payments?: Payment[];
+};
+
+export type PaymentPlan = {
+  id: string;
+  tenantId: string;
+  billingAccountId: string;
+  name: string;
+  totalAmount: number;
+  currency: string;
+  startDate: string;
+  status: PaymentPlanStatus;
+  createdAt: string;
+  updatedAt: string;
+  installments: PaymentInstallment[];
+};
+
+export type BillingAccount = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  classId?: string;
+  className?: string;
+  guardianUserId?: string;
+  status: BillingAccountStatus;
+  createdAt: string;
+  plans: PaymentPlan[];
+};
+
+export type CreatePaymentPlanInput = {
+  name: string;
+  totalAmount: number;
+  currency?: string;
+  startDate: string;
+  installmentCount?: number;
+  installments?: Array<{ dueDate: string; amount: number }>;
+};
+
+export type UpdatePaymentPlanInput = {
+  name?: string;
+  status?: PaymentPlanStatus;
+};
+
+export type CreatePaymentInput = {
+  amount: number;
+  method: PaymentMethod;
+  paidAt?: string;
+  note?: string;
+};
+
+export type UpdatePaymentInput = Partial<CreatePaymentInput>;
+
+export type BillingDashboard = {
+  totalReceivable: number;
+  collectedAmount: number;
+  outstandingAmount: number;
+  overdueAmount: number;
+  overdueCount: number;
+  activePlanCount: number;
+  overdueInstallments: PaymentInstallment[];
+  updatedAt: string;
+};
+
+export type GuardianBillingSummary = {
+  account: BillingAccount;
+  upcomingInstallments: PaymentInstallment[];
+  overdueInstallments: PaymentInstallment[];
+  paymentHistory: Payment[];
+  outstandingAmount: number;
+  overdueAmount: number;
+};
+
+export type ServiceDirection = "morning" | "evening" | "both";
+export type ServiceStatus = "active" | "passive" | "archived";
+export type ServiceStaffRole = "driver" | "attendant";
+
+export type ServiceVehicle = {
+  id: string;
+  tenantId: string;
+  plate: string;
+  capacity: number;
+  brand?: string;
+  model?: string;
+  status: ServiceStatus;
+  assignedCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceStaff = {
+  id: string;
+  tenantId: string;
+  userId?: string;
+  fullName: string;
+  phone?: string;
+  role: ServiceStaffRole;
+  status: ServiceStatus;
+  sharingStatus?: string;
+  lastSeenAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRouteStop = {
+  id: string;
+  tenantId: string;
+  routeId: string;
+  name: string;
+  plannedTime: string;
+  sortOrder: number;
+  latitude?: number;
+  longitude?: number;
+};
+
+export type ServiceAssignment = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  routeId: string;
+  routeName?: string;
+  stopId?: string;
+  stopName?: string;
+  direction: ServiceDirection;
+  status: ServiceStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRoute = {
+  id: string;
+  tenantId: string;
+  name: string;
+  direction: ServiceDirection;
+  vehicleId?: string;
+  vehiclePlate?: string;
+  vehicleCapacity?: number;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  driverSharingStatus?: string;
+  driverLastSeenAt?: string;
+  attendantId?: string;
+  attendantName?: string;
+  attendantPhone?: string;
+  status: ServiceStatus;
+  stops: ServiceRouteStop[];
+  assignments: ServiceAssignment[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceRouteInput = {
+  name: string;
+  direction: ServiceDirection;
+  vehicleId?: string;
+  driverId?: string;
+  attendantId?: string;
+  status?: ServiceStatus;
+  stops?: Array<{
+    id?: string;
+    name: string;
+    plannedTime: string;
+    sortOrder?: number;
+    latitude?: number;
+    longitude?: number;
+  }>;
+};
+
+export type ServiceDelayNotification = {
+  routeId: string;
+  routeName: string;
+  delayMinutes: number;
+  deliveredCount: number;
+};
+
+export type ServiceAssignmentInput = {
+  studentId: string;
+  routeId: string;
+  stopId?: string;
+  direction: ServiceDirection;
+  status?: ServiceStatus;
+};
+
+export type ServiceTripStatus = "active" | "completed" | "canceled";
+
+export type ServiceTripLocation = {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  speedKph?: number;
+  headingDegrees?: number;
+  capturedAt: string;
+  createdAt: string;
+};
+
+export type ServiceLiveStatus = {
+  active: boolean;
+  lastLocationAt?: string;
+  speedKph?: number;
+  etaMinutes?: number | null;
+  distanceKm?: number | null;
+  locationStale?: boolean;
+  stopLatitude?: number;
+  stopLongitude?: number;
+};
+
+export type ServiceTrip = {
+  id: string;
+  tenantId: string;
+  routeId: string;
+  routeName?: string;
+  driverUserId: string;
+  driverId: string;
+  driverName?: string;
+  direction: ServiceDirection;
+  status: ServiceTripStatus;
+  startedAt: string;
+  endedAt?: string;
+  lastLocation?: ServiceTripLocation;
+  liveStatus?: ServiceLiveStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceTripEvent = {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  eventType: string;
+  payload?: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type GuardianServiceSummary = {
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  className?: string;
+  assignments: ServiceAssignment[];
+  routes: ServiceRoute[];
+  activeTrip?: ServiceTrip;
+  liveStatus?: ServiceLiveStatus;
+  updatedAt: string;
+  hasAssignment: boolean;
+};
+
+export type LifeMealType = "breakfast" | "lunch" | "snack";
+export type LifeStatus = "active" | "passive" | "archived";
+export type StudyAttendanceStatus = "attended" | "absent" | "excused";
+export type ClubMembershipStatus = "active" | "waitlisted" | "left";
+
+export type MealMenu = {
+  id: string;
+  tenantId: string;
+  date: string;
+  mealType: LifeMealType;
+  title: string;
+  description?: string;
+  allergens: string[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StudyAttendance = {
+  id: string;
+  tenantId: string;
+  sessionId: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  status: StudyAttendanceStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StudySession = {
+  id: string;
+  tenantId: string;
+  subjectId?: string;
+  subjectName?: string;
+  teacherUserId?: string;
+  teacherName?: string;
+  classId?: string;
+  className?: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  status: LifeStatus;
+  attendance: StudyAttendance[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ClubMembership = {
+  id: string;
+  tenantId: string;
+  clubId: string;
+  clubName?: string;
+  studentId: string;
+  studentName?: string;
+  schoolNumber?: string;
+  classId?: string;
+  className?: string;
+  status: ClubMembershipStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Club = {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  advisorUserId?: string;
+  advisorName?: string;
+  capacity: number;
+  status: LifeStatus;
+  memberships: ClubMembership[];
+  capacityWarning?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GuardianLifeSummary = {
+  studentId: string;
+  studentName: string;
+  schoolNumber: string;
+  className?: string;
+  meals: MealMenu[];
+  studySessions: StudySession[];
+  clubMemberships: ClubMembership[];
+  clubs: Club[];
+  updatedAt: string;
+};
+
+export type MealMenuInput = {
+  date: string;
+  mealType: LifeMealType;
+  title: string;
+  description?: string;
+  allergens?: string[];
+};
+
+export type StudySessionInput = {
+  subjectId?: string;
+  teacherUserId?: string;
+  classId?: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  status?: LifeStatus;
+};
+
+export type StudyAttendanceInput = {
+  studentId: string;
+  status: StudyAttendanceStatus;
+};
+
+export type ClubInput = {
+  name: string;
+  description?: string;
+  advisorUserId?: string;
+  capacity: number;
+  status?: LifeStatus;
+};
+
+export type ClubMembershipInput = {
+  studentId: string;
+  status?: ClubMembershipStatus;
+};
+
 export type Incident = {
   id: string;
   title: string;
@@ -831,6 +1481,7 @@ export type Institution = {
 };
 
 export type InstitutionDetail = Institution & {
+  enabledModules?: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -920,12 +1571,35 @@ export type AiCapabilitiesResult = {
 
 export type AuditEntry = {
   id: string;
+  tenantId?: string;
   tenant: string;
+  actorId?: string;
   actor: string;
+  actorEmail?: string;
+  actorRole?: string;
   action: string;
   resourceType: string;
+  resourceId?: string;
   sensitivity: string;
+  metadata?: string;
   createdAt: string;
+};
+
+export type SuperAdminAuditLogQuery = {
+  tenantId?: string;
+  action?: string;
+  actorId?: string;
+  actorRole?: string;
+  resourceType?: string;
+  sensitivity?: string;
+  search?: string;
+  limit?: number;
+};
+
+export type AuditPurgeResult = {
+  deletedCount: number;
+  before: string;
+  tenantId?: string;
 };
 
 type Envelope<T> = {
@@ -1094,6 +1768,11 @@ export const api = {
     }),
   superAdminInstitution: (institutionId: string) =>
     request<InstitutionDetail>(`/api/v1/super-admin/institutions/${institutionId}`),
+  updateSuperAdminInstitutionModules: (institutionId: string, enabledModules: string[]) =>
+    request<InstitutionDetail>(`/api/v1/super-admin/institutions/${institutionId}/modules`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabledModules })
+    }),
   superAdminInstitutionUsers: (institutionId: string) =>
     request<UserAccount[]>(`/api/v1/super-admin/institutions/${institutionId}/users`),
   createSuperAdminInstitutionUser: (
@@ -1122,7 +1801,37 @@ export const api = {
     request<UserAccount>(`/api/v1/super-admin/users/${userId}?tenantId=${encodeURIComponent(tenantId)}`, {
       method: "DELETE"
     }),
-  superAdminAuditLogs: () => request<AuditEntry[]>("/api/v1/super-admin/audit-logs"),
+  superAdminAuditLogs: (query?: SuperAdminAuditLogQuery) => {
+    const params = new URLSearchParams();
+    if (query?.tenantId) params.set("tenantId", query.tenantId);
+    if (query?.action) params.set("action", query.action);
+    if (query?.actorId) params.set("actorId", query.actorId);
+    if (query?.actorRole) params.set("actorRole", query.actorRole);
+    if (query?.resourceType) params.set("resourceType", query.resourceType);
+    if (query?.sensitivity) params.set("sensitivity", query.sensitivity);
+    if (query?.search) params.set("search", query.search);
+    if (typeof query?.limit === "number") params.set("limit", String(query.limit));
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return request<AuditEntry[]>(`/api/v1/super-admin/audit-logs${suffix}`);
+  },
+  purgeSuperAdminAuditLogs: (payload: { olderThanDays: number; tenantId?: string }) => {
+    const params = new URLSearchParams({ olderThanDays: String(payload.olderThanDays) });
+    if (payload.tenantId) params.set("tenantId", payload.tenantId);
+    return request<AuditPurgeResult>(`/api/v1/super-admin/audit-logs?${params.toString()}`, {
+      method: "DELETE"
+    });
+  },
+  superAdminPushHealth: (tenantId?: string) => {
+    const suffix = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : "";
+    return request<PushHealth>(`/api/v1/super-admin/push/health${suffix}`);
+  },
+  superAdminPushLogs: (params?: { tenantId?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.tenantId) query.set("tenantId", params.tenantId);
+    if (params?.limit) query.set("limit", String(params.limit));
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<PushDeliveryLog[]>(`/api/v1/super-admin/push/logs${suffix}`);
+  },
   superAdminSettings: () => request<PlatformSettings>("/api/v1/super-admin/settings"),
   superAdminSupportTickets: () => request<SupportTicket[]>("/api/v1/super-admin/support/tickets"),
   updateSuperAdminSupportTicket: (
@@ -1176,6 +1885,15 @@ export const api = {
     }),
   superAdminAIOverview: (days = 30) =>
     request<AIPlatformAnalytics>(`/api/v1/super-admin/ai/overview?days=${encodeURIComponent(String(days))}`),
+  superAdminAIProvider: () =>
+    request<{ status: AIProviderStatus; models: string[] }>("/api/v1/super-admin/ai/provider"),
+  updateSuperAdminAIProvider: (payload: AIProviderSettings) =>
+    request<{ settings: AIProviderSettings; status: AIProviderStatus }>("/api/v1/super-admin/ai/provider", {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  testSuperAdminAIProvider: () =>
+    request<AIProviderTestResult>("/api/v1/super-admin/ai/provider/test", { method: "POST" }),
   updateSuperAdminAICostSettings: (payload: AICostSettings) =>
     request<AICostSettings>("/api/v1/super-admin/ai/cost-settings", {
       method: "PATCH",
@@ -1200,12 +1918,121 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  billingStudentAccount: (studentId: string) =>
+    request<BillingAccount>(`/api/v1/billing/students/${studentId}/account`),
+  createBillingPlan: (studentId: string, payload: CreatePaymentPlanInput) =>
+    request<BillingAccount>(`/api/v1/billing/students/${studentId}/plans`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateBillingPlan: (planId: string, payload: UpdatePaymentPlanInput) =>
+    request<PaymentPlan>(`/api/v1/billing/plans/${planId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  billingInstallments: (params?: { studentId?: string; classId?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.studentId) query.set("studentId", params.studentId);
+    if (params?.classId) query.set("classId", params.classId);
+    if (params?.status) query.set("status", params.status);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<PaymentInstallment[] | null>(`/api/v1/billing/installments${suffix}`).then(asArray);
+  },
+  createBillingPayment: (installmentId: string, payload: CreatePaymentInput) =>
+    request<PaymentInstallment>(`/api/v1/billing/installments/${installmentId}/payments`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateBillingPayment: (paymentId: string, payload: UpdatePaymentInput) =>
+    request<Payment>(`/api/v1/billing/payments/${paymentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  voidBillingPayment: (paymentId: string) =>
+    request<Payment>(`/api/v1/billing/payments/${paymentId}`, { method: "DELETE" }),
+  billingDashboard: () => request<BillingDashboard>("/api/v1/billing/dashboard"),
+  billingOverdueReport: () =>
+    request<PaymentInstallment[] | null>("/api/v1/billing/reports/overdue").then(asArray),
+  guardianBilling: (studentId: string) =>
+    request<GuardianBillingSummary>(`/api/v1/guardian/students/${studentId}/billing`),
+  serviceRoutes: () => request<ServiceRoute[] | null>("/api/v1/services/routes").then(asArray),
+  serviceRoute: (routeId: string) => request<ServiceRoute>(`/api/v1/services/routes/${routeId}`),
+  createServiceRoute: (payload: ServiceRouteInput) =>
+    request<ServiceRoute>("/api/v1/services/routes", { method: "POST", body: JSON.stringify(payload) }),
+  updateServiceRoute: (routeId: string, payload: Partial<ServiceRouteInput>) =>
+    request<ServiceRoute>(`/api/v1/services/routes/${routeId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  reportServiceRouteDelay: (routeId: string, payload: { delayMinutes: number; note?: string }) =>
+    request<ServiceDelayNotification>(`/api/v1/services/routes/${routeId}/delay`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  deleteServiceRoute: (routeId: string) =>
+    request<void>(`/api/v1/services/routes/${routeId}`, { method: "DELETE" }),
+  serviceVehicles: () => request<ServiceVehicle[] | null>("/api/v1/services/vehicles").then(asArray),
+  createServiceVehicle: (payload: { plate: string; capacity: number; brand?: string; model?: string }) =>
+    request<ServiceVehicle>("/api/v1/services/vehicles", { method: "POST", body: JSON.stringify(payload) }),
+  serviceStaff: () => request<ServiceStaff[] | null>("/api/v1/services/staff").then(asArray),
+  createServiceStaff: (payload: { fullName: string; phone?: string; role: ServiceStaffRole }) =>
+    request<ServiceStaff>("/api/v1/services/staff", { method: "POST", body: JSON.stringify(payload) }),
+  activeServiceTrips: () => request<ServiceTrip[] | null>("/api/v1/services/trips/active").then(asArray),
+  serviceTripLocations: (tripId: string, limit = 20) =>
+    request<ServiceTripLocation[] | null>(
+      `/api/v1/services/trips/${tripId}/locations?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
+  serviceTripEvents: (tripId: string, limit = 20) =>
+    request<ServiceTripEvent[] | null>(
+      `/api/v1/services/trips/${tripId}/events?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
+  assignServiceStudent: (payload: ServiceAssignmentInput) =>
+    request<ServiceAssignment>("/api/v1/services/assignments", { method: "POST", body: JSON.stringify(payload) }),
+  guardianService: (studentId: string) =>
+    request<GuardianServiceSummary>(`/api/v1/guardian/students/${studentId}/service`),
+  guardianLife: (studentId: string) =>
+    request<GuardianLifeSummary>(`/api/v1/guardian/students/${studentId}/life`),
+  lifeMeals: (params?: { fromDate?: string; toDate?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.fromDate) query.set("fromDate", params.fromDate);
+    if (params?.toDate) query.set("toDate", params.toDate);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<MealMenu[] | null>(`/api/v1/life/meals${suffix}`).then(asArray);
+  },
+  createLifeMeal: (payload: MealMenuInput) =>
+    request<MealMenu>("/api/v1/life/meals", { method: "POST", body: JSON.stringify(payload) }),
+  updateLifeMeal: (mealId: string, payload: Partial<MealMenuInput>) =>
+    request<MealMenu>(`/api/v1/life/meals/${mealId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteLifeMeal: (mealId: string) => request<void>(`/api/v1/life/meals/${mealId}`, { method: "DELETE" }),
+  studySessions: () => request<StudySession[] | null>("/api/v1/life/study-sessions").then(asArray),
+  createStudySession: (payload: StudySessionInput) =>
+    request<StudySession>("/api/v1/life/study-sessions", { method: "POST", body: JSON.stringify(payload) }),
+  updateStudySession: (sessionId: string, payload: Partial<StudySessionInput>) =>
+    request<StudySession>(`/api/v1/life/study-sessions/${sessionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  recordStudyAttendance: (sessionId: string, records: StudyAttendanceInput[]) =>
+    request<StudyAttendance[]>(`/api/v1/life/study-sessions/${sessionId}/attendance`, {
+      method: "POST",
+      body: JSON.stringify({ records })
+    }),
+  clubs: () => request<Club[] | null>("/api/v1/life/clubs").then(asArray),
+  createClub: (payload: ClubInput) =>
+    request<Club>("/api/v1/life/clubs", { method: "POST", body: JSON.stringify(payload) }),
+  updateClub: (clubId: string, payload: Partial<ClubInput>) =>
+    request<Club>(`/api/v1/life/clubs/${clubId}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  addClubMembership: (clubId: string, payload: ClubMembershipInput) =>
+    request<ClubMembership>(`/api/v1/life/clubs/${clubId}/memberships`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
   teacherCalendar: () => request<Lesson[] | null>("/api/v1/teachers/me/calendar").then(asArray),
   teacherStudents: () => request<SchoolStudentRecord[] | null>("/api/v1/teachers/me/students").then(asArray),
   currentLesson: () => request<CurrentLesson>("/api/v1/attendance/current-lesson"),
-  announcements: () => request<Announcement[] | null>("/api/v1/announcements").then(asArray),
+  announcements: (params?: { manage?: boolean }) => {
+    const query = params?.manage ? "?manage=true" : "";
+    return request<Announcement[] | null>(`/api/v1/announcements${query}`).then(asArray);
+  },
   observations: () => request<Observation[] | null>("/api/v1/observations").then(asArray),
   createAttendanceSession: (lessonId: string) =>
     request<AttendanceSession>("/api/v1/attendance/sessions", {
@@ -1213,7 +2040,7 @@ export const api = {
       body: JSON.stringify({ lessonId })
     }),
   getAttendanceSessionByLesson: (lessonId: string) =>
-    request<AttendanceSession>(`/api/v1/attendance/sessions/by-lesson/${lessonId}`),
+    request<AttendanceSession>(`/api/v1/attendance/lessons/${lessonId}/session`),
   getAttendanceSession: (sessionId: string) => request<AttendanceSession>(`/api/v1/attendance/sessions/${sessionId}`),
   attendanceToday: (date?: string) =>
     request<AttendanceDayReport>(`/api/v1/dashboard/attendance/today${date ? `?date=${encodeURIComponent(date)}` : ""}`),
@@ -1322,7 +2149,7 @@ export const api = {
   saveSchedulingRequirements: (items: Array<{ classId: string; subjectId: string; weeklyHours: number }>) =>
     request<SchedulingRequirement[]>("/api/v1/scheduling/requirements", {
       method: "POST",
-      body: JSON.stringify({ items })
+      body: JSON.stringify(items)
     }),
   listTeacherAvailabilities: () =>
     request<TeacherAvailability[] | null>("/api/v1/scheduling/teacher-availabilities").then(asArray),
@@ -1337,7 +2164,7 @@ export const api = {
   ) =>
     request<TeacherAvailability[]>("/api/v1/scheduling/teacher-availabilities", {
       method: "POST",
-      body: JSON.stringify({ items })
+      body: JSON.stringify(items)
     }),
   saveTeacherAvailabilitiesBulk: (
     items: Array<{
@@ -1436,19 +2263,32 @@ export const api = {
         body: JSON.stringify(payload)
       }
     ),
-  createAnnouncement: (payload: { title: string; body: string; audience: string }) =>
+  createAnnouncement: (payload: {
+    title: string;
+    body: string;
+    audience?: string;
+    audiences?: AnnouncementAudienceTarget[];
+    scheduledAt?: string;
+    publish?: boolean;
+  }) =>
     request<Announcement>("/api/v1/announcements", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
   updateAnnouncement: (
     announcementId: string,
-    payload: { title?: string; body?: string; audience?: string }
+    payload: { title?: string; body?: string; audience?: string; audiences?: AnnouncementAudienceTarget[]; scheduledAt?: string }
   ) =>
     request<Announcement>(`/api/v1/announcements/${announcementId}`, {
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
+  publishAnnouncement: (announcementId: string) =>
+    request<Announcement>(`/api/v1/announcements/${announcementId}/publish`, { method: "POST", body: "{}" }),
+  announcementTemplates: () =>
+    request<AnnouncementTemplate[] | null>("/api/v1/announcement-templates").then(asArray),
+  markAnnouncementRead: (announcementId: string) =>
+    request<void>(`/api/v1/announcements/${announcementId}/read`, { method: "PATCH", body: "{}" }),
   classSummary: (classId: string, date?: string) =>
     request<ClassSummary>(
       `/api/v1/dashboard/classes/${classId}/summary${date ? `?date=${encodeURIComponent(date)}` : ""}`
@@ -1458,6 +2298,8 @@ export const api = {
     request<GuardianStudentSchedule>(`/api/v1/guardian/students/${studentId}/schedule`),
   guardianStudentAttendance: (studentId: string) =>
     request<GuardianStudentAttendance>(`/api/v1/guardian/students/${studentId}/attendance`),
+  guardianStudentGuidanceUpdates: (studentId: string) =>
+    request<GuardianGuidanceUpdate[] | null>(`/api/v1/guardian/students/${studentId}/guidance-updates`).then(asArray),
   guardianAnnouncements: () => request<Announcement[] | null>("/api/v1/guardian/announcements").then(asArray),
   guardianNotifications: () => request<GuardianNotification[] | null>("/api/v1/guardian/notifications").then(asArray),
   guardianNotificationMarkRead: (notificationId: string) =>
@@ -1490,6 +2332,57 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  principalGuardians: () => request<ManagedGuardian[] | null>("/api/v1/principal/guardians").then(asArray),
+  principalGuardian: (guardianId: string) => request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}`),
+  provisionGuardian: (payload: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    studentIds: string[];
+    relation?: string;
+  }) =>
+    request<ProvisionGuardianResult>("/api/v1/principal/guardians", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updatePrincipalGuardian: (
+    guardianId: string,
+    payload: Partial<{ firstName: string; lastName: string; phone: string }>
+  ) =>
+    request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  setPrincipalGuardianStatus: (guardianId: string, status: "active" | "passive") =>
+    request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status })
+    }),
+  resetPrincipalGuardianPassword: (guardianId: string) =>
+    request<{ temporaryPassword: string }>(`/api/v1/principal/guardians/${guardianId}/reset-password`, {
+      method: "POST",
+      body: "{}"
+    }),
+  linkPrincipalGuardianStudent: (
+    guardianId: string,
+    payload: { studentId: string; relation?: string; isPrimary?: boolean }
+  ) =>
+    request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}/students`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  unlinkPrincipalGuardianStudent: (guardianId: string, studentId: string) =>
+    request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}/students/${studentId}`, {
+      method: "DELETE"
+    }),
+  provisionServiceDriver: (payload: { email: string; firstName: string; lastName: string; phone?: string; title?: string }) =>
+    request<{ userId: string; serviceStaffId: string; email: string; temporaryPassword: string }>(
+      "/api/v1/principal/service-drivers",
+      {
+        method: "POST",
+        body: JSON.stringify(payload)
+      }
+    ),
   resetTeacherPassword: (teacherId: string) =>
     request<{ temporaryPassword: string }>(`/api/v1/teachers/${teacherId}/reset-password`, {
       method: "POST",
@@ -1582,8 +2475,63 @@ export const api = {
     }),
   deleteSupportPlan: (planId: string) =>
     request<void>(`/api/v1/guidance/support-plans/${planId}`, { method: "DELETE" }),
+  guidanceCases: (params?: { studentId?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.studentId) query.set("studentId", params.studentId);
+    if (params?.status) query.set("status", params.status);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<GuidanceCase[] | null>(`/api/v1/guidance/cases${suffix}`).then(asArray);
+  },
+  guidanceCaseStats: () => request<GuidanceCaseInboxStats>("/api/v1/guidance/cases/stats"),
+  guidanceCase: (caseId: string) => request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}`),
+  createGuidanceCase: (payload: {
+    studentId: string;
+    title: string;
+    summary?: string;
+    priority?: GuidanceCasePriority;
+    sensitivity?: string;
+  }) =>
+    request<GuidanceCase>("/api/v1/guidance/cases", { method: "POST", body: JSON.stringify(payload) }),
+  updateGuidanceCase: (
+    caseId: string,
+    payload: Partial<{
+      title: string;
+      summary: string;
+      status: GuidanceCaseStatus;
+      priority: GuidanceCasePriority;
+      sensitivity: string;
+    }>
+  ) =>
+    request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  closeGuidanceCase: (caseId: string) =>
+    request<GuidanceCaseCloseResult>(`/api/v1/guidance/cases/${caseId}/close`, { method: "POST", body: "{}" }),
+  reopenGuidanceCase: (caseId: string) =>
+    request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}/reopen`, { method: "POST", body: "{}" }),
+  guidanceCaseEvents: (caseId: string) =>
+    request<GuidanceCaseEvent[] | null>(`/api/v1/guidance/cases/${caseId}/events`).then(asArray),
+  guidanceCaseTimeline: (caseId: string) =>
+    request<GuidanceCaseTimelineItem[] | null>(`/api/v1/guidance/cases/${caseId}/timeline`).then(asArray),
+  createGuidanceCaseEvent: (
+    caseId: string,
+    payload: {
+      eventType?: GuidanceCaseEventType;
+      title: string;
+      body: string;
+      visibility?: GuidanceCaseEventVisibility;
+    }
+  ) =>
+    request<GuidanceCaseEvent>(`/api/v1/guidance/cases/${caseId}/events`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  guidanceEarlyWarnings: () =>
+    request<GuidanceEarlyWarningSignal[] | null>("/api/v1/guidance/early-warnings").then(asArray),
 
   aiCapabilities: () => request<AiCapabilitiesResult>("/api/v1/ai/capabilities"),
+  aiUsage: () => request<AiUsageSummary>("/api/v1/ai/usage"),
   createAiConversation: (payload?: { title?: string }) =>
     request<AiConversation>("/api/v1/ai/conversations", {
       method: "POST",

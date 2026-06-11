@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Pencil, UserX } from "lucide-react-native";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, CreditCard, Pencil, ReceiptText, UserX } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,6 +12,7 @@ import {
   View
 } from "react-native";
 import { api } from "@/shared/api/client";
+import { queryKeys } from "@/shared/api/queryKeys";
 import type { PrincipalRosterStudent, StudentFormPayload } from "@/shared/api/types";
 import { colors } from "@/shared/theme/colors";
 import { BottomSheet } from "@/shared/ui/BottomSheet";
@@ -264,6 +265,8 @@ export function PrincipalStudentModal({
               ) : null}
             </View>
 
+            <BillingStudentPanel student={student} />
+
             <View style={styles.attendanceCard}>
               {attendanceQ.isLoading ? <ActivityIndicator color={colors.accent} /> : null}
               {attendanceQ.isError ? <Text style={styles.error}>Devamsızlık özeti alınamadı.</Text> : null}
@@ -392,6 +395,155 @@ export function PrincipalStudentModal({
   );
 }
 
+function BillingStudentPanel({ student }: { student: PrincipalRosterStudent }) {
+  const queryClient = useQueryClient();
+  const [planName, setPlanName] = useState("Eğitim ücreti");
+  const [planAmount, setPlanAmount] = useState("30000");
+  const [installmentCount, setInstallmentCount] = useState("3");
+  const [startDate, setStartDate] = useState(todayIso());
+  const [error, setError] = useState<string | null>(null);
+
+  const accountQ = useQuery({
+    queryKey: queryKeys.billingStudentAccount(student.id),
+    queryFn: () => api.billingStudentAccount(student.id),
+    enabled: Boolean(student.id)
+  });
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.billingStudentAccount(student.id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.billingDashboard });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.billingOverdueReport });
+  };
+
+  const createPlanMut = useMutation({
+    mutationFn: () => {
+      const amount = Number(planAmount.replace(",", "."));
+      const count = Number.parseInt(installmentCount, 10);
+      if (!planName.trim() || !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(count) || count <= 0 || !startDate.trim()) {
+        throw new Error("Plan adı, tutar, taksit ve başlangıç tarihi zorunludur.");
+      }
+      return api.createBillingPlan(student.id, {
+        name: planName.trim(),
+        totalAmount: amount,
+        currency: "TRY",
+        startDate: startDate.trim(),
+        installmentCount: count
+      });
+    },
+    onSuccess: invalidate
+  });
+
+  const paymentMut = useMutation({
+    mutationFn: (installmentId: string) => {
+      const item = installments.find((candidate) => candidate.id === installmentId);
+      if (!item || item.remainingAmount <= 0) throw new Error("Tahsil edilecek taksit bulunamadı.");
+      return api.createBillingPayment(item.id, {
+        amount: item.remainingAmount,
+        method: "cash",
+        note: "Mobil tahsilat"
+      });
+    },
+    onSuccess: invalidate
+  });
+
+  const notFound = accountQ.isError && (accountQ.error as { status?: number })?.status === 404;
+  const account = accountQ.data;
+  const installments =
+    account?.plans.flatMap((plan) => plan.installments.map((installment) => ({ ...installment, planName: installment.planName ?? plan.name }))) ?? [];
+  const openInstallments = installments.filter((item) => item.remainingAmount > 0 && item.status !== "cancelled");
+  const overdueAmount = openInstallments
+    .filter((item) => item.status === "overdue")
+    .reduce((total, item) => total + item.remainingAmount, 0);
+  const outstanding = openInstallments.reduce((total, item) => total + item.remainingAmount, 0);
+
+  async function createPlan() {
+    setError(null);
+    try {
+      await createPlanMut.mutateAsync();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Plan oluşturulamadı.");
+    }
+  }
+
+  async function recordPayment(installmentId: string) {
+    setError(null);
+    try {
+      await paymentMut.mutateAsync(installmentId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ödeme kaydedilemedi.");
+    }
+  }
+
+  return (
+    <View style={styles.billingCard}>
+      <View style={styles.billingHead}>
+        <View style={styles.billingIconWrap}>
+          <CreditCard color={colors.success} size={18} strokeWidth={2.3} />
+        </View>
+        <View style={styles.recordCopy}>
+          <Text style={styles.sectionTitle}>Tahsilat</Text>
+          <Text style={styles.recordMeta}>
+            {accountQ.isLoading ? "Yükleniyor" : notFound ? "Plan bulunmuyor" : `${account?.plans.length ?? 0} ödeme planı`}
+          </Text>
+        </View>
+        <Text style={styles.billingAmount}>{money(outstanding)}</Text>
+      </View>
+
+      {accountQ.isError && !notFound ? <Text style={styles.error}>Tahsilat hesabı alınamadı.</Text> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {account || notFound ? (
+        <>
+          <View style={styles.summaryGrid}>
+            <SummaryPill label="Bekleyen" value={Math.round(outstanding)} />
+            <SummaryPill label="Gecikmiş" value={Math.round(overdueAmount)} tone={overdueAmount > 0 ? "danger" : undefined} />
+          </View>
+
+          {openInstallments.slice(0, 3).map((item) => (
+            <View key={item.id} style={styles.recordRow}>
+              <ReceiptText color={item.status === "overdue" ? colors.danger : colors.accent} size={15} strokeWidth={2.3} />
+              <View style={styles.recordCopy}>
+                <Text style={styles.recordTitle}>{item.planName ?? "Ödeme planı"}</Text>
+                <Text style={styles.recordMeta}>
+                  {item.dueDate} · {money(item.remainingAmount)}
+                </Text>
+              </View>
+              <Pressable
+                disabled={paymentMut.isPending}
+                onPress={() => void recordPayment(item.id)}
+                style={[styles.payBtn, paymentMut.isPending && styles.primaryBtnDisabled]}
+              >
+                <Text style={styles.payBtnText}>Tahsil et</Text>
+              </Pressable>
+            </View>
+          ))}
+
+          <View style={styles.planForm}>
+            <Text style={styles.formSectionTitle}>Yeni ödeme planı</Text>
+            <Field label="Plan adı" onChangeText={setPlanName} value={planName} />
+            <View style={styles.fieldRow}>
+              <View style={styles.fieldHalf}>
+                <Field keyboardType="numeric" label="Tutar" onChangeText={setPlanAmount} value={planAmount} />
+              </View>
+              <View style={styles.fieldHalf}>
+                <Field keyboardType="numeric" label="Taksit" onChangeText={setInstallmentCount} value={installmentCount} />
+              </View>
+            </View>
+            <Field label="Başlangıç" onChangeText={setStartDate} placeholder="YYYY-MM-DD" value={startDate} />
+            <Pressable
+              disabled={createPlanMut.isPending}
+              onPress={() => void createPlan()}
+              style={[styles.primaryBtn, createPlanMut.isPending && styles.primaryBtnDisabled]}
+            >
+              {createPlanMut.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Plan oluştur</Text>}
+            </Pressable>
+          </View>
+        </>
+      ) : null}
+    </View>
+  );
+}
+
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.infoTile}>
@@ -449,7 +601,7 @@ function Field({
   value: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
-  keyboardType?: "default" | "phone-pad";
+  keyboardType?: "default" | "phone-pad" | "numeric";
 }) {
   return (
     <View style={styles.field}>
@@ -464,6 +616,14 @@ function Field({
       />
     </View>
   );
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function money(value: number) {
+  return `${Math.round(value).toLocaleString("tr-TR")} TL`;
 }
 
 const styles = StyleSheet.create({
@@ -597,6 +757,51 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 16,
     gap: 10
+  },
+  billingCard: {
+    backgroundColor: colors.background,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    gap: 10
+  },
+  billingHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  billingIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ecfdf5"
+  },
+  billingAmount: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: colors.success
+  },
+  planForm: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    gap: 10
+  },
+  payBtn: {
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 9
+  },
+  payBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "800"
   },
   sectionTitle: {
     fontSize: 15,

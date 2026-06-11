@@ -58,8 +58,27 @@ export function InstitutionDetailPage({
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [modulesSaving, setModulesSaving] = useState(false);
 
   const fallbackInstitution = institutions.find((item) => item.id === institutionId);
+  const billingEnabled = (detail?.enabledModules ?? []).includes("billing");
+
+  async function toggleBillingModule(enabled: boolean) {
+    if (!detail) return;
+    setModulesSaving(true);
+    setDetailError(null);
+    try {
+      const base = detail.enabledModules ?? ["scheduling", "attendance", "guidance", "transport"];
+      const next = enabled ? Array.from(new Set([...base, "billing"])) : base.filter((item) => item !== "billing");
+      const updated = await api.updateSuperAdminInstitutionModules(detail.id, next);
+      setDetail(updated);
+      await onRefresh();
+    } catch (toggleError) {
+      setDetailError(toggleError instanceof Error ? toggleError.message : "Modül ayarı güncellenemedi.");
+    } finally {
+      setModulesSaving(false);
+    }
+  }
 
   async function loadDetail(id: string) {
     setDetailLoading(true);
@@ -223,6 +242,22 @@ export function InstitutionDetailPage({
               <span className="sa-kicker">Son güncelleme</span>
               <strong>{new Date(detail.updatedAt).toLocaleDateString("tr-TR")}</strong>
             </div>
+          </div>
+          <div className="sa-detail-modules">
+            <div>
+              <span className="sa-kicker">Premium modüller</span>
+              <strong>Tahsilat</strong>
+              <p>Öğrenci ödeme planı, taksit ve tahsilat ekranları.</p>
+            </div>
+            <label className="sa-module-toggle">
+              <input
+                checked={billingEnabled}
+                disabled={modulesSaving}
+                type="checkbox"
+                onChange={(event) => void toggleBillingModule(event.target.checked)}
+              />
+              <span>{billingEnabled ? "Aktif" : "Kapalı"}</span>
+            </label>
           </div>
         </section>
       )}

@@ -1,6 +1,6 @@
 import { Bot, Loader2, SendHorizontal, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AiCandidate, AiMessage, AiPendingActionSummary } from "../../lib/api";
+import type { AiCandidate, AiMessage, AiPendingActionSummary, AiUsageSummary } from "../../lib/api";
 import { api } from "../../lib/api";
 import "./OgtaAiDock.css";
 
@@ -21,6 +21,7 @@ export function OgtaAiDock({ onActionCompleted }: { onActionCompleted?: () => vo
     "Bugünkü derslerimi özetle",
     "Öğrenci gözlemi ekle"
   ]);
+  const [usage, setUsage] = useState<AiUsageSummary | null>(null);
 
   const ensureConversation = useCallback(async () => {
     if (conversationId) {
@@ -47,6 +48,13 @@ export function OgtaAiDock({ onActionCompleted }: { onActionCompleted?: () => vo
       setError(bootstrapError instanceof Error ? bootstrapError.message : "ogta.ai başlatılamadı.");
     });
   }, [conversationId, ensureConversation, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    void api.aiUsage().then(setUsage).catch(() => setUsage(null));
+  }, [open, messages.length]);
 
   const pendingAction = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -136,6 +144,13 @@ export function OgtaAiDock({ onActionCompleted }: { onActionCompleted?: () => vo
     }
   }
 
+  const dailyLimit = usage?.tenantDailyLimit && usage.tenantDailyLimit > 0 ? usage.tenantDailyLimit : usage?.dailyLimit ?? 0;
+  const dailyUsed =
+    usage?.tenantDailyLimit && usage.tenantDailyLimit > 0 ? usage.tenantMessagesToday : usage?.messagesToday ?? 0;
+  const dailyRemaining =
+    usage?.tenantDailyLimit && usage.tenantDailyLimit > 0 ? usage.tenantRemainingToday : usage?.remainingToday ?? 0;
+  const usagePercent = dailyLimit > 0 ? Math.min(100, Math.round((dailyUsed / dailyLimit) * 100)) : 0;
+
   return (
     <>
       <button className="ogta-ai-fab" type="button" onClick={() => setOpen(true)} aria-label="ogta.ai asistanını aç">
@@ -148,7 +163,17 @@ export function OgtaAiDock({ onActionCompleted }: { onActionCompleted?: () => vo
           <header className="ogta-ai-dock__header">
             <div>
               <strong>ogta.ai</strong>
-              <span>Operasyon asistanı</span>
+              <span>Operasyon asistanı — yazma işlemleri onay ile tamamlanır</span>
+              {usage && dailyLimit > 0 ? (
+                <div className="ogta-ai-usage">
+                  <div className="ogta-ai-usage__bar" aria-hidden="true">
+                    <span style={{ width: `${usagePercent}%` }} />
+                  </div>
+                  <small>
+                    Bugün {dailyUsed}/{dailyLimit} mesaj · kalan {dailyRemaining}
+                  </small>
+                </div>
+              ) : null}
             </div>
             <button className="ogta-ai-icon-button" type="button" onClick={() => setOpen(false)} aria-label="Kapat">
               <X size={18} />
@@ -164,7 +189,7 @@ export function OgtaAiDock({ onActionCompleted }: { onActionCompleted?: () => vo
             ) : messages.length === 0 ? (
               <div className="ogta-ai-empty">
                 <Bot size={22} />
-                <p>Doğal dille komut verin. Yazma işlemleri onay kartı ile tamamlanır.</p>
+                <p>Doğal dille komut verin. Kayıt, duyuru veya not ekleme gibi işlemler önce taslak olarak gelir; onayladıktan sonra sisteme yazılır.</p>
                 <div className="ogta-ai-suggestions">
                   {suggestions.map((suggestion) => (
                     <button key={suggestion} type="button" className="ogta-ai-suggestion" onClick={() => void sendMessage(suggestion)}>

@@ -45,7 +45,7 @@ function mapGuardianStudent(student: GuardianStudent, tenantName: string, index:
 }
 
 function initialGuardianData(): GuardianData {
-  return { scheduleLessons: [], announcements: [], attendanceRecords: [], notifications: [] };
+  return { scheduleLessons: [], announcements: [], attendanceRecords: [], notifications: [], guidanceUpdates: [] };
 }
 
 export function GuardianConsole({
@@ -78,11 +78,12 @@ export function GuardianConsole({
   );
 
   async function loadChildData(childId: string, tenantName: string) {
-    const [scheduleResult, attendanceResult, announcementsResult, notificationsResult] = await Promise.allSettled([
+    const [scheduleResult, attendanceResult, announcementsResult, notificationsResult, guidanceUpdatesResult] = await Promise.allSettled([
       api.guardianStudentSchedule(childId),
       api.guardianStudentAttendance(childId),
       api.guardianAnnouncements(),
-      api.guardianNotifications()
+      api.guardianNotifications(),
+      api.guardianStudentGuidanceUpdates(childId)
     ]);
 
     setData({
@@ -90,7 +91,8 @@ export function GuardianConsole({
       scheduleLessons: scheduleResult.status === "fulfilled" ? scheduleResult.value.lessons : [],
       announcements: announcementsResult.status === "fulfilled" ? (announcementsResult.value ?? []) : [],
       attendanceRecords: attendanceResult.status === "fulfilled" ? attendanceResult.value.records : [],
-      notifications: notificationsResult.status === "fulfilled" ? (notificationsResult.value ?? []) : []
+      notifications: notificationsResult.status === "fulfilled" ? (notificationsResult.value ?? []) : [],
+      guidanceUpdates: guidanceUpdatesResult.status === "fulfilled" ? (guidanceUpdatesResult.value ?? []) : []
     });
   }
 

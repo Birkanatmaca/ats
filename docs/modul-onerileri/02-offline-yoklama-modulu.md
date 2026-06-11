@@ -2,6 +2,8 @@
 
 > Amaç: Öğretmenin bağlantı zayıfken veya internet yokken yoklama alabilmesi, bağlantı geldiğinde kayıtların güvenli şekilde senkronize edilmesi.
 
+> Güncelleme (2026-06-08): Öğretmen mobil akışı uçtan uca tamamlandı. AsyncStorage kuyruğu, NetInfo bağlantı takibi, çevrimiçi yedekleme (`draft`), bağlantı kopunca `queued` yükseltme, otomatik replay, çakışma sheet'i, bekleyen kuyruk, çıkış uyarısı, takvim önbelleği ve idempotency key desteği devrede.
+
 ---
 
 ## 1. Ürün Kararı
@@ -178,4 +180,24 @@ POST  /api/v1/attendance/sessions/{id}/sync
 5. Conflict sheet.
 6. Idempotency/test.
 7. Müdür rapor ekranında pending uyarısı.
+
+---
+
+## 12. Uygulama Durumu (2026-06)
+
+| Alan | Durum |
+|------|-------|
+| Queue model + AsyncStorage | Tamam |
+| NetInfo + otomatik senkron | Tamam |
+| TeacherAttendanceScreen offline UI | Tamam |
+| Çevrimiçi lokal yedek (`draft`) | Tamam |
+| Çakışma sheet + reopen akışı | Tamam |
+| Bekleyen kuyruk + çıkış uyarısı | Tamam |
+| Takvim önbelleği (offline ders listesi) | Tamam |
+| Sabah otomatik prefetch (bugünkü tüm dersler) | Tamam |
+| Senkron sonrası offline cache korunması | Tamam |
+| Backend idempotency + version API | Tamam |
+| Unit test (queue, conflict, sync) | Tamam |
+| Müdür pending uyarısı | Tamam (web + mobil overview/yoklama/operasyon) |
+| Müdür offline yoklama | Sonraki faz |
 

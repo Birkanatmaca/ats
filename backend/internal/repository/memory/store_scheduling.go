@@ -251,7 +251,7 @@ func (s *Store) PublishSchedule(ctx context.Context, tenantID string, scheduleID
 	schedule.UpdatedAt = s.clock()
 	s.schedules[scheduleID] = schedule
 	s.schedule = schedule
-	s.appendOperationalAuditLocked(actorUserID, "schedule.publish", "schedule", scheduleID, `{}`)
+	s.appendOperationalAuditLocked(tenantID, actorUserID, "schedule.publish", "schedule", scheduleID, `{}`)
 	return schedule, true, nil
 }
 

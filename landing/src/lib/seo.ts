@@ -1,7 +1,15 @@
-import { APP_URL, CONTACT_EMAIL, LANDING_URL } from "./constants";
+import { CONTACT_EMAIL, LANDING_URL } from "./constants";
 import { globalKeywordsMeta } from "./seo-keywords";
 import type { SolutionPageConfig } from "./solution-pages";
 import { solutionPages } from "./solution-pages";
+
+type SitemapChangeFrequency = "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
+
+export type SitemapEntry = {
+  path: string;
+  priority: number;
+  changefreq: SitemapChangeFrequency;
+};
 
 export const SEO = {
   siteName: "OGTA",
@@ -13,6 +21,14 @@ export const SEO = {
   locale: "tr_TR",
   themeColor: "#0891b2",
   twitterHandle: "@ogtaiplatform"
+} as const;
+
+export const SOCIAL_IMAGE = {
+  path: "/ogta-og-logo-card.png",
+  alt: "OGTA okul yazılımı ve okul yönetim platformu",
+  width: 1200,
+  height: 630,
+  type: "image/png"
 } as const;
 
 export const FAQ_ITEMS = [
@@ -63,18 +79,58 @@ export const FAQ_ITEMS = [
   }
 ] as const;
 
-export const STATIC_SITEMAP_PATHS = [
-  { path: "/", priority: 1.0, changefreq: "weekly" as const },
-  { path: "/cozumler", priority: 0.99, changefreq: "weekly" as const },
-  { path: "/hakkimizda", priority: 0.8, changefreq: "monthly" as const },
-  { path: "/lisanslama", priority: 0.85, changefreq: "monthly" as const },
-  { path: "/sss", priority: 0.8, changefreq: "monthly" as const },
-  { path: "/iletisim", priority: 0.85, changefreq: "monthly" as const }
+export const STATIC_SITEMAP_PATHS: SitemapEntry[] = [
+  { path: "/", priority: 1.0, changefreq: "weekly" },
+  { path: "/cozumler", priority: 0.99, changefreq: "weekly" },
+  { path: "/hakkimizda", priority: 0.8, changefreq: "monthly" },
+  { path: "/lisanslama", priority: 0.85, changefreq: "monthly" },
+  { path: "/sss", priority: 0.8, changefreq: "monthly" },
+  { path: "/iletisim", priority: 0.85, changefreq: "monthly" }
 ];
 
-function absoluteUrl(path: string) {
-  const base = LANDING_URL.replace(/\/$/, "");
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+type JsonLdNode = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonLdNode {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function flattenStructuredData(input: unknown): JsonLdNode[] {
+  if (!input) return [];
+  if (Array.isArray(input)) return input.flatMap(flattenStructuredData);
+  if (isRecord(input) && Array.isArray(input["@graph"])) return flattenStructuredData(input["@graph"]);
+  return isRecord(input) ? [input] : [];
+}
+
+function stripJsonLdContext(node: JsonLdNode): JsonLdNode {
+  const rest = { ...node };
+  delete rest["@context"];
+  return rest;
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+export function siteBaseUrl(baseUrl = LANDING_URL) {
+  const trimmed = baseUrl.trim() || "https://ogtasis.com";
+  return trimmed.replace(/\/+$/, "");
+}
+
+export function canonicalPath(path = "/") {
+  const withoutLeadingSlash = path.trim().replace(/^\/+/, "");
+  const normalized = `/${withoutLeadingSlash}`.replace(/\/{2,}/g, "/");
+  return normalized === "/" ? "/" : normalized.replace(/\/+$/, "");
+}
+
+export function absoluteUrl(path = "/", baseUrl = LANDING_URL) {
+  const base = siteBaseUrl(baseUrl);
+  const normalized = canonicalPath(path);
+  return normalized === "/" ? `${base}/` : `${base}${normalized}`;
 }
 
 export function organizationJsonLd() {
@@ -92,7 +148,13 @@ export function organizationJsonLd() {
     url: absoluteUrl("/"),
     logo: absoluteUrl("/ogta-logo.png"),
     email: CONTACT_EMAIL,
-    sameAs: [APP_URL.replace(/\/$/, "")]
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: CONTACT_EMAIL,
+      contactType: "sales",
+      availableLanguage: ["tr-TR"]
+    },
+    sameAs: [absoluteUrl("/")]
   };
 }
 
@@ -207,6 +269,12 @@ export function solutionPageJsonLd(config: SolutionPageConfig) {
         name: SEO.siteName,
         url: absoluteUrl("/")
       },
+      primaryImageOfPage: {
+        "@type": "ImageObject",
+        url: seoImageUrl(),
+        width: SOCIAL_IMAGE.width,
+        height: SOCIAL_IMAGE.height
+      },
       about: {
         "@type": "SoftwareApplication",
         name: "OGTA",
@@ -226,33 +294,60 @@ export function solutionPageJsonLd(config: SolutionPageConfig) {
   ];
 }
 
-export function allStructuredData() {
-  return [organizationJsonLd(), softwareApplicationJsonLd(), webSiteJsonLd(), faqJsonLd()];
+export function structuredDataGraph(items: unknown | unknown[] = []) {
+  return {
+    "@context": "https://schema.org",
+    "@graph": flattenStructuredData(items).map(stripJsonLdContext)
+  };
+}
+
+export function allStructuredData(extra: unknown | unknown[] = []) {
+  return structuredDataGraph([organizationJsonLd(), softwareApplicationJsonLd(), webSiteJsonLd(), extra]);
 }
 
 export function seoImageUrl() {
-  return absoluteUrl("/ogta-logo.png");
+  return absoluteUrl(SOCIAL_IMAGE.path);
 }
 
-export function buildSitemapXml() {
-  const base = LANDING_URL.replace(/\/$/, "");
-  const urls = [
-    ...STATIC_SITEMAP_PATHS.map((entry) => ({
-      loc: `${base}${entry.path}`,
-      priority: entry.priority,
-      changefreq: entry.changefreq
-    })),
+export function sitemapEntries(): SitemapEntry[] {
+  const seen = new Set<string>();
+  const entries: SitemapEntry[] = [
+    ...STATIC_SITEMAP_PATHS,
     ...solutionPages.map((page) => ({
-      loc: `${base}${page.path}`,
+      path: page.path,
       priority: page.sitemapPriority,
       changefreq: "weekly" as const
     }))
   ];
 
+  return entries
+    .map((entry) => ({
+      ...entry,
+      path: canonicalPath(entry.path)
+    }))
+    .filter((entry) => {
+      if (seen.has(entry.path)) return false;
+      seen.add(entry.path);
+      return true;
+    })
+    .sort((a, b) => b.priority - a.priority || a.path.localeCompare(b.path, "tr"));
+}
+
+export function buildSitemapXml({
+  baseUrl = LANDING_URL,
+  lastmod = new Date().toISOString().slice(0, 10)
+}: { baseUrl?: string; lastmod?: string } = {}) {
+  const urls = sitemapEntries().map((entry) => ({
+    loc: absoluteUrl(entry.path, baseUrl),
+    priority: entry.priority,
+    changefreq: entry.changefreq
+  }));
+
   const body = urls
     .map(
       (url) => `  <url>
-    <loc>${url.loc}</loc>
+    <loc>${escapeXml(url.loc)}</loc>
+    <lastmod>${escapeXml(lastmod)}</lastmod>
     <changefreq>${url.changefreq}</changefreq>
     <priority>${url.priority.toFixed(2)}</priority>
   </url>`

@@ -13,6 +13,7 @@ const (
 	RolePrincipal   Role = "principal"
 	RoleGuidance    Role = "guidance"
 	RoleTeacher     Role = "teacher"
+	RoleDriver      Role = "driver"
 	RoleGuardian    Role = "guardian"
 )
 

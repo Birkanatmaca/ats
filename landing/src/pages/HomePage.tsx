@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { SeoHead } from "../components/SeoHead";
 import { Hero } from "../components/Hero";
 import { RoleShowcaseSection } from "../components/RoleShowcaseSection";
 import { Features } from "../components/Features";
 import { OgtaAiSection } from "../components/OgtaAiSection";
+import { SeoDiscoverSection } from "../components/SeoDiscoverSection";
+import { PageSeo } from "../components/PageSeo";
+import { SEO } from "../lib/seo";
 
 export function HomePage() {
   useEffect(() => {
@@ -20,11 +22,12 @@ export function HomePage() {
 
   return (
     <>
-      <SeoHead />
+      <PageSeo description={SEO.description} path="/" title={SEO.title} />
       <main>
         <Hero />
         <RoleShowcaseSection />
         <Features />
+        <SeoDiscoverSection />
         <OgtaAiSection />
       </main>
     </>

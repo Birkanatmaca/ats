@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	attendancedomain "ots/backend/internal/domain/attendance"
 	domain "ots/backend/internal/domain/guidance"
+	observationdomain "ots/backend/internal/domain/observation"
 )
 
 type scopeTestRepo struct {
@@ -136,6 +138,14 @@ func (r *scopeTestRepo) DeleteRiskTracking(_ context.Context, _, trackingID stri
 }
 
 func (r *scopeTestRepo) RecordOperationalAudit(context.Context, string, string, string, string, string, string) {
+}
+
+func (r *scopeTestRepo) StudentAttendanceSummary(context.Context, string, string) (attendancedomain.StudentSummary, bool) {
+	return attendancedomain.StudentSummary{}, false
+}
+
+func (r *scopeTestRepo) ListObservations(context.Context, string) []observationdomain.Observation {
+	return nil
 }
 
 func (r *scopeTestRepo) ListGuidanceCases(context.Context, string, string, string) ([]domain.Case, error) {

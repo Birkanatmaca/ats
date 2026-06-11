@@ -3,10 +3,11 @@ package school
 import "time"
 
 type Tenant struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Plan     string `json:"plan"`
-	Timezone string `json:"timezone"`
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	Plan            string   `json:"plan"`
+	Timezone        string   `json:"timezone"`
+	EnabledModules  []string `json:"enabledModules,omitempty"`
 }
 
 type Class struct {

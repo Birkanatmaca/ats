@@ -9,6 +9,7 @@ import (
 
 	"ots/backend/internal/domain/identity"
 	"ots/backend/internal/domain/school"
+	transportdomain "ots/backend/internal/domain/transport"
 	superadmindomain "ots/backend/internal/domain/superadmin"
 )
 
@@ -500,6 +501,51 @@ func (s *Store) ProvisionTeacher(ctx context.Context, tenantID string, input sch
 	return school.ProvisionTeacherResult{Teacher: teacher, Email: email, TemporaryPassword: cred.TemporaryPassword}, nil
 }
 
+func (s *Store) ProvisionServiceDriver(ctx context.Context, tenantID string, input school.ProvisionServiceDriverInput) (school.ProvisionServiceDriverResult, error) {
+	email := strings.ToLower(strings.TrimSpace(input.Email))
+	fullName := school.JoinFullName(input.FirstName, input.LastName)
+	phone := strings.TrimSpace(input.Phone)
+	s.mu.Lock()
+	for _, user := range s.users {
+		if strings.ToLower(user.Email) == email {
+			s.mu.Unlock()
+			return school.ProvisionServiceDriverResult{}, school.ErrDuplicateEmail
+		}
+	}
+	s.mu.Unlock()
+
+	cred, err := s.CreateInstitutionUser(ctx, identity.Principal{TenantID: tenantID}, tenantID, superadmindomain.CreateInstitutionUserInput{
+		Email:    email,
+		FullName: fullName,
+		Role:     string(identity.RoleDriver),
+	})
+	if err != nil {
+		return school.ProvisionServiceDriverResult{}, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	staff := transportdomain.Staff{
+		ID:            fmt.Sprintf("service-staff-%d", len(s.serviceStaff)+1),
+		TenantID:      tenantID,
+		UserID:        cred.User.ID,
+		FullName:      fullName,
+		Phone:         phone,
+		Role:          transportdomain.StaffDriver,
+		Status:        transportdomain.StatusActive,
+		SharingStatus:  "passive",
+		CreatedAt:     s.clock(),
+		UpdatedAt:     s.clock(),
+	}
+	s.serviceStaff = append(s.serviceStaff, staff)
+	return school.ProvisionServiceDriverResult{
+		UserID:            cred.User.ID,
+		ServiceStaffID:    staff.ID,
+		Email:             email,
+		TemporaryPassword: cred.TemporaryPassword,
+	}, nil
+}
+
 func (s *Store) ProvisionGuardian(ctx context.Context, tenantID string, input school.ProvisionGuardianInput) (school.ProvisionGuardianResult, error) {
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 	relation := strings.TrimSpace(input.Relation)
@@ -533,19 +579,32 @@ func (s *Store) ProvisionGuardian(ctx context.Context, tenantID string, input sc
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	profile := s.ensureGuardianProfileLocked(tenantID, cred.User.ID, school.JoinFullName(input.FirstName, input.LastName), email)
 	linked := 0
 	for _, studentID := range input.StudentIDs {
 		studentID = strings.TrimSpace(studentID)
 		if studentID == "" {
 			continue
 		}
+		duplicate := false
+		for _, link := range s.studentGuardians {
+			if link.GuardianUserID == cred.User.ID && link.StudentID == studentID {
+				duplicate = true
+				break
+			}
+		}
+		if duplicate {
+			continue
+		}
 		s.studentGuardians = append(s.studentGuardians, memoryStudentGuardian{
 			GuardianUserID: cred.User.ID,
 			StudentID:      studentID,
 			Relation:       relation,
+			IsPrimary:      linked == 0,
 		})
 		linked++
 	}
+	_ = profile
 	return school.ProvisionGuardianResult{
 		UserID:            cred.User.ID,
 		Email:             email,

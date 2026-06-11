@@ -50,9 +50,6 @@ func normalizeAudienceTarget(item domain.AudienceTarget) domain.AudienceTarget {
 	item.Type = domain.AudienceType(strings.TrimSpace(strings.ToLower(string(item.Type))))
 	item.ID = strings.TrimSpace(item.ID)
 	item.Role = strings.TrimSpace(strings.ToLower(item.Role))
-	if item.Type == domain.AudienceSection {
-		item.Type = domain.AudienceClass
-	}
 	if item.Type == domain.AudienceRole {
 		if item.Role == "teachers" {
 			item.Role = "teacher"
@@ -117,12 +114,27 @@ func userMatchesSingleAudience(ctx domain.UserTargetContext, audience domain.Aud
 			}
 		}
 		return false
-	case domain.AudienceClass, domain.AudienceSection:
+	case domain.AudienceClass:
 		if audience.ID == "" {
 			return false
 		}
 		for _, studentID := range ctx.GuardianStudentIDs {
 			if ctx.StudentClassIDs[studentID] == audience.ID {
+				return true
+			}
+		}
+		for _, role := range ctx.RoleCodes {
+			if role == "teacher" || role == "principal" || role == "system_admin" {
+				return true
+			}
+		}
+		return false
+	case domain.AudienceSection:
+		if audience.ID == "" {
+			return false
+		}
+		for _, studentID := range ctx.GuardianStudentIDs {
+			if ctx.StudentSectionIDs[studentID] == audience.ID {
 				return true
 			}
 		}

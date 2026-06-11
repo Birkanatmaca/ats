@@ -1,0 +1,75 @@
+.guardian-guidance-updates-empty {
+  margin: 0;
+  padding: 8px 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.guardian-guidance-updates-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guardian-guidance-updates-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.guardian-guidance-updates-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: #e0e7ff;
+  color: #4338ca;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.guardian-guidance-updates-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.guardian-guidance-updates-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.guardian-guidance-updates-meta span {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.guardian-guidance-updates-copy strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.guardian-guidance-updates-copy p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #334155;
+}
+
+.guardian-guidance-updates-copy small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+}

@@ -43,16 +43,15 @@ export function SuperAdminConsole({
     setLoading(true);
     setError(null);
     try {
-      const [overview, systemMetrics, institutions, users, auditLogs, settings, supportTickets] = await Promise.all([
+      const [overview, systemMetrics, institutions, users, settings, supportTickets] = await Promise.all([
         api.superAdminOverview(),
         api.superAdminSystemMetrics(),
         api.superAdminInstitutions(),
         api.superAdminUsers(),
-        api.superAdminAuditLogs(),
         api.superAdminSettings(),
         api.superAdminSupportTickets()
       ]);
-      setState({ overview, systemMetrics, institutions, users, auditLogs, settings, supportTickets });
+      setState({ overview, systemMetrics, institutions, users, settings, supportTickets });
       onSystemStatusChange({ maintenance: settings.maintenance });
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Süper admin verileri alınamadı.");
@@ -125,7 +124,7 @@ export function SuperAdminConsole({
             <Route path="billing" element={<BillingPage />} />
             <Route path="users" element={<UsersPage users={state.users ?? []} institutions={state.institutions ?? []} onRefresh={load} />} />
             <Route path="support" element={<SupportPage tickets={state.supportTickets ?? []} onRefresh={load} />} />
-            <Route path="logs" element={<LogsPage auditLogs={state.auditLogs ?? []} />} />
+            <Route path="logs" element={<LogsPage />} />
             <Route path="ai" element={<AiUsagePage />} />
             <Route path="modules" element={<ModulesPage modules={state.overview?.modules ?? []} />} />
             <Route path="settings" element={<SettingsPage settings={state.settings} onRefresh={load} onSystemStatusChange={onSystemStatusChange} />} />

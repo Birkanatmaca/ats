@@ -227,12 +227,13 @@ RETURNING id::text`, tenantID, userID, title, body, kind).Scan(&id)
 func (s *Store) RecordDeliveryLog(ctx context.Context, entry pushdomain.DeliveryLog) (string, error) {
 	var id string
 	err := s.db.QueryRowContext(ctx, `
-INSERT INTO push_delivery_logs (tenant_id, user_id, device_token_id, category, title, status, provider)
-VALUES ($1, $2::uuid, NULLIF($3, '')::uuid, $4, $5, $6, $7)
+INSERT INTO push_delivery_logs (tenant_id, user_id, device_token_id, source_kind, category, title, status, provider)
+VALUES ($1, $2::uuid, NULLIF($3, '')::uuid, NULLIF($4, ''), $5, $6, $7, $8)
 RETURNING id::text`,
 		entry.TenantID,
 		entry.UserID,
 		entry.DeviceTokenID,
+		entry.SourceKind,
 		entry.Category,
 		entry.Title,
 		defaultString(entry.Status, pushdomain.DeliveryStatusQueued),
@@ -379,4 +380,197 @@ func defaultString(value, fallback string) string {
 
 func (s *Store) ListGuardianUserIDsForStudent(ctx context.Context, tenantID, studentID string) ([]string, error) {
 	return s.listGuardianUserIDsForStudent(ctx, tenantID, studentID)
+}
+
+func (s *Store) ListServiceRouteGuardianTargets(ctx context.Context, tenantID, routeID string) ([]pushdomain.TransportRecipient, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT DISTINCT g.user_id::text, ssa.student_id::text
+FROM student_service_assignments ssa
+JOIN student_guardians sg ON sg.student_id = ssa.student_id AND sg.tenant_id = ssa.tenant_id
+JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = sg.tenant_id
+WHERE ssa.tenant_id = $1::uuid
+  AND ssa.route_id = $2::uuid
+  AND ssa.status = 'active'
+  AND g.user_id IS NOT NULL`, tenantID, routeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]pushdomain.TransportRecipient, 0)
+	for rows.Next() {
+		var item pushdomain.TransportRecipient
+		if err := rows.Scan(&item.UserID, &item.StudentID); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetPrincipalAttendancePendingSummary(ctx context.Context, tenantID string) (pushdomain.PrincipalAttendancePending, error) {
+	now := s.clock()
+	todayWeekday := isoWeekday(now)
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	var todayLessons, finalizedToday int
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM schedule_lessons sl
+JOIN schedules sc ON sc.id = sl.schedule_id
+WHERE sl.tenant_id = $1 AND sc.status = 'published' AND sl.day_of_week = $2`, tenantID, todayWeekday).Scan(&todayLessons)
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(DISTINCT sess.schedule_lesson_id)
+FROM attendance_sessions sess
+JOIN schedule_lessons sl ON sl.id = sess.schedule_lesson_id
+JOIN schedules sc ON sc.id = sl.schedule_id
+WHERE sess.tenant_id = $1
+  AND sc.status = 'published'
+  AND sl.day_of_week = $2
+  AND sess.finalized_at IS NOT NULL
+  AND sess.started_at >= $3
+  AND sess.started_at < $4`, tenantID, todayWeekday, dayStart, dayEnd).Scan(&finalizedToday)
+
+	pendingClasses := make([]string, 0)
+	rows, err := s.db.QueryContext(ctx, `
+SELECT c.name,
+       COALESCE((
+         SELECT COUNT(*)
+         FROM schedule_lessons sl
+         JOIN schedules sc ON sc.id = sl.schedule_id
+         WHERE sl.tenant_id = c.tenant_id AND sl.class_id = c.id
+           AND sc.status = 'published' AND sl.day_of_week = $2
+       ), 0) AS total_lessons,
+       COALESCE((
+         SELECT COUNT(DISTINCT sl.id)
+         FROM schedule_lessons sl
+         JOIN schedules sc ON sc.id = sl.schedule_id
+         JOIN attendance_sessions sess ON sess.schedule_lesson_id = sl.id
+         WHERE sl.tenant_id = c.tenant_id AND sl.class_id = c.id
+           AND sc.status = 'published' AND sl.day_of_week = $2
+           AND sess.finalized_at IS NOT NULL
+           AND sess.started_at >= $3 AND sess.started_at < $4
+       ), 0) AS completed_lessons
+FROM classes c
+WHERE c.tenant_id = $1 AND c.deleted_at IS NULL
+ORDER BY c.name`, tenantID, todayWeekday, dayStart, dayEnd)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			var totalLessons, completedLessons int
+			if err := rows.Scan(&name, &totalLessons, &completedLessons); err != nil {
+				continue
+			}
+			if totalLessons > 0 && completedLessons < totalLessons {
+				pendingClasses = append(pendingClasses, name)
+			}
+		}
+	}
+
+	return pushdomain.PrincipalAttendancePending{
+		TodayLessons:   todayLessons,
+		FinalizedToday: finalizedToday,
+		PendingClasses: pendingClasses,
+		DateKey:        now.Format("2006-01-02"),
+	}, nil
+}
+
+func (s *Store) ListBillingUpcomingReminders(ctx context.Context, tenantID string, withinDays int) ([]pushdomain.BillingInstallmentReminder, error) {
+	if withinDays <= 0 {
+		withinDays = 3
+	}
+	rows, err := s.db.QueryContext(ctx, `
+SELECT pi.id::text, ba.student_id::text, s.full_name, pp.name, pi.due_date::text, guardian.user_id::text
+FROM payment_installments pi
+JOIN payment_plans pp ON pp.id = pi.payment_plan_id
+JOIN billing_accounts ba ON ba.id = pi.billing_account_id
+JOIN students s ON s.id = ba.student_id
+LEFT JOIN LATERAL (
+  SELECT g.user_id::text
+  FROM student_guardians sg
+  JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = sg.tenant_id
+  WHERE sg.tenant_id = pi.tenant_id AND sg.student_id = ba.student_id AND g.user_id IS NOT NULL
+  ORDER BY sg.is_primary DESC, g.created_at
+  LIMIT 1
+) guardian ON true
+WHERE pi.tenant_id = $1
+  AND pi.status NOT IN ('paid', 'cancelled')
+  AND (pi.amount - COALESCE(pi.paid_amount, 0)) > 0
+  AND pi.due_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + ($2 * INTERVAL '1 day')
+  AND guardian.user_id IS NOT NULL`, tenantID, withinDays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanBillingInstallmentReminders(rows)
+}
+
+func (s *Store) ListBillingOverdueReminders(ctx context.Context, tenantID string) ([]pushdomain.BillingInstallmentReminder, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT pi.id::text, ba.student_id::text, s.full_name, pp.name, pi.due_date::text, guardian.user_id::text
+FROM payment_installments pi
+JOIN payment_plans pp ON pp.id = pi.payment_plan_id
+JOIN billing_accounts ba ON ba.id = pi.billing_account_id
+JOIN students s ON s.id = ba.student_id
+LEFT JOIN LATERAL (
+  SELECT g.user_id::text
+  FROM student_guardians sg
+  JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = sg.tenant_id
+  WHERE sg.tenant_id = pi.tenant_id AND sg.student_id = ba.student_id AND g.user_id IS NOT NULL
+  ORDER BY sg.is_primary DESC, g.created_at
+  LIMIT 1
+) guardian ON true
+WHERE pi.tenant_id = $1
+  AND pi.status NOT IN ('paid', 'cancelled')
+  AND (pi.amount - COALESCE(pi.paid_amount, 0)) > 0
+  AND pi.due_date::date < CURRENT_DATE
+  AND guardian.user_id IS NOT NULL`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanBillingInstallmentReminders(rows)
+}
+
+func (s *Store) GetBillingOverdueSummary(ctx context.Context, tenantID string) (pushdomain.BillingOverdueSummary, error) {
+	var summary pushdomain.BillingOverdueSummary
+	summary.DateKey = s.clock().Format("2006-01-02")
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(*), COALESCE(SUM(pi.amount - COALESCE(pi.paid_amount, 0)), 0)
+FROM payment_installments pi
+WHERE pi.tenant_id = $1
+  AND pi.status NOT IN ('paid', 'cancelled')
+  AND (pi.amount - COALESCE(pi.paid_amount, 0)) > 0
+  AND pi.due_date::date < CURRENT_DATE`, tenantID).Scan(&summary.Count, &summary.Amount)
+	return summary, nil
+}
+
+func scanBillingInstallmentReminders(rows *sql.Rows) ([]pushdomain.BillingInstallmentReminder, error) {
+	out := make([]pushdomain.BillingInstallmentReminder, 0)
+	for rows.Next() {
+		var item pushdomain.BillingInstallmentReminder
+		if err := rows.Scan(&item.InstallmentID, &item.StudentID, &item.StudentName, &item.PlanName, &item.DueDate, &item.UserID); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ListPrincipalNotifyUserIDs(ctx context.Context, tenantID string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT DISTINCT ur.user_id::text
+FROM user_roles ur
+JOIN roles r ON r.id = ur.role_id
+JOIN users u ON u.id = ur.user_id
+WHERE ur.tenant_id = $1
+  AND u.status = 'active'
+  AND u.deleted_at IS NULL
+  AND r.code IN ('principal', 'system_admin')`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanStringColumn(rows)
 }

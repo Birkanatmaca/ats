@@ -9,6 +9,8 @@ var (
 	ErrClassNotFound        = errors.New("class not found")
 	ErrStudentNotFound      = errors.New("student not found")
 	ErrTeacherNotFound      = errors.New("teacher not found")
+	ErrGuardianNotFound     = errors.New("guardian not found")
+	ErrGuardianLinkExists   = errors.New("guardian student link already exists")
 	ErrSubjectNotFound      = errors.New("subject not found")
 	ErrAcademicYearNotFound = errors.New("academic year not found")
 	ErrTermNotFound         = errors.New("term not found")
@@ -109,6 +111,21 @@ type ProvisionTeacherResult struct {
 	Teacher           Teacher `json:"teacher"`
 	Email             string  `json:"email"`
 	TemporaryPassword string  `json:"temporaryPassword"`
+}
+
+type ProvisionServiceDriverInput struct {
+	Email     string `json:"email"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Phone     string `json:"phone,omitempty"`
+	Title     string `json:"title,omitempty"`
+}
+
+type ProvisionServiceDriverResult struct {
+	UserID            string `json:"userId"`
+	ServiceStaffID    string `json:"serviceStaffId"`
+	Email             string `json:"email"`
+	TemporaryPassword string `json:"temporaryPassword"`
 }
 
 type ProvisionGuardianInput struct {

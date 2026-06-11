@@ -9,6 +9,7 @@ import (
 
 	announcementdomain "ots/backend/internal/domain/announcement"
 	"ots/backend/internal/domain/identity"
+	pushdomain "ots/backend/internal/domain/push"
 )
 
 type memoryTargetedAnnouncement struct {
@@ -208,6 +209,20 @@ func (s *Store) MarkAnnouncementRead(_ context.Context, tenantID, announcementID
 	return nil
 }
 
+func (s *Store) GetAnnouncementRead(_ context.Context, tenantID, announcementID, userID string) (*time.Time, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.announcementReads == nil {
+		return nil, nil
+	}
+	readAt, ok := s.announcementReads[tenantID+":"+announcementID+":"+userID]
+	if !ok {
+		return nil, nil
+	}
+	copy := readAt
+	return &copy, nil
+}
+
 func (s *Store) CountAnnouncementReads(_ context.Context, tenantID, announcementID string) (int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -224,10 +239,48 @@ func (s *Store) CountAnnouncementReads(_ context.Context, tenantID, announcement
 	return count, nil
 }
 
+func (s *Store) CountAnnouncementDeliveries(_ context.Context, tenantID, announcementID string) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	prefix := "announcement:" + announcementID + ":"
+	count := 0
+	for _, item := range s.notifications {
+		if item.TenantID == tenantID && strings.HasPrefix(item.Kind, prefix) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (s *Store) CountAnnouncementPushDeliveries(_ context.Context, tenantID, announcementID string) (announcementdomain.PushDeliveryStats, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	prefix := "announcement:" + announcementID + ":"
+	var stats announcementdomain.PushDeliveryStats
+	for _, item := range s.ensureDeliveryLogs() {
+		if item.TenantID != tenantID || !strings.HasPrefix(item.SourceKind, prefix) {
+			continue
+		}
+		switch item.Status {
+		case pushdomain.DeliveryStatusSent:
+			stats.Sent++
+		case pushdomain.DeliveryStatusDropped:
+			stats.Dropped++
+		case pushdomain.DeliveryStatusFailed:
+			stats.Failed++
+		}
+	}
+	return stats, nil
+}
+
 func (s *Store) GetUserTargetContext(_ context.Context, tenantID, userID string) (announcementdomain.UserTargetContext, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	ctxData := announcementdomain.UserTargetContext{UserID: userID, StudentClassIDs: map[string]string{}}
+	ctxData := announcementdomain.UserTargetContext{
+		UserID:            userID,
+		StudentClassIDs:   map[string]string{},
+		StudentSectionIDs: map[string]string{},
+	}
 	for _, user := range s.users {
 		if user.TenantID != tenantID || user.ID != userID {
 			continue
@@ -242,6 +295,7 @@ func (s *Store) GetUserTargetContext(_ context.Context, tenantID, userID string)
 		for _, student := range s.students {
 			if student.ID == link.StudentID && student.ClassID != "" {
 				ctxData.StudentClassIDs[link.StudentID] = student.ClassID
+				ctxData.StudentSectionIDs[link.StudentID] = student.ClassID + "-default"
 			}
 		}
 	}
@@ -283,10 +337,23 @@ func (s *Store) resolveAudienceUserIDsLocked(tenantID string, audience announcem
 				out = append(out, user.ID)
 			}
 		}
-	case announcementdomain.AudienceClass, announcementdomain.AudienceSection:
+	case announcementdomain.AudienceClass:
 		for _, link := range s.studentGuardians {
 			for _, student := range s.students {
 				if student.ID != link.StudentID || student.ClassID != audience.ID {
+					continue
+				}
+				out = append(out, link.GuardianUserID)
+			}
+		}
+	case announcementdomain.AudienceSection:
+		for _, link := range s.studentGuardians {
+			for _, student := range s.students {
+				sectionID := ""
+				if student.ClassID != "" {
+					sectionID = student.ClassID + "-default"
+				}
+				if student.ID != link.StudentID || sectionID != audience.ID {
 					continue
 				}
 				out = append(out, link.GuardianUserID)
