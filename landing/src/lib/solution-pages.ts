@@ -1,5 +1,16 @@
 import { KEYWORD_CLUSTERS, SEO_CATEGORIES, keywordsToMeta, type SeoCategory } from "./seo-keywords";
 
+export type ComparisonRow = {
+  label: string;
+  ogta: string;
+  legacy: string;
+};
+
+export type UseCase = {
+  title: string;
+  description: string;
+};
+
 export type SolutionPageConfig = {
   path: string;
   slug: string;
@@ -14,6 +25,9 @@ export type SolutionPageConfig = {
   faq: { question: string; answer: string }[];
   relatedLinks: { href: string; label: string }[];
   sitemapPriority: number;
+  highlights?: string[];
+  useCases?: UseCase[];
+  comparisonRows?: ComparisonRow[];
 };
 
 type PageDraft = Omit<SolutionPageConfig, "keywords" | "relatedLinks" | "slug"> & {
@@ -247,35 +261,196 @@ const solutionPageDrafts: PageDraft[] = [
     ]
   },
   {
+    slug: "okul-takip",
+    path: "/okul-takip",
+    category: "takip",
+    sitemapPriority: 0.97,
+    title: "Okul Takip | OGTA — Kurum Operasyonları ve Devamsızlık İzleme",
+    metaDescription:
+      "Okul takip yazılımı OGTA: yoklama tamamlama, devam oranı, sınıf metrikleri ve veli bilgilendirme tek okul takip panelinde. Özel okul ve kolejler için.",
+    h1: "Okul Takip",
+    lead:
+      "OGTA okul takip çözümü, müdür ve idari ekibin kurum genelindeki operasyonu tek ekrandan izlemesini sağlar. Okul takip sistemi olarak devamsızlık, yoklama ve sınıf performansını gerçek zamanlı birleştirir.",
+    sections: [
+      {
+        title: "Okul takip nedir?",
+        paragraphs: [
+          "Okul takip; yoklama, devamsızlık, ders programı uyumu ve veli bilgilendirme süreçlerinin kurum düzeyinde izlenmesidir. Excel ve mesajlaşma uygulamalarıyla yapılan manuel okul takip, veri gecikmesi ve tutarsız raporlama üretir.",
+          "OGTA okul takip yazılımı tüm paydaşları aynı veri modelinde buluşturur: öğretmen yoklama alır, müdür anlık görür, veli bildirim alır."
+        ]
+      },
+      {
+        title: "Kimler kullanır?",
+        paragraphs: [
+          "Müdür ve idari ekip okul takip panelinde günlük operasyon özetini görür. Öğretmen sınıf bazlı yoklama girer. Rehberlik öğrenci risk sinyallerini takip eder. Veli yalnızca kendi çocuğunun devamsızlık ve program bilgisine erişir."
+        ]
+      }
+    ],
+    highlights: [
+      "Günlük yoklama tamamlama oranı",
+      "Sınıf ve şube bazlı devam metrikleri",
+      "Devamsızlık trend uyarıları",
+      "Veli SMS ve uygulama bildirimleri",
+      "Müdür dashboard KPI'ları"
+    ],
+    features: [
+      { title: "Anlık görünürlük", text: "Hangi sınıfın yoklaması eksik, tek bakışta." },
+      { title: "Entegre veri", text: "Yoklama, program ve veli bildirimi aynı akışta." },
+      { title: "Mobil erişim", text: "Okul takip paneline telefon ve tabletten erişim." },
+      { title: "ogta.ai", text: "Doğal dil ile operasyon sorguları." }
+    ],
+    faq: [
+      {
+        question: "Okul takip ile okul takip sistemi aynı mı?",
+        answer:
+          "Okul takip genel ihtiyaçtır; okul takip sistemi bu ihtiyacı yazılımla karşılar. OGTA her ikisini tek platformda sunar. Detaylı modül anlatımı için okul takip sistemi sayfamıza bakın."
+      },
+      {
+        question: "Okul takip yazılımı kurulum gerektirir mi?",
+        answer: "Hayır. OGTA bulut tabanlıdır; tarayıcı veya mobil uygulama ile hemen kullanıma başlanır."
+      }
+    ]
+  },
+  {
+    slug: "okul-yonetim",
+    path: "/okul-yonetim",
+    category: "yonetim",
+    sitemapPriority: 0.97,
+    title: "Okul Yönetim | OGTA — Dijital Okul Operasyonları ve Yönetim Platformu",
+    metaDescription:
+      "Okul yönetim yazılımı OGTA: yoklama, ders programı, öğrenci takip, rehberlik ve veli paneli. Özel okul ve kolejler için modern okul yönetim çözümü.",
+    h1: "Okul Yönetim",
+    lead:
+      "OGTA okul yönetim platformu, kurumunuzun günlük operasyonlarını dijitalleştirir. Okul yönetim sistemi olarak personel, sınıf, program, yoklama ve veli süreçlerini tek merkezden yönetmenizi sağlar.",
+    sections: [
+      {
+        title: "Okul yönetim neden dijitalleşmeli?",
+        paragraphs: [
+          "Dağınık araçlarla yürütülen okul yönetim; yoklama gecikmesi, program çakışması ve veli iletişim kopukluğu üretir. Merkezi okul yönetim yazılımı bu riskleri azaltır.",
+          "OGTA okul yönetim programı müdür, öğretmen, rehber ve veli rollerini aynı tenant üzerinde güvenli biçimde ayırır."
+        ]
+      },
+      {
+        title: "Okul yönetim modülleri",
+        paragraphs: [
+          "Öğrenci ve sınıf yönetimi, akıllı yoklama, AI destekli ders programı, rehberlik vaka dosyası, duyuru ve veli paneli — okul yönetim ihtiyaçlarının tamamı modüler paketlerle sunulur."
+        ]
+      }
+    ],
+    highlights: [
+      "Çok kiracılı (multi-tenant) kurum izolasyonu",
+      "Rol bazlı erişim ve denetim izi",
+      "Müdür operasyon dashboard'u",
+      "Modüler Starter / Core / Premium paketler",
+      "KVKK odaklı veri ayrıştırma"
+    ],
+    features: [
+      { title: "Tek platform", text: "Ayrı yazılım ve Excel dosyalarına gerek kalmaz." },
+      { title: "Ölçeklenebilir", text: "150'den 5.000+ öğrenciye kadar." },
+      { title: "AI destekli", text: "ogta.ai ile operasyon hızlandırma." },
+      { title: "Kurumsal güvenlik", text: "RBAC, audit log, tenant izolasyonu." }
+    ],
+    faq: [
+      {
+        question: "Okul yönetim ile okul yönetim sistemi farkı nedir?",
+        answer:
+          "Okul yönetim operasyonel süreçlerin bütünüdür; okul yönetim sistemi bunu yazılımla destekler. OGTA okul yönetim sistemi sayfasında modül detaylarını inceleyebilirsiniz."
+      },
+      {
+        question: "Hangi kurumlar OGTA okul yönetim kullanabilir?",
+        answer: "Özel okul, kolej, kurs merkezi, etüt merkezi ve rehberlik odaklı eğitim kurumları."
+      }
+    ]
+  },
+  {
     slug: "okul-takip-sistemi",
     path: "/okul-takip-sistemi",
     category: "takip",
     sitemapPriority: 0.95,
-    title: "Okul Takip Sistemi | OGTA — Operasyon ve Devamsızlık İzleme",
+    title: "Okul Takip Sistemi | OGTA — Operasyon, Devamsızlık ve Yoklama İzleme",
     metaDescription:
-      "OGTA okul takip sistemi ile kurum operasyonları, devamsızlık trendleri, sınıf metrikleri ve yoklama durumu gerçek zamanlı izlenir. Okul takip yazılımı.",
+      "OGTA okul takip sistemi: kurum operasyonları, devamsızlık trendleri, sınıf metrikleri, yoklama durumu ve veli bildirimi. Okul takip yazılımı ve okul izleme sistemi tek platformda.",
     h1: "Okul Takip Sistemi",
     lead:
-      "OGTA okul takip sistemi, kurum düzeyinde operasyonel görünürlük sağlar. Okul takip programı olarak sınıf, öğretmen ve devamsızlık kırılımında anlık rapor sunar.",
+      "OGTA okul takip sistemi, eğitim kurumlarının operasyonel görünürlüğünü artıran kapsamlı bir okul takip yazılımıdır. Sınıf, öğretmen ve devamsızlık kırılımında anlık rapor sunar; müdür, öğretmen ve veli aynı veriye farklı rollerle erişir.",
     sections: [
       {
         title: "Kurum operasyon takibi",
         paragraphs: [
-          "Hangi sınıfların yoklaması tamamlandı, devam oranı nerede düşüyor — okul takip panelinde anında görünür.",
-          "Okul izleme sistemi olarak idari ekip proaktif müdahale edebilir."
+          "Hangi sınıfların yoklaması tamamlandı, devam oranı nerede düşüyor — okul takip panelinde anında görünür. Okul izleme sistemi olarak idari ekip proaktif müdahale edebilir.",
+          "Günlük yoklama raporu, sınıf bazlı devamsızlık özeti ve öğretmen tamamlama oranı tek ekranda birleşir. Manuel Excel takibine kıyasla veri gecikmesi ortadan kalkar."
+        ]
+      },
+      {
+        title: "Devamsızlık ve veli bilgilendirme",
+        paragraphs: [
+          "Okul takip sistemi, yoklama anında devamsızlık kaydı oluşturur ve veli bilgilendirme süreçlerini otomatikleştirir. Devamsızlık takip sistemi ile sınıf ve kurum kırılımında trend analizi yapılır.",
+          "Veli takip sistemi entegrasyonu sayesinde veliler çocuklarının devamsızlık ve program bilgisine mobil panelden ulaşır; okul–aile iletişimi güçlenir."
+        ]
+      },
+      {
+        title: "Müdür ve rehberlik için okul takip",
+        paragraphs: [
+          "Müdür dashboard'unda kritik KPI'lar: yoklama tamamlama yüzdesi, devamsızlık artışı olan sınıflar, bekleyen operasyon uyarıları. Rehberlik ekibi öğrenci risk sinyallerini aynı okul takip verisi üzerinden izler.",
+          "Okul takip programı olarak raporlar rol bazlı filtrelenir; hassas rehberlik verisi yalnızca yetkili rollere açılır."
+        ]
+      },
+      {
+        title: "Neden OGTA okul takip sistemi?",
+        paragraphs: [
+          "Piyasadaki birçok okul takip yazılımı yalnızca devamsızlık veya yalnızca duyuru odaklıdır. OGTA; yoklama, program, rehberlik, veli paneli ve ogta.ai komut asistanını tek okul takip sisteminde birleştirir.",
+          "Bulut tabanlı mimari kurulum gerektirmez. Tenant izolasyonu ve KVKK odaklı veri ayrıştırma ile kurumsal güvenlik sağlanır."
         ]
       }
     ],
+    useCases: [
+      {
+        title: "Sabah 08:30 — Müdür kontrolü",
+        description:
+          "Müdür okul takip panelinde hangi sınıfların ilk ders yoklamasını tamamladığını görür; eksik sınıflar için öğretmene otomatik hatırlatma gider."
+      },
+      {
+        title: "Öğle — Devamsızlık trendi",
+        description:
+          "Son iki haftada devamsızlığı artan öğrenciler listelenir; rehberlik ekibi erken müdahale planı oluşturur."
+      },
+      {
+        title: "Akşam — Veli bilgilendirme",
+        description:
+          "Gün içinde alınan yoklamalar veli paneline ve bildirim kanallarına yansır; veli aynı gün bilgilendirilir."
+      }
+    ],
+    comparisonRows: [
+      { label: "Yoklama takibi", ogta: "Ders bazlı, anlık, otomatik veli bildirimi", legacy: "Excel / kağıt, gecikmeli" },
+      { label: "Kurum metrikleri", ogta: "Canlı dashboard, sınıf kırılımı", legacy: "Manuel rapor, haftalık" },
+      { label: "Veli erişimi", ogta: "Mobil veli paneli + bildirim", legacy: "SMS / WhatsApp dağınık" },
+      { label: "Rehberlik entegrasyonu", ogta: "Risk sinyali + vaka dosyası", legacy: "Ayrı dosya / not defteri" },
+      { label: "AI destek", ogta: "ogta.ai operasyon sorguları", legacy: "Yok" }
+    ],
     features: [
-      { title: "Canlı metrikler", text: "Devam oranı ve yoklama durumu." },
-      { title: "Sınıf kırılımı", text: "Detaylı operasyon görünümü." },
-      { title: "Uyarılar", text: "Trend bazlı erken sinyal." },
-      { title: "Rol bazlı", text: "Müdür, öğretmen, veli ekranları." }
+      { title: "Canlı metrikler", text: "Devam oranı, yoklama durumu ve sınıf kırılımı anlık." },
+      { title: "Otomatik bildirim", text: "Devamsızlıkta veli SMS/e-posta/push." },
+      { title: "Trend uyarıları", text: "Artan devamsızlık ve risk sinyalleri." },
+      { title: "Rol bazlı paneller", text: "Müdür, öğretmen, rehber, veli ekranları." }
     ],
     faq: [
       {
         question: "Okul takip ile öğrenci takip farkı nedir?",
-        answer: "Okul takip kurum operasyonuna; öğrenci takip bireysel öğrenci dosyasına odaklanır. OGTA ikisini entegre sunar."
+        answer:
+          "Okul takip kurum operasyonuna odaklanır; öğrenci takip bireysel öğrenci dosyasına odaklanır. OGTA ikisini entegre sunar."
+      },
+      {
+        question: "Okul takip sistemi mobilde çalışır mı?",
+        answer: "Evet. Mobil uyumlu web paneli ve native mobil uygulama ile erişim sağlanır."
+      },
+      {
+        question: "Excel yerine okul takip yazılımı kullanmak ne kazandırır?",
+        answer:
+          "Veri tekrarı ortadan kalkar, raporlar anlık güncellenir, veli bilgilendirme otomatikleşir ve denetim izi tutulur."
+      },
+      {
+        question: "Demo alabilir miyim?",
+        answer: "Evet. İletişim formu üzerinden kurumunuza özel canlı demo planlayabilirsiniz."
       }
     ]
   },

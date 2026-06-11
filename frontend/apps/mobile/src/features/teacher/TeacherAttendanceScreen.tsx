@@ -24,6 +24,8 @@ import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { AttendanceRecord, AttendanceSession, Lesson } from "@/shared/api/types";
 import { useOfflineAttendance } from "@/features/teacher/offline/OfflineAttendanceContext";
+import { loadTeacherCalendarCache, saveTeacherCalendarCache } from "@/features/teacher/offline/storage";
+import { useAuth } from "@/shared/auth/AuthContext";
 import { OfflineStatusBanner } from "@/features/teacher/offline/OfflineStatusBanner";
 import { PendingAttendanceQueue } from "@/features/teacher/offline/PendingAttendanceQueue";
 import { SyncConflictSheet } from "@/features/teacher/offline/SyncConflictSheet";
@@ -146,6 +148,7 @@ function sessionStatusTone(params: {
 
 export function TeacherAttendanceScreen() {
   const queryClient = useQueryClient();
+  const { session: authSession } = useAuth();
   const {
     online,
     cacheOpenedSession,
@@ -154,7 +157,10 @@ export function TeacherAttendanceScreen() {
     getDraftForLesson,
     pendingCount: offlinePendingCount
   } = useOfflineAttendance();
+  const tenantId = authSession?.principal?.tenantId ?? "";
+  const teacherId = authSession?.principal?.userId ?? "";
   const today = currentWeekday();
+  const [cachedCalendar, setCachedCalendar] = useState<Lesson[] | null>(null);
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedLessonId, setSelectedLessonId] = useState("");
   const [session, setSession] = useState<AttendanceSession | null>(null);
@@ -167,7 +173,22 @@ export function TeacherAttendanceScreen() {
   const calendarQ = useQuery({ queryKey: queryKeys.teacherCalendar, queryFn: () => api.teacherCalendar() });
   const currentQ = useQuery({ queryKey: queryKeys.teacherCurrentLesson, queryFn: () => api.currentLesson() });
 
-  const lessons = sortLessons(calendarQ.data ?? []);
+  useEffect(() => {
+    if (!tenantId || !teacherId || !calendarQ.data?.length) return;
+    void saveTeacherCalendarCache(tenantId, teacherId, calendarQ.data);
+  }, [calendarQ.data, teacherId, tenantId]);
+
+  useEffect(() => {
+    if (!tenantId || !teacherId) return;
+    if (calendarQ.data?.length || online) return;
+    void loadTeacherCalendarCache(tenantId, teacherId).then((lessons) => {
+      if (lessons.length > 0) {
+        setCachedCalendar(lessons);
+      }
+    });
+  }, [calendarQ.data, online, teacherId, tenantId]);
+
+  const lessons = sortLessons(calendarQ.data ?? cachedCalendar ?? []);
   const todayLessons = lessonsForDay(lessons, today);
   const activeLesson = currentQ.data?.found ? currentQ.data.lesson : undefined;
 
@@ -349,9 +370,7 @@ export function TeacherAttendanceScreen() {
           ...current,
           records: current.records.map((r) => (r.studentId === studentId ? { ...r, status } : r))
         };
-        if (!online) {
-          void persistSessionChanges(next);
-        }
+        void persistSessionChanges(next, { syncStatus: online ? "draft" : "queued" });
         return next;
       });
     },
@@ -362,9 +381,7 @@ export function TeacherAttendanceScreen() {
     setSession((current) => {
       if (!current) return current;
       const next = { ...current, records: current.records.map((r) => ({ ...r, status: "present" as const })) };
-      if (!online) {
-        void persistSessionChanges(next);
-      }
+      void persistSessionChanges(next, { syncStatus: online ? "draft" : "queued" });
       return next;
     });
   };

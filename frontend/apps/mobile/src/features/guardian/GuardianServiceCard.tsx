@@ -1,9 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { Bus, Clock, Phone } from "lucide-react-native";
+import { Bus, Clock, Phone, Radio } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
+import { formatLiveStatus } from "@/features/transport/formatLiveStatus";
+import { ServiceLiveMap } from "@/features/transport/ServiceLiveMap";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { colors } from "@/shared/theme/colors";
+
+const LIVE_POLL_MS = 12_000;
 
 function directionLabel(value: string) {
   if (value === "evening") return "Akşam";
@@ -15,13 +19,22 @@ export function GuardianServiceCard({ studentId }: { studentId: string }) {
   const serviceQ = useQuery({
     queryKey: queryKeys.guardianService(studentId),
     queryFn: () => api.guardianService(studentId),
-    enabled: Boolean(studentId)
+    enabled: Boolean(studentId),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const live = data?.liveStatus?.active || data?.routes?.[0]?.driverSharingStatus === "active";
+      return live ? LIVE_POLL_MS : false;
+    }
   });
 
   if (serviceQ.isError) return null;
   const summary = serviceQ.data;
   const route = summary?.routes?.[0];
   const assignment = summary?.assignments?.[0];
+  const activeTrip = summary?.activeTrip;
+  const liveActive = summary?.liveStatus?.active || route?.driverSharingStatus === "active";
+  const mapLat = activeTrip?.lastLocation?.latitude ?? summary?.liveStatus?.stopLatitude;
+  const mapLng = activeTrip?.lastLocation?.longitude ?? summary?.liveStatus?.stopLongitude;
 
   return (
     <View style={styles.card}>
@@ -35,6 +48,15 @@ export function GuardianServiceCard({ studentId }: { studentId: string }) {
         </View>
         <Text style={styles.plate}>{route?.vehiclePlate ?? "—"}</Text>
       </View>
+
+      {liveActive ? (
+        <View style={styles.liveBanner}>
+          <Radio color={colors.success} size={14} strokeWidth={2.4} />
+          <Text style={styles.liveText}>{formatLiveStatus(summary?.liveStatus)}</Text>
+        </View>
+      ) : null}
+
+      {liveActive ? <ServiceLiveMap label="Servisi haritada aç" latitude={mapLat} longitude={mapLng} /> : null}
 
       {assignment ? (
         <View style={styles.infoRow}>
@@ -88,6 +110,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: "800", color: colors.text },
   subtitle: { fontSize: 12, color: colors.textMuted },
   plate: { fontSize: 14, fontWeight: "900", color: colors.accent },
+  liveBanner: { flexDirection: "row", alignItems: "center", gap: 8 },
+  liveText: { flex: 1, fontSize: 12, fontWeight: "800", color: colors.success },
   infoRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   infoText: { flex: 1, fontSize: 12, fontWeight: "700", color: colors.text },
   stopRow: {

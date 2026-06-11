@@ -6,9 +6,11 @@ import (
 	"strings"
 	"time"
 
+	billingdomain "ots/backend/internal/domain/billing"
 	guidancedomain "ots/backend/internal/domain/guidance"
 	"ots/backend/internal/domain/identity"
 	pushdomain "ots/backend/internal/domain/push"
+	transportdomain "ots/backend/internal/domain/transport"
 )
 
 type memoryDeviceToken struct {
@@ -288,6 +290,7 @@ func (s *Store) RecordDeliveryLog(_ context.Context, entry pushdomain.DeliveryLo
 		TenantID:      entry.TenantID,
 		UserID:        entry.UserID,
 		DeviceTokenID: entry.DeviceTokenID,
+		SourceKind:    entry.SourceKind,
 		Category:      entry.Category,
 		Title:         entry.Title,
 		Status:        entry.Status,
@@ -377,6 +380,194 @@ func (s *Store) ListDeliveryLogs(_ context.Context, tenantID string, limit int) 
 		if limit > 0 && len(out) >= limit {
 			break
 		}
+	}
+	return out, nil
+}
+
+func (s *Store) ListServiceRouteGuardianTargets(_ context.Context, tenantID, routeID string) ([]pushdomain.TransportRecipient, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return nil, nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]pushdomain.TransportRecipient, 0)
+	for _, assignment := range s.serviceAssignments {
+		if assignment.RouteID != routeID || assignment.Status != transportdomain.StatusActive {
+			continue
+		}
+		for _, link := range s.studentGuardians {
+			if link.StudentID != assignment.StudentID {
+				continue
+			}
+			key := link.GuardianUserID + ":" + assignment.StudentID
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, pushdomain.TransportRecipient{
+				UserID:    link.GuardianUserID,
+				StudentID: assignment.StudentID,
+			})
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) GetPrincipalAttendancePendingSummary(_ context.Context, tenantID string) (pushdomain.PrincipalAttendancePending, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return pushdomain.PrincipalAttendancePending{}, nil
+	}
+	now := s.clock()
+	todayWeekday := isoWeekdayMemory(now)
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	todayLessons := 0
+	if string(s.schedule.Status) == "published" {
+		for _, lesson := range s.schedule.Lessons {
+			if lesson.DayOfWeek == todayWeekday {
+				todayLessons++
+			}
+		}
+	}
+	finalizedLessonIDs := map[string]struct{}{}
+	for _, session := range s.sessions {
+		if session.FinalizedAt == nil || session.StartedAt.Before(dayStart) || !session.StartedAt.Before(dayEnd) {
+			continue
+		}
+		if session.LessonID != "" {
+			finalizedLessonIDs[session.LessonID] = struct{}{}
+		}
+	}
+	pendingClasses := make([]string, 0)
+	for _, class := range s.classes {
+		total := 0
+		completed := 0
+		for _, lesson := range s.schedule.Lessons {
+			if lesson.ClassID != class.ID || lesson.DayOfWeek != todayWeekday {
+				continue
+			}
+			total++
+			if _, ok := finalizedLessonIDs[lesson.ID]; ok {
+				completed++
+			}
+		}
+		if total > 0 && completed < total {
+			pendingClasses = append(pendingClasses, class.Name)
+		}
+	}
+	return pushdomain.PrincipalAttendancePending{
+		TodayLessons:   todayLessons,
+		FinalizedToday: len(finalizedLessonIDs),
+		PendingClasses: pendingClasses,
+		DateKey:        now.Format("2006-01-02"),
+	}, nil
+}
+
+func (s *Store) ListBillingUpcomingReminders(_ context.Context, tenantID string, withinDays int) ([]pushdomain.BillingInstallmentReminder, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if withinDays <= 0 {
+		withinDays = 3
+	}
+	now := s.clock()
+	limit := now.AddDate(0, 0, withinDays)
+	out := make([]pushdomain.BillingInstallmentReminder, 0)
+	for _, item := range s.paymentInstallments {
+		if item.TenantID != tenantID || item.RemainingAmount <= 0 || item.Status == billingdomain.InstallmentCancelled || item.Status == billingdomain.InstallmentPaid {
+			continue
+		}
+		due, err := time.Parse("2006-01-02", item.DueDate)
+		if err != nil || due.Before(now) || due.After(limit) {
+			continue
+		}
+		userID := s.billingGuardianUserIDLocked(item.BillingAccountID)
+		if userID == "" {
+			continue
+		}
+		out = append(out, pushdomain.BillingInstallmentReminder{
+			InstallmentID: item.ID,
+			StudentID:     item.StudentID,
+			StudentName:   item.StudentName,
+			PlanName:      item.PlanName,
+			DueDate:       item.DueDate,
+			UserID:        userID,
+		})
+	}
+	return out, nil
+}
+
+func (s *Store) ListBillingOverdueReminders(_ context.Context, tenantID string) ([]pushdomain.BillingInstallmentReminder, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	now := s.clock()
+	out := make([]pushdomain.BillingInstallmentReminder, 0)
+	for _, item := range s.paymentInstallments {
+		if item.TenantID != tenantID || item.RemainingAmount <= 0 || item.Status == billingdomain.InstallmentCancelled || item.Status == billingdomain.InstallmentPaid {
+			continue
+		}
+		if !memoryDueBeforeToday(item.DueDate, now) {
+			continue
+		}
+		userID := s.billingGuardianUserIDLocked(item.BillingAccountID)
+		if userID == "" {
+			continue
+		}
+		out = append(out, pushdomain.BillingInstallmentReminder{
+			InstallmentID: item.ID,
+			StudentID:     item.StudentID,
+			StudentName:   item.StudentName,
+			PlanName:      item.PlanName,
+			DueDate:       item.DueDate,
+			UserID:        userID,
+		})
+	}
+	return out, nil
+}
+
+func (s *Store) GetBillingOverdueSummary(_ context.Context, tenantID string) (pushdomain.BillingOverdueSummary, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	summary := pushdomain.BillingOverdueSummary{DateKey: s.clock().Format("2006-01-02")}
+	now := s.clock()
+	for _, item := range s.paymentInstallments {
+		if item.TenantID != tenantID || item.RemainingAmount <= 0 || !memoryDueBeforeToday(item.DueDate, now) {
+			continue
+		}
+		summary.Count++
+		summary.Amount += item.RemainingAmount
+	}
+	return summary, nil
+}
+
+func (s *Store) billingGuardianUserIDLocked(accountID string) string {
+	account, ok := s.billingAccountByIDLocked(accountID)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(account.GuardianUserID)
+}
+
+func (s *Store) ListPrincipalNotifyUserIDs(_ context.Context, tenantID string) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]string, 0)
+	seen := map[string]struct{}{}
+	for _, user := range s.users {
+		if user.TenantID != tenantID || user.Status != "active" {
+			continue
+		}
+		if user.Role != identity.RolePrincipal && user.Role != identity.RoleSystemAdmin {
+			continue
+		}
+		if _, ok := seen[user.ID]; ok {
+			continue
+		}
+		seen[user.ID] = struct{}{}
+		out = append(out, user.ID)
 	}
 	return out, nil
 }

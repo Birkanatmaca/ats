@@ -6,8 +6,10 @@ import { GuidanceSectionPanel } from "../../guidance/components/GuidanceSectionP
 import "../../guidance/GuidanceOverview.css";
 import "../../guidance/GuidanceSurface.css";
 import { GuardianAttendanceList } from "../components/GuardianAttendanceList";
+import { GuardianGuidanceUpdatesList } from "../components/GuardianGuidanceUpdatesList";
 import { GuardianLessonList } from "../components/GuardianLessonList";
 import { GuardianNoticeList } from "../components/GuardianNoticeList";
+import { GuardianBillingCard } from "../components/GuardianBillingCard";
 import { GuardianStudentHeroCard } from "../components/GuardianStudentHeroCard";
 import type { GuardianChild, GuardianData } from "../types";
 import "../GuardianChildPage.css";
@@ -167,6 +169,14 @@ export function GuardianChildPage({
           ) : (
             <GuardianNoticeList notices={mapNotificationsToNotices(data.notifications)} />
           )}
+        </GuidanceSectionPanel>
+
+        <GuidanceSectionPanel title="Rehberlik paylaşımları">
+          <GuardianGuidanceUpdatesList items={data.guidanceUpdates} />
+        </GuidanceSectionPanel>
+
+        <GuidanceSectionPanel title="Tahsilat">
+          <GuardianBillingCard studentId={child.id} />
         </GuidanceSectionPanel>
       </div>
 

@@ -29,6 +29,11 @@ func (s *Service) PlatformAnalytics(ctx context.Context, days int) (aidomain.Pla
 	raw.CostSettings = costSettings
 	raw.EstCostUSD = estimateCostUSD(raw.TokenInput, raw.TokenOutput, costSettings)
 	raw.EstCostTRY = raw.EstCostUSD * costSettings.UsdTryRate
+	provider, err := s.ProviderStatus(ctx)
+	if err != nil {
+		return aidomain.PlatformAnalytics{}, err
+	}
+	raw.Provider = provider
 	for i := range raw.ByTenant {
 		raw.ByTenant[i].EstCostUSD = estimateCostUSD(raw.ByTenant[i].TokenInput, raw.ByTenant[i].TokenOutput, costSettings)
 		raw.ByTenant[i].EstCostTRY = raw.ByTenant[i].EstCostUSD * costSettings.UsdTryRate

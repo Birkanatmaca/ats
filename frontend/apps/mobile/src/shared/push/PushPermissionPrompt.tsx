@@ -29,7 +29,7 @@ export function PushPermissionPrompt() {
         <View style={styles.card}>
           <Text style={styles.title}>Bildirimleri açın</Text>
           <Text style={styles.body}>
-            Devamsızlık, duyuru ve destek güncellemelerini anında almak için bildirim izni verin.
+            Devamsızlık, duyuru, servis ve destek güncellemelerini anında almak için bildirim izni verin.
           </Text>
           <Pressable
             accessibilityRole="button"

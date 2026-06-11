@@ -1,0 +1,106 @@
+.principal-guardians-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+}
+
+.principal-guardians-hero h1 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e3a8a;
+}
+
+.principal-guardians-hero p {
+  margin: 4px 0 0;
+  color: #1d4ed8;
+  font-size: 13px;
+}
+
+.principal-guardians-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.principal-guardians-stats article {
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.principal-guardians-stats small {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.principal-guardians-stats strong {
+  font-size: 22px;
+  color: #0f172a;
+}
+
+.principal-guardian-student-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.principal-guardian-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.principal-guardian-student-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.principal-guardian-student-picker > span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.principal-guardian-student-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.principal-guardian-student-options button {
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.principal-guardian-student-options button.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.principal-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .principal-guardians-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

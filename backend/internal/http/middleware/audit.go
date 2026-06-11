@@ -83,6 +83,10 @@ func isAuditSkipped(method, path string) bool {
 
 func isSuperAdminOperationalAuditPath(method, path string) bool {
 	switch {
+	case method == http.MethodPatch && path == "/api/v1/super-admin/ai/provider":
+		return true
+	case method == http.MethodPost && path == "/api/v1/super-admin/ai/provider/test":
+		return true
 	case method == http.MethodPatch && path == "/api/v1/super-admin/ai/cost-settings":
 		return true
 	case method == http.MethodPatch && strings.HasPrefix(path, "/api/v1/super-admin/institutions/") && strings.HasSuffix(path, "/ai-quota"):
@@ -136,6 +140,10 @@ func auditMeta(method, path string) (action, resourceType, resourceID string) {
 	}
 	verb := strings.ToLower(method)
 	switch {
+	case path == "/api/v1/super-admin/ai/provider":
+		return "ai.provider.update", "ai_provider_settings", ""
+	case path == "/api/v1/super-admin/ai/provider/test":
+		return "ai.provider.test", "ai_provider_settings", ""
 	case path == "/api/v1/super-admin/ai/cost-settings":
 		return "ai.cost_settings.update", "ai_cost_settings", ""
 	case strings.HasPrefix(path, "/api/v1/super-admin/institutions/") && strings.HasSuffix(path, "/ai-quota"):

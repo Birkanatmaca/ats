@@ -2,6 +2,19 @@
 
 > Amaç: Mobil uygulamanın anlık okul iletişimi değerini üretmesi: devamsızlık, duyuru, destek ve rehberlik takip olaylarının kullanıcıya push + uygulama içi bildirim olarak ulaşması.
 
+## Durum (Haziran 2026)
+
+| Alan | Durum |
+|------|-------|
+| Token kayıt / logout unregister | Tamam |
+| Bildirim tercihleri (mobil profil) | Tamam |
+| Event push: yoklama, duyuru, destek, rehberlik, program, servis | Tamam |
+| Deep link yönlendirme | Tamam |
+| Super admin push sağlık + log paneli | Tamam |
+| Müdür test push (native cihaz) | Tamam |
+| Müdür kritik yoklama eksikleri push | Tamam (2 saatte bir cron) |
+| EAS preview cihaz doğrulaması | Manuel test gerekli |
+
 ---
 
 ## 1. Ürün Kararı
@@ -101,7 +114,8 @@ Tercih modeli:
   "announcements": true,
   "support": true,
   "guidance": true,
-  "schedule": true
+  "schedule": true,
+  "billing": true
 }
 ```
 
@@ -153,6 +167,7 @@ GET    /api/v1/super-admin/push/logs
   - `announcement` -> duyuru detayı/liste
   - `support` -> destek talebi
   - `guidance` -> takip planı veya öğrenci detayı
+  - `transport` -> veli çocuk ekranı, şoför takip, müdür canlı servis
 
 ### Dikkat Edilecekler
 
@@ -179,6 +194,7 @@ Event kaynakları:
 - Destek talebi durum değişimi.
 - Rehberlik plan due date yaklaşıyor.
 - Program değişikliği publish.
+- Müdür/sistem yöneticisi için bekleyen günlük yoklama özeti (cron, günde bir kez kullanıcı başına).
 
 ---
 

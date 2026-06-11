@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, ClipboardCheck, Search, UsersRound, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type AttendanceDayRecord } from "../../../lib/api";
+import { PrincipalPendingAttendancePanel } from "../components/PrincipalPendingAttendancePanel";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, SchoolClass } from "../types";
 import "./PrincipalAttendancePage.css";
 
@@ -212,8 +213,12 @@ export function PrincipalAttendancePage({
     );
   }
 
+  const isToday = date === formatDateInputValue(new Date());
+
   return (
     <section className="principal-page-stack principal-attendance-page">
+      {isToday ? <PrincipalPendingAttendancePanel summary={data.summary} variant="card" showClassList /> : null}
+
       <div className="principal-attendance-stats" aria-label="Yoklama istatistikleri">
         <article className="principal-attendance-stat principal-attendance-stat--sky">
           <ClipboardCheck size={17} />

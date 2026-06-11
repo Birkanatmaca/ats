@@ -12,6 +12,9 @@ import (
 
 func (h *Handler) registerSuperAdminAIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/super-admin/ai/overview", h.superAdminAIOverview)
+	mux.HandleFunc("GET /api/v1/super-admin/ai/provider", h.superAdminAIProvider)
+	mux.HandleFunc("PATCH /api/v1/super-admin/ai/provider", h.updateSuperAdminAIProvider)
+	mux.HandleFunc("POST /api/v1/super-admin/ai/provider/test", h.testSuperAdminAIProvider)
 	mux.HandleFunc("PATCH /api/v1/super-admin/ai/cost-settings", h.updateSuperAdminAICostSettings)
 	mux.HandleFunc("PATCH /api/v1/super-admin/institutions/{id}/ai-quota", h.updateSuperAdminInstitutionAIQuota)
 	mux.HandleFunc("POST /api/v1/super-admin/ai/retention/run", h.runSuperAdminAIRetention)
@@ -40,6 +43,74 @@ func (h *Handler) superAdminAIOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, overview, nil)
+}
+
+func (h *Handler) superAdminAIProvider(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireSuperAdmin(w, r); !ok {
+		return
+	}
+	if h.ai == nil {
+		httpx.WriteError(w, http.StatusServiceUnavailable, "AI_UNAVAILABLE", "ogta.ai servisi henüz etkin değil.", nil)
+		return
+	}
+	status, err := h.ai.ProviderStatus(r.Context())
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "AI_PROVIDER_FAILED", "AI sağlayıcı durumu alınamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"status":  status,
+		"models":  h.ai.SupportedModels(),
+	}, nil)
+}
+
+func (h *Handler) updateSuperAdminAIProvider(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireSuperAdmin(w, r); !ok {
+		return
+	}
+	if h.ai == nil {
+		httpx.WriteError(w, http.StatusServiceUnavailable, "AI_UNAVAILABLE", "ogta.ai servisi henüz etkin değil.", nil)
+		return
+	}
+	var input aidomain.ProviderSettings
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "AI sağlayıcı ayarları okunamadı.", nil)
+		return
+	}
+	updated, err := h.ai.UpdateProviderSettings(r.Context(), input)
+	if errors.Is(err, aiapp.ErrInvalidProviderSettings) {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli bir model seçilmelidir.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "AI_PROVIDER_FAILED", "AI sağlayıcı ayarları güncellenemedi.", nil)
+		return
+	}
+	status, err := h.ai.ProviderStatus(r.Context())
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "AI_PROVIDER_FAILED", "AI sağlayıcı durumu alınamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"settings": updated,
+		"status":   status,
+	}, nil)
+}
+
+func (h *Handler) testSuperAdminAIProvider(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireSuperAdmin(w, r); !ok {
+		return
+	}
+	if h.ai == nil {
+		httpx.WriteError(w, http.StatusServiceUnavailable, "AI_UNAVAILABLE", "ogta.ai servisi henüz etkin değil.", nil)
+		return
+	}
+	result, err := h.ai.TestProviderConnection(r.Context())
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "AI_PROVIDER_TEST_FAILED", "AI bağlantı testi başarısız.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, result, nil)
 }
 
 func (h *Handler) updateSuperAdminAICostSettings(w http.ResponseWriter, r *http.Request) {

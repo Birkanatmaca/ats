@@ -7,6 +7,7 @@ import { PrincipalGuidanceCasesCard } from "@/features/principal/PrincipalGuidan
 import { PrincipalLifeOverviewCard } from "@/features/principal/PrincipalLifeOverviewCard";
 import { PrincipalOgtaAiStrip } from "@/features/principal/PrincipalOgtaAiStrip";
 import { PrincipalOverviewStats } from "@/features/principal/PrincipalOverviewStats";
+import { PrincipalPendingAttendanceCard } from "@/features/principal/PrincipalPendingAttendanceCard";
 import { PrincipalQuickActions } from "@/features/principal/PrincipalQuickActions";
 import { PrincipalServiceOverviewCard } from "@/features/principal/PrincipalServiceOverviewCard";
 import { PrincipalWelcomeCard } from "@/features/principal/PrincipalWelcomeCard";
@@ -37,6 +38,7 @@ export function PrincipalOverviewScreen() {
       <PrincipalWelcomeCard />
       {summaryQ.isError ? <ErrorState message={summaryQ.error.message} onRetry={onRefresh} /> : null}
       <PrincipalOverviewStats summary={s} />
+      <PrincipalPendingAttendanceCard summary={s} />
       <PrincipalBillingOverviewCard />
       <PrincipalServiceOverviewCard />
       <PrincipalLifeOverviewCard />

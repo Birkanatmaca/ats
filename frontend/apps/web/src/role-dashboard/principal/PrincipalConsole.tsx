@@ -4,17 +4,22 @@ import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
-import type { AuthSession, PrincipalSchoolRoster, SchoolTeacherRecord, UserAccount } from "../../lib/api";
+import type { AuthSession, ManagedGuardian, PrincipalSchoolRoster, SchoolTeacherRecord, UserAccount } from "../../lib/api";
 import { api } from "../../lib/api";
 import { principalTabs } from "./navTabs";
+import { GuidanceCaseDetailPage } from "../guidance/pages/GuidanceCaseDetailPage";
+import { GuidanceCasesPage } from "../guidance/pages/GuidanceCasesPage";
 import { PrincipalAnnouncementsPage } from "./pages/PrincipalAnnouncementsPage";
 import { PrincipalAttendancePage } from "./pages/PrincipalAttendancePage";
+import { PrincipalBillingPage } from "./pages/PrincipalBillingPage";
 import { PrincipalClassDetailPage } from "./pages/PrincipalClassDetailPage";
 import { PrincipalClassStudentsPage } from "./pages/PrincipalClassStudentsPage";
 import { PrincipalClassesPage } from "./pages/PrincipalClassesPage";
+import { PrincipalGuardiansPage } from "./pages/PrincipalGuardiansPage";
 import { PrincipalOperationsPage } from "./pages/PrincipalOperationsPage";
 import { PrincipalOverviewPage } from "./pages/PrincipalOverviewPage";
 import { PrincipalServiceDriversPage } from "./pages/PrincipalServiceDriversPage";
+import { PrincipalScheduleInputsPage } from "./pages/PrincipalScheduleInputsPage";
 import { PrincipalSchedulePage } from "./pages/PrincipalSchedulePage";
 import { PrincipalStudentsPage } from "./pages/PrincipalStudentsPage";
 import { PrincipalTeachersPage } from "./pages/PrincipalTeachersPage";
@@ -96,6 +101,7 @@ export function PrincipalConsole({
   const [sections, setSections] = useState<ClassSection[]>([]);
   const [students, setStudents] = useState<ClassStudent[]>([]);
   const [teachers, setTeachers] = useState<PrincipalManagedTeacher[]>([]);
+  const [guardians, setGuardians] = useState<ManagedGuardian[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rosterError, setRosterError] = useState<string | null>(null);
@@ -104,6 +110,20 @@ export function PrincipalConsole({
   const activePath = location.pathname.replace(/^\/dashboard\/?/, "");
   const activeTab = activePath.split("/")[0] || "overview";
   const sectionTeacherOptions = useMemo(() => teachers, [teachers]);
+  const visibleTabs = useMemo(() => {
+    const modules = data.tenant?.enabledModules ?? ["billing"];
+    const billingEnabled = modules.includes("billing");
+    return principalTabs.filter((tab) => tab.id !== "billing" || billingEnabled);
+  }, [data.tenant?.enabledModules]);
+
+  const reloadGuardians = useCallback(async () => {
+    try {
+      const items = await api.principalGuardians();
+      setGuardians(items);
+    } catch {
+      setGuardians([]);
+    }
+  }, []);
 
   const reloadTeachers = useCallback(async () => {
     const [accounts, records] = await Promise.allSettled([api.principalTeachers(), api.listTeachers()]);
@@ -129,13 +149,14 @@ export function PrincipalConsole({
   async function load() {
     setLoading(true);
     setError(null);
-    const [tenant, summary, schedule, announcements, teacherAccounts, roster] = await Promise.allSettled([
+    const [tenant, summary, schedule, announcements, teacherAccounts, roster, guardianItems] = await Promise.allSettled([
       api.tenant(),
       api.dashboard(),
       api.schedule(),
       api.announcements({ manage: true }),
       api.principalTeachers(),
-      api.principalRoster()
+      api.principalRoster(),
+      api.principalGuardians()
     ]);
 
     setData({
@@ -159,7 +180,11 @@ export function PrincipalConsole({
       setRosterError("Sınıf ve öğrenci listesi alınamadı.");
     }
 
-    const failed = [tenant, summary, schedule, announcements, teacherAccounts, roster].some((result) => result.status === "rejected");
+    if (guardianItems.status === "fulfilled") {
+      setGuardians(guardianItems.value);
+    }
+
+    const failed = [tenant, summary, schedule, announcements, teacherAccounts, roster, guardianItems].some((result) => result.status === "rejected");
     if (failed) {
       setError("Bazı müdür paneli verileri alınamadı; erişebildiğin alanlar listeleniyor.");
     }
@@ -303,6 +328,54 @@ export function PrincipalConsole({
     }
   }
 
+  async function provisionManagedGuardian(payload: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    relation: string;
+    studentIds: string[];
+  }) {
+    const result = await api.provisionGuardian({
+      email: payload.email,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      studentIds: payload.studentIds,
+      relation: payload.relation
+    });
+    await reloadGuardians();
+    return { email: result.email, temporaryPassword: result.temporaryPassword };
+  }
+
+  async function updateManagedGuardian(guardianId: string, payload: Partial<{ firstName: string; lastName: string; phone: string }>) {
+    await api.updatePrincipalGuardian(guardianId, payload);
+    await reloadGuardians();
+  }
+
+  async function setManagedGuardianStatus(guardianId: string, status: "active" | "passive") {
+    await api.setPrincipalGuardianStatus(guardianId, status);
+    await reloadGuardians();
+  }
+
+  async function resetManagedGuardianPassword(guardianId: string) {
+    const result = await api.resetPrincipalGuardianPassword(guardianId);
+    await reloadGuardians();
+    return result.temporaryPassword;
+  }
+
+  async function linkManagedGuardianStudent(
+    guardianId: string,
+    payload: { studentId: string; relation: string; isPrimary: boolean }
+  ) {
+    await api.linkPrincipalGuardianStudent(guardianId, payload);
+    await reloadGuardians();
+  }
+
+  async function unlinkManagedGuardianStudent(guardianId: string, studentId: string) {
+    await api.unlinkPrincipalGuardianStudent(guardianId, studentId);
+    await reloadGuardians();
+  }
+
   async function updateManagedTeacher(
     id: string,
     payload: {
@@ -358,7 +431,7 @@ export function PrincipalConsole({
 
       <aside className="admin-sidebar">
         <nav className="admin-nav" aria-label="Müdür menüsü">
-          {principalTabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/dashboard/${tab.id}`} end={tab.id !== "classes"}>
               {tab.icon}
               <span>{tab.label}</span>
@@ -397,6 +470,22 @@ export function PrincipalConsole({
               }
             />
             <Route
+              path="guardians"
+              element={
+                <PrincipalGuardiansPage
+                  guardians={guardians}
+                  onLinkStudent={linkManagedGuardianStudent}
+                  onProvision={provisionManagedGuardian}
+                  onReload={reloadGuardians}
+                  onResetPassword={resetManagedGuardianPassword}
+                  onSetStatus={setManagedGuardianStatus}
+                  onUnlinkStudent={unlinkManagedGuardianStudent}
+                  onUpdate={updateManagedGuardian}
+                  students={students}
+                />
+              }
+            />
+            <Route
               path="students"
               element={
                 <PrincipalStudentsPage
@@ -426,6 +515,10 @@ export function PrincipalConsole({
               }
             />
             <Route
+              path="schedule/inputs"
+              element={<PrincipalScheduleInputsPage classes={classes} teachers={sectionTeacherOptions} />}
+            />
+            <Route
               path="schedule/builder"
               element={
                 <PrincipalSchedulePage
@@ -441,6 +534,7 @@ export function PrincipalConsole({
               }
             />
             <Route path="attendance" element={<PrincipalAttendancePage data={data} classes={classes} sections={sections} students={students} />} />
+            <Route path="billing" element={<PrincipalBillingPage students={students} classes={classes} />} />
             <Route
               path="classes"
               element={
@@ -485,6 +579,14 @@ export function PrincipalConsole({
               }
             />
             <Route path="operations" element={<PrincipalOperationsPage data={data} />} />
+            <Route
+              path="guidance-cases"
+              element={<GuidanceCasesPage detailBasePath="/dashboard/guidance-cases" readOnly />}
+            />
+            <Route
+              path="guidance-cases/:caseId"
+              element={<GuidanceCaseDetailPage listPath="/dashboard/guidance-cases" readOnly />}
+            />
             <Route path="services" element={<PrincipalServiceDriversPage />} />
             <Route
               path="announcements"

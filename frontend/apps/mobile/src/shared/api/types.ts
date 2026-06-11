@@ -13,6 +13,8 @@ export type NotificationPreferences = {
   support: boolean;
   guidance: boolean;
   schedule: boolean;
+  transport: boolean;
+  billing: boolean;
 };
 
 export type Principal = {
@@ -147,6 +149,9 @@ export type Announcement = {
   readCount?: number;
   targetCount?: number;
   deliveryCount?: number;
+  pushSentCount?: number;
+  pushDroppedCount?: number;
+  pushFailedCount?: number;
 };
 
 export type AnnouncementTemplate = {
@@ -754,6 +759,8 @@ export type ServiceRouteStop = {
   name: string;
   plannedTime: string;
   sortOrder: number;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type ServiceAssignment = {
@@ -805,7 +812,14 @@ export type ServiceRouteInput = {
   driverId?: string;
   attendantId?: string;
   status?: ServiceStatus;
-  stops?: Array<{ name: string; plannedTime: string; sortOrder?: number }>;
+  stops?: Array<{
+    id?: string;
+    name: string;
+    plannedTime: string;
+    sortOrder?: number;
+    latitude?: number;
+    longitude?: number;
+  }>;
 };
 
 export type ServiceAssignmentInput = {
@@ -816,6 +830,26 @@ export type ServiceAssignmentInput = {
   status?: ServiceStatus;
 };
 
+export type ServiceLiveStatus = {
+  active: boolean;
+  lastLocationAt?: string;
+  speedKph?: number;
+  etaMinutes?: number | null;
+  distanceKm?: number | null;
+  locationStale?: boolean;
+  stopLatitude?: number;
+  stopLongitude?: number;
+};
+
+export type ServiceTripEvent = {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  eventType: string;
+  payload?: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type GuardianServiceSummary = {
   studentId: string;
   studentName: string;
@@ -824,6 +858,7 @@ export type GuardianServiceSummary = {
   assignments: ServiceAssignment[];
   routes: ServiceRoute[];
   activeTrip?: ServiceTrip;
+  liveStatus?: ServiceLiveStatus;
   updatedAt: string;
   hasAssignment: boolean;
 };
@@ -864,6 +899,7 @@ export type ServiceTrip = {
   startedAt: string;
   endedAt?: string;
   lastLocation?: ServiceTripLocation;
+  liveStatus?: ServiceLiveStatus;
   createdAt: string;
   updatedAt: string;
 };

@@ -6,7 +6,9 @@ import (
 	"strings"
 	"time"
 
+	attendancedomain "ots/backend/internal/domain/attendance"
 	domain "ots/backend/internal/domain/guidance"
+	observationdomain "ots/backend/internal/domain/observation"
 )
 
 var (
@@ -51,6 +53,8 @@ type Repository interface {
 	CreateGuidanceCaseEvent(ctx context.Context, tenantID, caseID, actorUserID string, input domain.CreateCaseEventInput) (domain.CaseEvent, bool)
 	UpdateGuidanceCaseEvent(ctx context.Context, tenantID, caseID, eventID string, input domain.UpdateCaseEventInput) (domain.CaseEvent, bool)
 	DeleteGuidanceCaseEvent(ctx context.Context, tenantID, caseID, eventID string) bool
+	StudentAttendanceSummary(ctx context.Context, tenantID, studentID string) (attendancedomain.StudentSummary, bool)
+	ListObservations(ctx context.Context, tenantID string) []observationdomain.Observation
 }
 
 type Service struct {

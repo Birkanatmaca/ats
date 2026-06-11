@@ -16,6 +16,7 @@ import (
 	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
+	homeworkapp "ots/backend/internal/app/homework"
 	identityapp "ots/backend/internal/app/identity"
 	lifeapp "ots/backend/internal/app/life"
 	observationapp "ots/backend/internal/app/observation"
@@ -31,6 +32,7 @@ import (
 	"ots/backend/internal/platform/config"
 	"ots/backend/internal/platform/openai"
 	platformpush "ots/backend/internal/platform/push"
+	"ots/backend/internal/platform/storage"
 	"ots/backend/internal/repository/memory"
 	"ots/backend/internal/repository/postgres"
 )
@@ -60,6 +62,7 @@ func main() {
 	var announcementRepo announcementapp.Repository = memoryStore
 	var studentImportRepo studentimportapp.Repository = memoryStore
 	var auditWriter middleware.AuditWriter = memoryStore.RecordOperationalAudit
+	var homeworkRepo homeworkapp.Repository = memory.NewHomeworkStore(time.Now)
 
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {
@@ -91,6 +94,7 @@ func main() {
 		pushRepo = postgresStore
 		announcementRepo = postgresStore
 		studentImportRepo = postgresStore
+		homeworkRepo = postgresStore
 		auditWriter = postgresStore.RecordOperationalAudit
 		logger.Info("postgres repository connected")
 	}
@@ -105,17 +109,18 @@ func main() {
 		Timeout:       time.Duration(cfg.AITimeoutSeconds) * time.Second,
 	})
 	aiService := aiapp.NewService(aiapp.Dependencies{
-		Repo:        aiRepo,
-		School:      schoolService,
-		Observation: observationService,
-		Guidance:    guidanceapp.NewService(guidanceRepo),
-		Dashboard:   dashboardapp.NewService(dashboardRepo),
-		Guardian:    guardianapp.NewService(guardianRepo),
-		SuperAdmin:  superadminapp.NewService(superAdminRepo),
-		Attendance:  attendanceapp.NewService(attendanceRepo),
-		Scheduling:  schedulingapp.NewService(schedulingRepo),
-		OpenAI:      openAIClient,
-		Clock:       time.Now,
+		Repo:         aiRepo,
+		School:       schoolService,
+		Observation:  observationService,
+		Guidance:     guidanceapp.NewService(guidanceRepo),
+		Dashboard:    dashboardapp.NewService(dashboardRepo),
+		Guardian:     guardianapp.NewService(guardianRepo),
+		SuperAdmin:   superadminapp.NewService(superAdminRepo),
+		Attendance:   attendanceapp.NewService(attendanceRepo),
+		Scheduling:   schedulingapp.NewService(schedulingRepo),
+		OpenAI:       openAIClient,
+		EnvOpenAIKey: os.Getenv("OPENAI_API_KEY"),
+		Clock:        time.Now,
 		Config: aiapp.Config{
 			Model:             cfg.AIModel,
 			StoreResponse:     cfg.AIStoreResponses,
@@ -125,6 +130,7 @@ func main() {
 		},
 	})
 
+	homeworkService := homeworkapp.NewService(homeworkRepo, time.Now)
 	billingService := billingapp.NewService(billingRepo, time.Now)
 	transportService := transportapp.NewService(transportRepo, time.Now)
 	lifeService := lifeapp.NewService(lifeRepo, time.Now)
@@ -135,6 +141,16 @@ func main() {
 	pushService := pushapp.NewService(pushRepo, pushSender)
 	announcementService := announcementapp.NewService(announcementRepo, time.Now)
 	studentImportService := studentimportapp.NewService(studentImportRepo, time.Now)
+	var fileRegistry storage.FileRegistry
+	if postgresStore != nil {
+		fileRegistry = postgresStore
+	}
+	fileStorage := storage.NewLocal(storage.LocalConfig{
+		BaseDir:        cfg.FileStoragePath,
+		BaseURL:        cfg.FileStorageBaseURL,
+		MaxUploadBytes: int64(cfg.FileUploadMaxMB) << 20,
+		Registry:       fileRegistry,
+	})
 
 	handlers := httphandlers.New(httphandlers.Dependencies{
 		Identity:      identityapp.NewService(identityRepo, jwtIssuer, time.Now),
@@ -145,6 +161,7 @@ func main() {
 		Observation:   observationService,
 		Guardian:      guardianapp.NewService(guardianRepo),
 		Guidance:      guidanceapp.NewService(guidanceRepo),
+		Homework:      homeworkService,
 		Dashboard:     dashboardapp.NewService(dashboardRepo),
 		SuperAdmin:    superadminapp.NewService(superAdminRepo),
 		Billing:       billingService,
@@ -154,6 +171,7 @@ func main() {
 		Push:          pushService,
 		Announcements: announcementService,
 		StudentImport: studentImportService,
+		FileStorage:   fileStorage,
 		Clock:         time.Now,
 	})
 
@@ -180,6 +198,30 @@ func main() {
 		defer guidanceTicker.Stop()
 		for range guidanceTicker.C {
 			runGuidance()
+		}
+	}()
+
+	go func() {
+		runPrincipalAttendance := func() {
+			pushService.RunPrincipalAttendanceRemindersAllTenants(context.Background())
+		}
+		runPrincipalAttendance()
+		attendanceTicker := time.NewTicker(2 * time.Hour)
+		defer attendanceTicker.Stop()
+		for range attendanceTicker.C {
+			runPrincipalAttendance()
+		}
+	}()
+
+	go func() {
+		runBilling := func() {
+			pushService.RunBillingRemindersAllTenants(context.Background())
+		}
+		runBilling()
+		billingTicker := time.NewTicker(24 * time.Hour)
+		defer billingTicker.Stop()
+		for range billingTicker.C {
+			runBilling()
 		}
 	}()
 

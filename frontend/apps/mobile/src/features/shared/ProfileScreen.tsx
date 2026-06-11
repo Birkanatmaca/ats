@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Device from "expo-device";
 import { useRouter } from "expo-router";
 import {
   Bell,
@@ -8,11 +9,12 @@ import {
   LogOut,
   Mail,
   Phone,
+  Send,
   Shield,
   Trash2,
   UserRound
 } from "lucide-react-native";
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Platform, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { NotificationPreferences } from "@/shared/api/types";
@@ -25,6 +27,7 @@ import { ErrorState } from "@/shared/ui/ErrorState";
 import { LoadingBlock } from "@/shared/ui/LoadingBlock";
 import { Screen } from "@/shared/ui/Screen";
 import { platformShadow } from "@/shared/ui/platformShadow";
+import { canRegisterPushOnPlatform } from "@/shared/push/pushPlatform";
 import { pickProfileAvatarFromCamera, pickProfileAvatarFromLibrary } from "@/shared/utils/pickProfileAvatar";
 
 function profileInitials(fullName: string) {
@@ -73,6 +76,20 @@ export function ProfileScreen() {
     mutationFn: (payload: Partial<NotificationPreferences>) => api.updateNotificationPreferences(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.notificationPreferences });
+    }
+  });
+
+  const pushTestMut = useMutation({
+    mutationFn: () =>
+      api.pushTest({
+        title: "OGTAŞIS test bildirimi",
+        body: "Push bildirimleri bu cihazda çalışıyor."
+      }),
+    onSuccess: (result) => {
+      Alert.alert("Test gönderildi", result.message);
+    },
+    onError: (error) => {
+      Alert.alert("Test başarısız", error instanceof Error ? error.message : "Test push gönderilemedi.");
     }
   });
 
@@ -135,6 +152,9 @@ export function ProfileScreen() {
   const heroColor = heroColorForRole(role);
   const pill = statusTone(profile?.status ?? "active");
   const avatarUrl = profile?.avatarUrl?.trim();
+  const canSendTestPush =
+    canRegisterPushOnPlatform(Platform.OS, Device.isDevice) &&
+    (role === "principal" || role === "system_admin");
 
   return (
     <Screen layout="stack" refreshing={refreshing} topInsetExtra={6} onRefresh={onRefresh}>
@@ -285,8 +305,34 @@ export function ProfileScreen() {
                   onChange={(value) => prefsMut.mutate({ schedule: value })}
                   value={prefsQ.data?.schedule ?? true}
                 />
+                <PreferenceRow
+                  disabled={prefsMut.isPending}
+                  label="Servis bildirimleri"
+                  onChange={(value) => prefsMut.mutate({ transport: value })}
+                  value={prefsQ.data?.transport ?? true}
+                />
+                <PreferenceRow
+                  disabled={prefsMut.isPending}
+                  label="Tahsilat bildirimleri"
+                  onChange={(value) => prefsMut.mutate({ billing: value })}
+                  value={prefsQ.data?.billing ?? true}
+                />
               </View>
             )}
+            {canSendTestPush ? (
+              <Pressable
+                disabled={pushTestMut.isPending}
+                onPress={() => pushTestMut.mutate()}
+                style={({ pressed }) => [styles.testPushBtn, pressed && styles.photoBtnPressed]}
+              >
+                {pushTestMut.isPending ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Send color="#fff" size={15} strokeWidth={2.2} />
+                )}
+                <Text style={styles.testPushBtnText}>Test bildirimi gönder</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.logoutCard}>
@@ -428,6 +474,18 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border
   },
   prefLabel: { fontSize: 14, fontWeight: "600", color: colors.text },
+  testPushBtn: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 14
+  },
+  testPushBtnText: { color: "#fff", fontSize: 13, fontWeight: "800" },
   photoBlock: {
     flexDirection: "row",
     alignItems: "center",

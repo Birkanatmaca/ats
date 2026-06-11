@@ -1,6 +1,7 @@
 import { Database, Loader2, Network, RefreshCw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, type AuditEntry, type AuditPurgeResult, type SuperAdminAuditLogQuery } from "../../lib/api";
+import { PushHealthPanel } from "../components/PushHealthPanel";
 import { PanelHeader } from "../components/PanelHeader";
 import { SensitivityBadge } from "../components/SensitivityBadge";
 import "./LogsPage.css";
@@ -157,6 +158,8 @@ export function LogsPage() {
           </button>
         }
       />
+
+      <PushHealthPanel />
 
       <section className="sa-card sa-log-summary-card">
         <div className="sa-card-body sa-log-summary-grid">

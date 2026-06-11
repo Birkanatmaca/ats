@@ -35,6 +35,7 @@ type Repository interface {
 	ListInstitutions(ctx context.Context) ([]domain.Institution, error)
 	GetInstitution(ctx context.Context, tenantID string) (domain.InstitutionDetail, bool, error)
 	CreateInstitution(ctx context.Context, actor identitydomain.Principal, input domain.CreateInstitutionInput) (domain.InstitutionDetail, error)
+	UpdateInstitutionModules(ctx context.Context, actor identitydomain.Principal, tenantID string, modules []string) (domain.InstitutionDetail, bool, error)
 	ListUserAccounts(ctx context.Context) ([]domain.UserAccount, error)
 	CreateUser(ctx context.Context, actor identitydomain.Principal, input domain.CreateUserInput) (domain.CreatedUserCredential, error)
 	UpdateUser(ctx context.Context, actor identitydomain.Principal, userID string, input domain.UpdateUserInput) (domain.UserAccount, bool, error)
@@ -126,6 +127,13 @@ func (s *Service) CreateInstitution(ctx context.Context, actor identitydomain.Pr
 		return domain.InstitutionDetail{}, ErrInvalidInstitution
 	}
 	return s.repo.CreateInstitution(ctx, actor, input)
+}
+
+func (s *Service) UpdateInstitutionModules(ctx context.Context, actor identitydomain.Principal, tenantID string, input domain.UpdateInstitutionModulesInput) (domain.InstitutionDetail, bool, error) {
+	if strings.TrimSpace(tenantID) == "" || len(input.EnabledModules) == 0 {
+		return domain.InstitutionDetail{}, false, ErrInvalidInstitution
+	}
+	return s.repo.UpdateInstitutionModules(ctx, actor, tenantID, input.EnabledModules)
 }
 
 func (s *Service) Users(ctx context.Context) ([]domain.UserAccount, error) {

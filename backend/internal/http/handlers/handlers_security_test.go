@@ -238,6 +238,77 @@ func TestPushHandlersRequireAuthAndDoNotLeakDeviceTokens(t *testing.T) {
 	}
 }
 
+func TestGuardianGuidanceUpdatesEnforceStudentScopeAndVisibility(t *testing.T) {
+	server := newHandlerTestServer()
+	guidanceToken := server.login(t, "rehberlik@atlas.k12.tr", "OtsRehberlik!2026")
+	guardianToken := server.login(t, "veli@atlas.k12.tr", "OtsVeli!2026")
+	teacherToken := server.login(t, "ogretmen@atlas.k12.tr", "OtsOgretmen!2026")
+
+	createCaseRec := server.request(http.MethodPost, "/api/v1/guidance/cases", guidanceToken, map[string]string{
+		"studentId": "student-2",
+		"title":     "Veli takip vakasi",
+		"summary":   "Veli ile paylasilacak takip sureci.",
+		"priority":  "medium",
+	})
+	if createCaseRec.Code != http.StatusCreated {
+		t.Fatalf("create guidance case status = %d, body = %s", createCaseRec.Code, createCaseRec.Body.String())
+	}
+	createdCase := decodeData[struct {
+		ID string `json:"id"`
+	}](t, createCaseRec)
+	if createdCase.ID == "" {
+		t.Fatalf("missing created case id: %+v", createdCase)
+	}
+
+	privateEventRec := server.request(http.MethodPost, "/api/v1/guidance/cases/"+createdCase.ID+"/events", guidanceToken, map[string]string{
+		"eventType":  "note",
+		"title":      "Ic not",
+		"body":       "Veli gormemeli.",
+		"visibility": "guidance_only",
+	})
+	if privateEventRec.Code != http.StatusCreated {
+		t.Fatalf("create private event status = %d, body = %s", privateEventRec.Code, privateEventRec.Body.String())
+	}
+
+	sharedEventRec := server.request(http.MethodPost, "/api/v1/guidance/cases/"+createdCase.ID+"/events", guidanceToken, map[string]string{
+		"eventType":  "meeting",
+		"title":      "Veli gorusmesi planlandi",
+		"body":       "15 Haziran saat 14:00 veli gorusmesi.",
+		"visibility": "shared_with_guardian",
+	})
+	if sharedEventRec.Code != http.StatusCreated {
+		t.Fatalf("create shared event status = %d, body = %s", sharedEventRec.Code, sharedEventRec.Body.String())
+	}
+
+	teacherRec := server.request(http.MethodGet, "/api/v1/guardian/students/student-2/guidance-updates", teacherToken, nil)
+	if teacherRec.Code != http.StatusForbidden {
+		t.Fatalf("teacher guidance updates status = %d, body = %s", teacherRec.Code, teacherRec.Body.String())
+	}
+
+	forbiddenRec := server.request(http.MethodGet, "/api/v1/guardian/students/student-1/guidance-updates", guardianToken, nil)
+	if forbiddenRec.Code != http.StatusForbidden {
+		t.Fatalf("guardian out-of-scope updates status = %d, body = %s", forbiddenRec.Code, forbiddenRec.Body.String())
+	}
+
+	allowedRec := server.request(http.MethodGet, "/api/v1/guardian/students/student-2/guidance-updates", guardianToken, nil)
+	if allowedRec.Code != http.StatusOK {
+		t.Fatalf("guardian guidance updates status = %d, body = %s", allowedRec.Code, allowedRec.Body.String())
+	}
+	updates := decodeData[[]struct {
+		Title      string `json:"title"`
+		Visibility string `json:"visibility"`
+	}](t, allowedRec)
+	if len(updates) != 1 {
+		t.Fatalf("guardian updates count = %d, want 1: %+v", len(updates), updates)
+	}
+	if updates[0].Title != "Veli gorusmesi planlandi" {
+		t.Fatalf("unexpected shared update title = %q", updates[0].Title)
+	}
+	if strings.Contains(allowedRec.Body.String(), "Ic not") {
+		t.Fatalf("private guidance note leaked to guardian response: %s", allowedRec.Body.String())
+	}
+}
+
 func TestHandlerJSONDecoderRejectsUnknownFieldsOnObservation(t *testing.T) {
 	server := newHandlerTestServer()
 	teacherToken := server.login(t, "ogretmen@atlas.k12.tr", "OtsOgretmen!2026")

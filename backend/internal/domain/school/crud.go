@@ -9,6 +9,8 @@ var (
 	ErrClassNotFound        = errors.New("class not found")
 	ErrStudentNotFound      = errors.New("student not found")
 	ErrTeacherNotFound      = errors.New("teacher not found")
+	ErrGuardianNotFound     = errors.New("guardian not found")
+	ErrGuardianLinkExists   = errors.New("guardian student link already exists")
 	ErrSubjectNotFound      = errors.New("subject not found")
 	ErrAcademicYearNotFound = errors.New("academic year not found")
 	ErrTermNotFound         = errors.New("term not found")

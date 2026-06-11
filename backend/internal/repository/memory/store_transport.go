@@ -249,7 +249,9 @@ func (s *Store) StartServiceTrip(_ context.Context, tenantID, driverUserID, rout
 		UpdatedAt:    startedAt,
 	}
 	s.serviceTrips = append(s.serviceTrips, trip)
-	return s.serviceTripSnapshotLocked(trip), nil
+	snapshot := s.serviceTripSnapshotLocked(trip)
+	_ = s.RecordServiceTripEvent(context.Background(), tenantID, snapshot.ID, "trip_started", map[string]any{"routeId": routeID})
+	return snapshot, nil
 }
 
 func (s *Store) StopActiveServiceTrip(_ context.Context, tenantID, driverUserID string, stoppedAt time.Time) (transportdomain.Trip, bool, error) {
@@ -268,7 +270,9 @@ func (s *Store) StopActiveServiceTrip(_ context.Context, tenantID, driverUserID 
 		s.serviceTrips[index].Status = transportdomain.TripCompleted
 		s.serviceTrips[index].EndedAt = &stoppedAt
 		s.serviceTrips[index].UpdatedAt = stoppedAt
-		return s.serviceTripSnapshotLocked(s.serviceTrips[index]), true, nil
+		snapshot := s.serviceTripSnapshotLocked(s.serviceTrips[index])
+		_ = s.RecordServiceTripEvent(context.Background(), tenantID, snapshot.ID, "trip_completed", nil)
+		return snapshot, true, nil
 	}
 	return transportdomain.Trip{}, false, nil
 }
@@ -771,6 +775,8 @@ func (s *Store) replaceServiceRouteStopsLocked(tenantID, routeID string, input [
 			Name:        strings.TrimSpace(item.Name),
 			PlannedTime: strings.TrimSpace(item.PlannedTime),
 			SortOrder:   sortOrder,
+			Latitude:    item.Latitude,
+			Longitude:   item.Longitude,
 		})
 	}
 	s.serviceRouteStops = next
@@ -819,4 +825,111 @@ func (s *Store) serviceStopByIDLocked(id string) (transportdomain.RouteStop, boo
 		}
 	}
 	return transportdomain.RouteStop{}, false
+}
+
+func (s *Store) GetServiceTrip(_ context.Context, tenantID, tripID string) (transportdomain.Trip, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, item := range s.serviceTrips {
+		if item.TenantID == tenantID && item.ID == tripID {
+			return item, true, nil
+		}
+	}
+	return transportdomain.Trip{}, false, nil
+}
+
+func (s *Store) ListStopsForRoute(_ context.Context, tenantID, routeID string) ([]transportdomain.RouteStop, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]transportdomain.RouteStop, 0)
+	for _, item := range s.serviceRouteStops {
+		if item.TenantID == tenantID && item.RouteID == routeID {
+			out = append(out, item)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) ListAssignmentsForRoute(_ context.Context, tenantID, routeID string) ([]transportdomain.Assignment, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]transportdomain.Assignment, 0)
+	for _, item := range s.serviceAssignments {
+		if item.TenantID != tenantID || item.RouteID != routeID || item.Status != transportdomain.StatusActive {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+func (s *Store) HasTripStopAlert(_ context.Context, tenantID, tripID, stopID string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	key := tenantID + ":" + tripID + ":" + stopID
+	_, ok := s.serviceTripApproachAlerts[key]
+	return ok, nil
+}
+
+func (s *Store) MarkTripStopAlert(ctx context.Context, tenantID, tripID, stopID string) error {
+	return s.RecordServiceTripEvent(ctx, tenantID, tripID, "approaching_notified", map[string]any{"stopId": stopID})
+}
+
+func (s *Store) ListServiceTripLocations(_ context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripLocation, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := []transportdomain.TripLocation{}
+	for index := len(s.serviceTripLocations) - 1; index >= 0; index-- {
+		item := s.serviceTripLocations[index]
+		if item.TenantID != tenantID || item.TripID != tripID {
+			continue
+		}
+		out = append(out, item)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) ListServiceTripEvents(_ context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripEvent, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := []transportdomain.TripEvent{}
+	for index := len(s.serviceTripEvents) - 1; index >= 0; index-- {
+		item := s.serviceTripEvents[index]
+		if item.TenantID != tenantID || item.TripID != tripID {
+			continue
+		}
+		out = append(out, item)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) RecordServiceTripEvent(_ context.Context, tenantID, tripID, eventType string, payload map[string]any) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	s.serviceTripEvents = append(s.serviceTripEvents, transportdomain.TripEvent{
+		ID:        fmt.Sprintf("service-trip-event-%d", len(s.serviceTripEvents)+1),
+		TenantID:  tenantID,
+		TripID:    tripID,
+		EventType: eventType,
+		Payload:   payload,
+		CreatedAt: s.clock(),
+	})
+	if eventType == "approaching_notified" {
+		if stopID, ok := payload["stopId"].(string); ok {
+			if s.serviceTripApproachAlerts == nil {
+				s.serviceTripApproachAlerts = map[string]struct{}{}
+			}
+			s.serviceTripApproachAlerts[tenantID+":"+tripID+":"+stopID] = struct{}{}
+		}
+	}
+	return nil
 }

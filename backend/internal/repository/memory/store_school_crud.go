@@ -579,19 +579,32 @@ func (s *Store) ProvisionGuardian(ctx context.Context, tenantID string, input sc
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	profile := s.ensureGuardianProfileLocked(tenantID, cred.User.ID, school.JoinFullName(input.FirstName, input.LastName), email)
 	linked := 0
 	for _, studentID := range input.StudentIDs {
 		studentID = strings.TrimSpace(studentID)
 		if studentID == "" {
 			continue
 		}
+		duplicate := false
+		for _, link := range s.studentGuardians {
+			if link.GuardianUserID == cred.User.ID && link.StudentID == studentID {
+				duplicate = true
+				break
+			}
+		}
+		if duplicate {
+			continue
+		}
 		s.studentGuardians = append(s.studentGuardians, memoryStudentGuardian{
 			GuardianUserID: cred.User.ID,
 			StudentID:      studentID,
 			Relation:       relation,
+			IsPrimary:      linked == 0,
 		})
 		linked++
 	}
+	_ = profile
 	return school.ProvisionGuardianResult{
 		UserID:            cred.User.ID,
 		Email:             email,

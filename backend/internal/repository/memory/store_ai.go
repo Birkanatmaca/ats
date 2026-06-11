@@ -251,6 +251,20 @@ func (s *Store) RecordAudit(_ context.Context, tenantID, actorUserID, action, re
 	return nil
 }
 
+func (s *Store) GetAIProviderSettings(_ context.Context) (aidomain.ProviderSettings, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.aiProviderSettings, nil
+}
+
+func (s *Store) UpdateAIProviderSettings(_ context.Context, input aidomain.ProviderSettings) (aidomain.ProviderSettings, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	input.UseLLMSet = true
+	s.aiProviderSettings = input
+	return s.aiProviderSettings, nil
+}
+
 func (s *Store) GetAIProviderKey(_ context.Context) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -392,6 +406,7 @@ func (s *Store) GetAIPlatformAnalytics(_ context.Context, since time.Time) (aido
 		DailyUsage: make([]aidomain.UsagePoint, 0),
 		ByTenant:   make([]aidomain.TenantUsageRow, 0),
 		ByModel:    make([]aidomain.ModelUsageRow, 0),
+		ByRole:     make([]aidomain.RoleUsageRow, 0),
 	}
 	tenantNames := map[string]string{s.tenant.ID: s.tenant.Name}
 	for _, institution := range s.institutions {
@@ -401,6 +416,11 @@ func (s *Store) GetAIPlatformAnalytics(_ context.Context, since time.Time) (aido
 	daily := map[string]*aidomain.UsagePoint{}
 	tenantUsage := map[string]*aidomain.TenantUsageRow{}
 	modelUsage := map[string]*aidomain.ModelUsageRow{}
+	roleUsage := map[string]*aidomain.RoleUsageRow{}
+	conversationRoles := map[string]string{}
+	for _, conv := range s.aiConversations {
+		conversationRoles[conv.ID] = conv.Role
+	}
 
 	for _, conv := range s.aiConversations {
 		if conv.Status == "archived" || conv.CreatedAt.Before(since) {
@@ -426,6 +446,16 @@ func (s *Store) GetAIPlatformAnalytics(_ context.Context, since time.Time) (aido
 			if msg.UserID != "" {
 				activeUsers[msg.UserID] = struct{}{}
 			}
+			role := conversationRoles[msg.ConversationID]
+			if role == "" {
+				role = "unknown"
+			}
+			if roleUsage[role] == nil {
+				roleUsage[role] = &aidomain.RoleUsageRow{Role: role}
+			}
+			roleUsage[role].UserMessages++
+			roleUsage[role].TokenInput += msg.TokenInput
+			roleUsage[role].TokenOutput += msg.TokenOutput
 		}
 		if msg.Role == "assistant" {
 			out.TotalAssistantMessages++
@@ -469,14 +499,44 @@ func (s *Store) GetAIPlatformAnalytics(_ context.Context, since time.Time) (aido
 	for _, key := range dayKeys {
 		out.DailyUsage = append(out.DailyUsage, *daily[key])
 	}
+	seenTenants := map[string]struct{}{}
 	for _, row := range tenantUsage {
+		quota := s.tenantAIQuotas[row.TenantID]
+		row.DailyMessageLimit = quota.DailyMessageLimit
+		row.MonthlyTokenLimit = quota.MonthlyTokenLimit
 		out.ByTenant = append(out.ByTenant, *row)
+		seenTenants[row.TenantID] = struct{}{}
+	}
+	for _, institution := range s.institutions {
+		if _, ok := seenTenants[institution.ID]; ok {
+			continue
+		}
+		quota := s.tenantAIQuotas[institution.ID]
+		out.ByTenant = append(out.ByTenant, aidomain.TenantUsageRow{
+			TenantID:            institution.ID,
+			TenantName:          institution.Name,
+			DailyMessageLimit:   quota.DailyMessageLimit,
+			MonthlyTokenLimit:   quota.MonthlyTokenLimit,
+		})
+	}
+	if _, ok := seenTenants[s.tenant.ID]; !ok && s.tenant.ID != "" {
+		quota := s.tenantAIQuotas[s.tenant.ID]
+		out.ByTenant = append(out.ByTenant, aidomain.TenantUsageRow{
+			TenantID:            s.tenant.ID,
+			TenantName:          s.tenant.Name,
+			DailyMessageLimit:   quota.DailyMessageLimit,
+			MonthlyTokenLimit:   quota.MonthlyTokenLimit,
+		})
 	}
 	sort.Slice(out.ByTenant, func(i, j int) bool { return out.ByTenant[i].UserMessages > out.ByTenant[j].UserMessages })
 	for _, row := range modelUsage {
 		out.ByModel = append(out.ByModel, *row)
 	}
 	sort.Slice(out.ByModel, func(i, j int) bool { return out.ByModel[i].Messages > out.ByModel[j].Messages })
+	for _, row := range roleUsage {
+		out.ByRole = append(out.ByRole, *row)
+	}
+	sort.Slice(out.ByRole, func(i, j int) bool { return out.ByRole[i].UserMessages > out.ByRole[j].UserMessages })
 	return out, nil
 }
 

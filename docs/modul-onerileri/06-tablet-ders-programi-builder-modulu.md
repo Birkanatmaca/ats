@@ -162,3 +162,20 @@ PATCH /api/v1/scheduling/teacher-availabilities/bulk
 6. Change log.
 7. Publish smoke test.
 
+---
+
+## 10.1 Uygulama Durumu (2026-06)
+
+| Alan | Durum |
+|------|-------|
+| Mobil planlama + müsaitlik + validate/publish | Tamam |
+| Web program builder (local + API generate) | Tamam |
+| Web veri girişi (`/dashboard/schedule/inputs`) | Tamam |
+| Sınıf-ders haftalık saat ihtiyacı editor (API) | Tamam |
+| Öğretmen müsaitlik grid (API bulk) | Tamam |
+| Yayın öncesi eksik veri kontrol listesi | Tamam |
+| Tablet drag/drop grid | Tamam (web builder + API taslak) |
+| Öğretmen görünümü (web) | Tamam |
+| Change log panel (web) | Tamam |
+| Çakışma paneli (web) | Tamam |
+

@@ -15,13 +15,15 @@ import (
 
 func (s *Store) CurrentTenant(ctx context.Context, tenantID string) (schooldomain.Tenant, bool) {
 	var tenant schooldomain.Tenant
+	var modulesRaw []byte
 	err := s.db.QueryRowContext(ctx, `
-SELECT id::text, name, plan, timezone
+SELECT id::text, name, plan, timezone, enabled_modules
 FROM tenants
-WHERE id = $1 AND deleted_at IS NULL`, tenantID).Scan(&tenant.ID, &tenant.Name, &tenant.Plan, &tenant.Timezone)
+WHERE id = $1 AND deleted_at IS NULL`, tenantID).Scan(&tenant.ID, &tenant.Name, &tenant.Plan, &tenant.Timezone, &modulesRaw)
 	if err != nil {
 		return schooldomain.Tenant{}, false
 	}
+	tenant.EnabledModules = s.scanTenantModules(modulesRaw)
 	return tenant, true
 }
 

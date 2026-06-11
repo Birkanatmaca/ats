@@ -71,6 +71,7 @@ type Store struct {
 	studentImportJobs     map[string]memoryImportJob
 	notifications         []memoryNotification
 	studentGuardians      []memoryStudentGuardian
+	guardianProfiles      []memoryGuardianProfile
 	resetTokens           map[string]memoryResetToken
 	aiConversations       []memoryAIConversation
 	aiMessages            []memoryAIMessage
@@ -78,6 +79,7 @@ type Store struct {
 	aiToolCalls           []memoryAIToolCall
 	aiSeq                 int
 	aiCostSettings        aidomain.CostSettings
+	aiProviderSettings    aidomain.ProviderSettings
 	tenantAIQuotas        map[string]aidomain.TenantQuota
 	billingSettings       billingdomain.Settings
 	billingAccounts       []billingdomain.BillingAccount
@@ -89,8 +91,10 @@ type Store struct {
 	serviceRoutes         []transportdomain.Route
 	serviceRouteStops     []transportdomain.RouteStop
 	serviceAssignments    []transportdomain.Assignment
-	serviceTrips          []transportdomain.Trip
-	serviceTripLocations  []transportdomain.TripLocation
+	serviceTrips              []transportdomain.Trip
+	serviceTripLocations      []transportdomain.TripLocation
+	serviceTripEvents         []transportdomain.TripEvent
+	serviceTripApproachAlerts map[string]struct{}
 	lifeMeals             []lifedomain.MealMenu
 	studySessions         []lifedomain.StudySession
 	studyAttendance       []lifedomain.StudyAttendance
@@ -118,6 +122,17 @@ type memoryStudentGuardian struct {
 	GuardianUserID string
 	StudentID      string
 	Relation       string
+	IsPrimary      bool
+}
+
+type memoryGuardianProfile struct {
+	ID        string
+	TenantID  string
+	UserID    string
+	FullName  string
+	Email     string
+	Phone     string
+	CreatedAt time.Time
 }
 
 type memoryCredential struct {
@@ -157,10 +172,11 @@ func NewStore(clock func() time.Time) *Store {
 	today := normalizeSchoolDay(now)
 
 	tenant := school.Tenant{
-		ID:       "00000000-0000-0000-0000-000000010001",
-		Name:     "Özel Atlas Koleji",
-		Plan:     "MVP Pilot",
-		Timezone: "Europe/Istanbul",
+		ID:             "00000000-0000-0000-0000-000000010001",
+		Name:           "Özel Atlas Koleji",
+		Plan:           "MVP Pilot",
+		Timezone:       "Europe/Istanbul",
+		EnabledModules: school.DefaultEnabledModules(),
 	}
 
 	classes := []school.Class{
@@ -550,7 +566,17 @@ func NewStore(clock func() time.Time) *Store {
 			},
 		},
 		studentGuardians: []memoryStudentGuardian{
-			{GuardianUserID: "00000000-0000-0000-0000-000000010113", StudentID: "student-2", Relation: "Anne"},
+			{GuardianUserID: "00000000-0000-0000-0000-000000010113", StudentID: "student-2", Relation: "Anne", IsPrimary: true},
+		},
+		guardianProfiles: []memoryGuardianProfile{
+			{
+				ID:        "00000000-0000-0000-0000-000000010413",
+				TenantID:  tenant.ID,
+				UserID:    "00000000-0000-0000-0000-000000010113",
+				FullName:  "Merve Demir",
+				Email:     "veli@atlas.k12.tr",
+				CreatedAt: now.AddDate(0, 0, -5),
+			},
 		},
 		notifications: []memoryNotification{
 			{
@@ -569,6 +595,11 @@ func NewStore(clock func() time.Time) *Store {
 			OutputCostPer1MUSD: 0.60,
 			UsdTryRate:         34.50,
 		},
+		aiProviderSettings: aidomain.ProviderSettings{
+			Model:     "gpt-4o-mini",
+			UseLLM:    true,
+			UseLLMSet: true,
+		},
 		tenantAIQuotas: map[string]aidomain.TenantQuota{},
 		billingSettings: billingdomain.Settings{
 			UsdTryRate:        34.50,
@@ -586,7 +617,9 @@ func NewStore(clock func() time.Time) *Store {
 		serviceRouteStops:    serviceRouteStops,
 		serviceAssignments:   serviceAssignments,
 		serviceTrips:         []transportdomain.Trip{},
-		serviceTripLocations: []transportdomain.TripLocation{},
+		serviceTripLocations:      []transportdomain.TripLocation{},
+		serviceTripEvents:           []transportdomain.TripEvent{},
+		serviceTripApproachAlerts: map[string]struct{}{},
 		lifeMeals:            lifeMeals,
 		studySessions:        studySessions,
 		studyAttendance:      studyAttendance,
@@ -892,7 +925,7 @@ func (s *Store) SuperAdminOverview(_ context.Context) (superadmindomain.Overview
 			{Name: "Scheduling", Status: "operational", Description: "Program üretim API'si erişilebilir."},
 			{Name: "Attendance", Status: "operational", Description: "Yoklama oturumları kaydediliyor."},
 			{Name: "Guidance", Status: "limited", Description: "MVP gözlem kayıtları aktif."},
-			{Name: "Billing", Status: "planned", Description: "Premium modül fazına ayrıldı."},
+			{Name: "Billing", Status: "operational", Description: "Öğrenci tahsilat planı ve taksit takibi aktif."},
 		},
 	}, nil
 }
@@ -910,10 +943,15 @@ func (s *Store) GetInstitution(_ context.Context, tenantID string) (superadmindo
 	defer s.mu.RUnlock()
 	for _, institution := range s.institutions {
 		if institution.ID == tenantID {
+			modules := school.DefaultEnabledModules()
+			if institution.ID == s.tenant.ID && len(s.tenant.EnabledModules) > 0 {
+				modules = append([]string(nil), s.tenant.EnabledModules...)
+			}
 			return superadmindomain.InstitutionDetail{
-				Institution: institution,
-				CreatedAt:   institution.LastActivityAt,
-				UpdatedAt:   institution.LastActivityAt,
+				Institution:    institution,
+				EnabledModules: modules,
+				CreatedAt:      institution.LastActivityAt,
+				UpdatedAt:      institution.LastActivityAt,
 			}, true, nil
 		}
 	}
@@ -1174,6 +1212,51 @@ func (s *Store) CurrentTenant(_ context.Context, tenantID string) (school.Tenant
 		return school.Tenant{}, false
 	}
 	return s.tenant, true
+}
+
+func (s *Store) TenantEnabledModules(_ context.Context, tenantID string) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if tenantID != s.tenant.ID {
+		return school.DefaultEnabledModules(), nil
+	}
+	if len(s.tenant.EnabledModules) == 0 {
+		return school.DefaultEnabledModules(), nil
+	}
+	return append([]string(nil), s.tenant.EnabledModules...), nil
+}
+
+func (s *Store) TenantHasModule(ctx context.Context, tenantID, module string) bool {
+	modules, err := s.TenantEnabledModules(ctx, tenantID)
+	if err != nil {
+		return false
+	}
+	return school.HasModule(modules, module)
+}
+
+func (s *Store) UpdateTenantEnabledModules(_ context.Context, tenantID string, modules []string) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if tenantID != s.tenant.ID {
+		return nil, superadmindomain.ErrInstitutionNotFound
+	}
+	if len(modules) == 0 {
+		modules = school.DefaultEnabledModules()
+	}
+	s.tenant.EnabledModules = append([]string(nil), modules...)
+	return append([]string(nil), modules...), nil
+}
+
+func (s *Store) UpdateInstitutionModules(ctx context.Context, actor identity.Principal, tenantID string, modules []string) (superadmindomain.InstitutionDetail, bool, error) {
+	if _, err := s.UpdateTenantEnabledModules(ctx, tenantID, modules); err != nil {
+		return superadmindomain.InstitutionDetail{}, false, err
+	}
+	detail, ok, err := s.GetInstitution(ctx, tenantID)
+	if err != nil || !ok {
+		return superadmindomain.InstitutionDetail{}, ok, err
+	}
+	s.RecordOperationalAudit(ctx, actor.TenantID, actor.UserID, "tenant.modules.update", "tenant", tenantID, `{}`)
+	return detail, true, nil
 }
 
 func (s *Store) ListAnnouncements(_ context.Context, tenantID string) []school.Announcement {

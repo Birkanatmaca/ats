@@ -31,6 +31,7 @@ type Repository interface {
 	ResolveTargetUserIDs(ctx context.Context, tenantID string, audiences []domain.AudienceTarget) ([]string, error)
 	CountAnnouncementReads(ctx context.Context, tenantID, announcementID string) (int, error)
 	CountAnnouncementDeliveries(ctx context.Context, tenantID, announcementID string) (int, error)
+	CountAnnouncementPushDeliveries(ctx context.Context, tenantID, announcementID string) (domain.PushDeliveryStats, error)
 
 	ListTemplates(ctx context.Context, tenantID string) ([]domain.Template, error)
 	GetTemplate(ctx context.Context, tenantID, templateID string) (domain.Template, bool, error)
@@ -324,7 +325,14 @@ func (s *Service) EnrichManageStats(ctx context.Context, tenantID string, items 
 		if err != nil {
 			return nil, err
 		}
+		pushStats, err := s.repo.CountAnnouncementPushDeliveries(ctx, tenantID, item.ID)
+		if err != nil {
+			return nil, err
+		}
 		item.DeliveryCount = deliveryCount
+		item.PushSentCount = pushStats.Sent
+		item.PushDroppedCount = pushStats.Dropped
+		item.PushFailedCount = pushStats.Failed
 		item.TargetCount = len(targetIDs)
 		out = append(out, item)
 	}

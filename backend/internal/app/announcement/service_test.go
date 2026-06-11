@@ -135,6 +135,10 @@ func (r *testRepo) CountAnnouncementDeliveries(context.Context, string, string) 
 	return len(r.targetUsers), nil
 }
 
+func (r *testRepo) CountAnnouncementPushDeliveries(context.Context, string, string) (domain.PushDeliveryStats, error) {
+	return domain.PushDeliveryStats{Sent: 2, Dropped: 1}, nil
+}
+
 func (r *testRepo) ListTemplates(context.Context, string) ([]domain.Template, error) { return nil, nil }
 func (r *testRepo) GetTemplate(context.Context, string, string) (domain.Template, bool, error) {
 	return domain.Template{}, false, nil
@@ -271,5 +275,8 @@ func TestEnrichManageStatsIncludesDeliveryCount(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].TargetCount != 3 || items[0].DeliveryCount != 3 || items[0].ReadCount != 1 {
 		t.Fatalf("unexpected stats: %#v", items)
+	}
+	if items[0].PushSentCount != 2 || items[0].PushDroppedCount != 1 {
+		t.Fatalf("unexpected push stats: %#v", items[0])
 	}
 }

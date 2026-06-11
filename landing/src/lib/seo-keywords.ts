@@ -86,6 +86,17 @@ export const KEYWORD_CLUSTERS: Record<
       "okul yönetim programı"
     ]
   },
+  "okul-yonetim": {
+    category: "yonetim",
+    primary: "okul yönetim",
+    keywords: [
+      "okul yönetim",
+      "okul yönetimi",
+      "okul yönetim yazılımı",
+      "dijital okul yönetimi",
+      "okul operasyon yönetimi"
+    ]
+  },
   "okul-yonetim-sistemi": {
     category: "yonetim",
     primary: "okul yönetim sistemi",
@@ -128,6 +139,17 @@ export const KEYWORD_CLUSTERS: Record<
       "öğrenci takip yazılımı",
       "öğrenci takip programı",
       "öğrenci izleme sistemi"
+    ]
+  },
+  "okul-takip": {
+    category: "takip",
+    primary: "okul takip",
+    keywords: [
+      "okul takip",
+      "okul takibi",
+      "okul takip yazılımı",
+      "okul takip programı",
+      "kurum takip"
     ]
   },
   "okul-takip-sistemi": {

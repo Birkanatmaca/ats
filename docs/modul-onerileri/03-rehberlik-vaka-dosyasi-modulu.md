@@ -111,7 +111,32 @@ PATCH  /api/v1/guidance/cases/{id}/events/{eventId}
 DELETE /api/v1/guidance/cases/{id}/events/{eventId}
 
 GET    /api/v1/guidance/students/{id}/case-summary
+GET    /api/v1/guidance/cases/stats
+GET    /api/v1/guidance/cases/{id}/timeline
+GET    /api/v1/guidance/early-warnings
 ```
+
+---
+
+## 5.1 Uygulama Durumu (2026-06)
+
+| Alan | Durum |
+|------|-------|
+| Backend CRUD + timeline + stats | Tamam |
+| Müdür maskeli özet (`CaseViewSummary`) | Tamam |
+| Mobil rehberlik vaka inbox + detay | Tamam |
+| Mobil müdür vaka özeti kartı | Tamam |
+| Web rehberlik vaka listesi/detay | Tamam |
+| Web müdür maskeli vaka özeti | Tamam |
+| Erken uyarı (yoklama + gözlem + risk) | Tamam |
+| Veli `shared_with_guardian` görünümü (web) | Tamam |
+| AI vaka özeti | Bekliyor |
+
+Erken uyarı kuralları (MVP):
+
+- Yoklama özetinde ≥3 devamsızlık → `attendance_absent`
+- Son 14 günde aynı gözlem kategorisinde ≥2 kayıt → `observation_repeat`
+- Aktif risk takibi var, açık vaka yok → `risk_without_case`
 
 ---
 
@@ -137,6 +162,17 @@ GET    /api/v1/guidance/students/{id}/case-summary
 
 - İç not yok.
 - Sadece kurumun paylaşmaya karar verdiği takip aksiyonları veya görüşme randevusu.
+
+### Web (rehberlik)
+
+- Vaka inbox (`/dashboard/cases`).
+- Vaka detay + zaman çizelgesi + kayıt ekleme.
+- Genel bakışta erken uyarı sinyalleri.
+
+### Web (müdür)
+
+- Maskeli vaka özeti (`/dashboard/guidance-cases`).
+- Kritik/açık vaka metrikleri, detayda hassas içerik gizli.
 
 ---
 

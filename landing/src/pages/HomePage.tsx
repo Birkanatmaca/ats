@@ -3,6 +3,7 @@ import { Hero } from "../components/Hero";
 import { RoleShowcaseSection } from "../components/RoleShowcaseSection";
 import { Features } from "../components/Features";
 import { OgtaAiSection } from "../components/OgtaAiSection";
+import { SeoDiscoverSection } from "../components/SeoDiscoverSection";
 import { PageSeo } from "../components/PageSeo";
 import { SEO } from "../lib/seo";
 
@@ -26,6 +27,7 @@ export function HomePage() {
         <Hero />
         <RoleShowcaseSection />
         <Features />
+        <SeoDiscoverSection />
         <OgtaAiSection />
       </main>
     </>

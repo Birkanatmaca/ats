@@ -1,6 +1,7 @@
 import { ArrowRight, ChevronRight } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { statusLabel } from "../../../admin/utils/labels";
+import { PrincipalPendingAttendancePanel } from "../components/PrincipalPendingAttendancePanel";
 import type { PrincipalConsoleData } from "../types";
 
 const priorityTone: Record<string, string> = {
@@ -19,6 +20,8 @@ export function PrincipalOperationsPage({ data }: { data: PrincipalConsoleData }
         <h1>Aksiyon bekleyen işler</h1>
         <p>Öncelik ve durum bilgisine göre takip edilmesi gereken operasyonları sırala ve ilgili sayfaya geç.</p>
       </header>
+
+      <PrincipalPendingAttendancePanel summary={data.summary} variant="card" showClassList />
 
       <article className="principal-surface-card">
         {operations.length === 0 ? (

@@ -8,7 +8,14 @@ const (
 	CategorySupport       = "support"
 	CategoryGuidance      = "guidance"
 	CategorySchedule      = "schedule"
+	CategoryTransport     = "transport"
+	CategoryBilling       = "billing"
 )
+
+type TransportRecipient struct {
+	UserID    string
+	StudentID string
+}
 
 const (
 	DeliveryStatusQueued  = "queued"
@@ -23,6 +30,8 @@ type Preferences struct {
 	Support       bool `json:"support"`
 	Guidance      bool `json:"guidance"`
 	Schedule      bool `json:"schedule"`
+	Transport     bool `json:"transport"`
+	Billing       bool `json:"billing"`
 }
 
 func DefaultPreferences() Preferences {
@@ -32,6 +41,8 @@ func DefaultPreferences() Preferences {
 		Support:       true,
 		Guidance:      true,
 		Schedule:      true,
+		Transport:     true,
+		Billing:       true,
 	}
 }
 
@@ -54,6 +65,7 @@ type DeliveryLog struct {
 	TenantID          string `json:"tenantId"`
 	UserID            string `json:"userId"`
 	DeviceTokenID     string `json:"deviceTokenId,omitempty"`
+	SourceKind        string `json:"sourceKind,omitempty"`
 	Category          string `json:"category"`
 	Title             string `json:"title"`
 	Status            string `json:"status"`
@@ -84,6 +96,24 @@ type UpdatePreferencesInput struct {
 	Support       *bool `json:"support,omitempty"`
 	Guidance      *bool `json:"guidance,omitempty"`
 	Schedule      *bool `json:"schedule,omitempty"`
+	Transport     *bool `json:"transport,omitempty"`
+	Billing       *bool `json:"billing,omitempty"`
+}
+
+type BillingInstallmentReminder struct {
+	InstallmentID string
+	StudentID     string
+	StudentName   string
+	PlanName      string
+	DueDate       string
+	UserID        string
+	Kind          string
+}
+
+type BillingOverdueSummary struct {
+	Count  int
+	Amount float64
+	DateKey string
 }
 
 type TestPushInput struct {
@@ -98,6 +128,20 @@ type GuidancePlanReminder struct {
 	PlanID      string
 	PlanTitle   string
 	DueDate     string
+}
+
+type PrincipalAttendancePending struct {
+	TodayLessons   int
+	FinalizedToday int
+	PendingClasses []string
+	DateKey        string
+}
+
+func (s PrincipalAttendancePending) PendingLessons() int {
+	if s.TodayLessons <= s.FinalizedToday {
+		return 0
+	}
+	return s.TodayLessons - s.FinalizedToday
 }
 
 func MaskToken(token string) string {

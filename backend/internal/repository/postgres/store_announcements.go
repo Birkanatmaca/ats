@@ -231,8 +231,25 @@ WHERE tenant_id = $1 AND kind LIKE $2`,
 	return count, err
 }
 
+func (s *Store) CountAnnouncementPushDeliveries(ctx context.Context, tenantID, announcementID string) (announcementdomain.PushDeliveryStats, error) {
+	var stats announcementdomain.PushDeliveryStats
+	err := s.db.QueryRowContext(ctx, `
+SELECT
+  COUNT(*) FILTER (WHERE status = 'sent'),
+  COUNT(*) FILTER (WHERE status = 'dropped'),
+  COUNT(*) FILTER (WHERE status = 'failed')
+FROM push_delivery_logs
+WHERE tenant_id = $1 AND source_kind LIKE $2`,
+		tenantID, "announcement:"+announcementID+":%").Scan(&stats.Sent, &stats.Dropped, &stats.Failed)
+	return stats, err
+}
+
 func (s *Store) GetUserTargetContext(ctx context.Context, tenantID, userID string) (announcementdomain.UserTargetContext, error) {
-	ctxData := announcementdomain.UserTargetContext{UserID: userID, StudentClassIDs: map[string]string{}}
+	ctxData := announcementdomain.UserTargetContext{
+		UserID:            userID,
+		StudentClassIDs:   map[string]string{},
+		StudentSectionIDs: map[string]string{},
+	}
 	rows, err := s.db.QueryContext(ctx, `
 SELECT r.code FROM user_roles ur
 JOIN roles r ON r.id = ur.role_id
@@ -270,6 +287,7 @@ WHERE g.tenant_id = $1 AND g.user_id = $2`, tenantID, userID)
 		ctxData.GuardianStudentIDs = append(ctxData.GuardianStudentIDs, studentID)
 		if classID != "" {
 			ctxData.StudentClassIDs[studentID] = classID
+			ctxData.StudentSectionIDs[studentID] = classID + "-default"
 		}
 	}
 	return ctxData, nil
@@ -300,7 +318,7 @@ func (s *Store) resolveAudienceUserIDs(ctx context.Context, tenantID string, aud
 		return s.listActiveTenantUserIDs(ctx, tenantID, "")
 	case announcementdomain.AudienceRole:
 		return s.listActiveTenantUserIDs(ctx, tenantID, audience.Role)
-	case announcementdomain.AudienceClass, announcementdomain.AudienceSection:
+	case announcementdomain.AudienceClass:
 		if audience.ID == "" {
 			return nil, nil
 		}
@@ -310,6 +328,22 @@ FROM class_students cs
 JOIN student_guardians sg ON sg.student_id = cs.student_id AND sg.tenant_id = cs.tenant_id
 JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = sg.tenant_id
 WHERE cs.tenant_id = $1 AND cs.class_id = $2 AND g.user_id IS NOT NULL`, tenantID, audience.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		return scanStringColumn(rows)
+	case announcementdomain.AudienceSection:
+		if audience.ID == "" {
+			return nil, nil
+		}
+		classID := announcementdomain.SectionClassID(audience.ID)
+		rows, err := s.db.QueryContext(ctx, `
+SELECT DISTINCT g.user_id::text
+FROM class_students cs
+JOIN student_guardians sg ON sg.student_id = cs.student_id AND sg.tenant_id = cs.tenant_id
+JOIN guardians g ON g.id = sg.guardian_id AND g.tenant_id = sg.tenant_id
+WHERE cs.tenant_id = $1 AND cs.class_id = $2 AND g.user_id IS NOT NULL`, tenantID, classID)
 		if err != nil {
 			return nil, err
 		}

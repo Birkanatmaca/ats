@@ -61,12 +61,14 @@ type Staff struct {
 }
 
 type RouteStop struct {
-	ID          string `json:"id"`
-	TenantID    string `json:"tenantId"`
-	RouteID     string `json:"routeId"`
-	Name        string `json:"name"`
-	PlannedTime string `json:"plannedTime"`
-	SortOrder   int    `json:"sortOrder"`
+	ID          string   `json:"id"`
+	TenantID    string   `json:"tenantId"`
+	RouteID     string   `json:"routeId"`
+	Name        string   `json:"name"`
+	PlannedTime string   `json:"plannedTime"`
+	SortOrder   int      `json:"sortOrder"`
+	Latitude    *float64 `json:"latitude,omitempty"`
+	Longitude   *float64 `json:"longitude,omitempty"`
 }
 
 type Route struct {
@@ -111,16 +113,37 @@ type Assignment struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
+type ServiceLiveStatus struct {
+	Active          bool       `json:"active"`
+	LastLocationAt  *time.Time `json:"lastLocationAt,omitempty"`
+	SpeedKph        float64    `json:"speedKph,omitempty"`
+	EtaMinutes      *int       `json:"etaMinutes,omitempty"`
+	DistanceKm      *float64   `json:"distanceKm,omitempty"`
+	LocationStale   bool       `json:"locationStale"`
+	StopLatitude    *float64   `json:"stopLatitude,omitempty"`
+	StopLongitude   *float64   `json:"stopLongitude,omitempty"`
+}
+
+type TripEvent struct {
+	ID        string         `json:"id"`
+	TenantID  string         `json:"tenantId"`
+	TripID    string         `json:"tripId"`
+	EventType string         `json:"eventType"`
+	Payload   map[string]any `json:"payload,omitempty"`
+	CreatedAt time.Time      `json:"createdAt"`
+}
+
 type GuardianServiceSummary struct {
-	StudentID     string       `json:"studentId"`
-	StudentName   string       `json:"studentName"`
-	SchoolNumber  string       `json:"schoolNumber"`
-	ClassName     string       `json:"className,omitempty"`
-	Assignments   []Assignment `json:"assignments"`
-	Routes        []Route      `json:"routes"`
-	ActiveTrip    *Trip        `json:"activeTrip,omitempty"`
-	UpdatedAt     time.Time    `json:"updatedAt"`
-	HasAssignment bool         `json:"hasAssignment"`
+	StudentID     string             `json:"studentId"`
+	StudentName   string             `json:"studentName"`
+	SchoolNumber  string             `json:"schoolNumber"`
+	ClassName     string             `json:"className,omitempty"`
+	Assignments   []Assignment       `json:"assignments"`
+	Routes        []Route            `json:"routes"`
+	ActiveTrip    *Trip              `json:"activeTrip,omitempty"`
+	LiveStatus    *ServiceLiveStatus `json:"liveStatus,omitempty"`
+	UpdatedAt     time.Time          `json:"updatedAt"`
+	HasAssignment bool               `json:"hasAssignment"`
 }
 
 type DriverServiceSummary struct {
@@ -145,9 +168,10 @@ type Trip struct {
 	Status       TripStatus    `json:"status"`
 	StartedAt    time.Time     `json:"startedAt"`
 	EndedAt      *time.Time    `json:"endedAt,omitempty"`
-	LastLocation *TripLocation `json:"lastLocation,omitempty"`
-	CreatedAt    time.Time     `json:"createdAt"`
-	UpdatedAt    time.Time     `json:"updatedAt"`
+	LastLocation *TripLocation      `json:"lastLocation,omitempty"`
+	LiveStatus   *ServiceLiveStatus `json:"liveStatus,omitempty"`
+	CreatedAt    time.Time          `json:"createdAt"`
+	UpdatedAt    time.Time          `json:"updatedAt"`
 }
 
 type TripLocation struct {
@@ -164,10 +188,12 @@ type TripLocation struct {
 }
 
 type RouteStopInput struct {
-	ID          string `json:"id,omitempty"`
-	Name        string `json:"name"`
-	PlannedTime string `json:"plannedTime"`
-	SortOrder   int    `json:"sortOrder,omitempty"`
+	ID          string   `json:"id,omitempty"`
+	Name        string   `json:"name"`
+	PlannedTime string   `json:"plannedTime"`
+	SortOrder   int      `json:"sortOrder,omitempty"`
+	Latitude    *float64 `json:"latitude,omitempty"`
+	Longitude   *float64 `json:"longitude,omitempty"`
 }
 
 type CreateVehicleInput struct {
@@ -226,10 +252,13 @@ type ServiceDelayInput struct {
 }
 
 type ServiceDelayNotification struct {
-	RouteID        string `json:"routeId"`
-	RouteName      string `json:"routeName"`
-	DelayMinutes   int    `json:"delayMinutes"`
-	DeliveredCount int    `json:"deliveredCount"`
+	RouteID           string `json:"routeId"`
+	RouteName         string `json:"routeName"`
+	DelayMinutes      int    `json:"delayMinutes"`
+	DeliveredCount    int    `json:"deliveredCount"`
+	NotificationKind  string `json:"-"`
+	NotificationTitle string `json:"-"`
+	NotificationBody  string `json:"-"`
 }
 
 type AssignmentInput struct {

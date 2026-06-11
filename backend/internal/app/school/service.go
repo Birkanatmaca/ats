@@ -33,6 +33,13 @@ type Repository interface {
 	ProvisionTeacher(ctx context.Context, tenantID string, input domain.ProvisionTeacherInput) (domain.ProvisionTeacherResult, error)
 	ProvisionServiceDriver(ctx context.Context, tenantID string, input domain.ProvisionServiceDriverInput) (domain.ProvisionServiceDriverResult, error)
 	ProvisionGuardian(ctx context.Context, tenantID string, input domain.ProvisionGuardianInput) (domain.ProvisionGuardianResult, error)
+	ListManagedGuardians(ctx context.Context, tenantID string) ([]domain.ManagedGuardian, error)
+	GetManagedGuardian(ctx context.Context, tenantID, guardianID string) (domain.ManagedGuardian, bool)
+	UpdateManagedGuardian(ctx context.Context, tenantID, guardianID string, input domain.UpdateManagedGuardianInput) (domain.ManagedGuardian, error)
+	SetManagedGuardianStatus(ctx context.Context, tenantID, guardianID, status string) (domain.ManagedGuardian, error)
+	ResetManagedGuardianPassword(ctx context.Context, tenantID, guardianID string) (string, error)
+	LinkManagedGuardianStudent(ctx context.Context, tenantID, guardianID string, input domain.LinkManagedGuardianStudentInput) (domain.ManagedGuardian, error)
+	UnlinkManagedGuardianStudent(ctx context.Context, tenantID, guardianID, studentID string) (domain.ManagedGuardian, error)
 	ResetTeacherPassword(ctx context.Context, tenantID string, teacherID string) (string, error)
 	UpdateTeacher(ctx context.Context, tenantID string, teacherID string, input domain.UpdateTeacherInput) (domain.Teacher, error)
 
@@ -50,6 +57,8 @@ var (
 	ErrClassNotFound        = domain.ErrClassNotFound
 	ErrStudentNotFound      = domain.ErrStudentNotFound
 	ErrTeacherNotFound      = domain.ErrTeacherNotFound
+	ErrGuardianNotFound     = domain.ErrGuardianNotFound
+	ErrGuardianLinkExists   = domain.ErrGuardianLinkExists
 	ErrSubjectNotFound      = domain.ErrSubjectNotFound
 	ErrAcademicYearNotFound = domain.ErrAcademicYearNotFound
 	ErrTermNotFound         = domain.ErrTermNotFound
@@ -273,6 +282,94 @@ func (s *Service) ProvisionGuardian(ctx context.Context, tenantID string, input 
 		return domain.ProvisionGuardianResult{}, ErrStudentNotFound
 	}
 	return result, err
+}
+
+func (s *Service) ListManagedGuardians(ctx context.Context, tenantID string) ([]domain.ManagedGuardian, error) {
+	return s.repo.ListManagedGuardians(ctx, tenantID)
+}
+
+func (s *Service) GetManagedGuardian(ctx context.Context, tenantID, guardianID string) (domain.ManagedGuardian, error) {
+	guardianID = strings.TrimSpace(guardianID)
+	if guardianID == "" {
+		return domain.ManagedGuardian{}, ErrInvalidInput
+	}
+	item, ok := s.repo.GetManagedGuardian(ctx, tenantID, guardianID)
+	if !ok {
+		return domain.ManagedGuardian{}, ErrGuardianNotFound
+	}
+	return item, nil
+}
+
+func (s *Service) UpdateManagedGuardian(ctx context.Context, tenantID, guardianID string, input domain.UpdateManagedGuardianInput) (domain.ManagedGuardian, error) {
+	guardianID = strings.TrimSpace(guardianID)
+	if guardianID == "" {
+		return domain.ManagedGuardian{}, ErrInvalidInput
+	}
+	item, err := s.repo.UpdateManagedGuardian(ctx, tenantID, guardianID, input)
+	if errors.Is(err, domain.ErrGuardianNotFound) {
+		return domain.ManagedGuardian{}, ErrGuardianNotFound
+	}
+	if errors.Is(err, domain.ErrInvalidInput) {
+		return domain.ManagedGuardian{}, ErrInvalidInput
+	}
+	return item, err
+}
+
+func (s *Service) SetManagedGuardianStatus(ctx context.Context, tenantID, guardianID, status string) (domain.ManagedGuardian, error) {
+	guardianID = strings.TrimSpace(guardianID)
+	status = strings.ToLower(strings.TrimSpace(status))
+	if guardianID == "" || (status != "active" && status != "passive") {
+		return domain.ManagedGuardian{}, ErrInvalidInput
+	}
+	item, err := s.repo.SetManagedGuardianStatus(ctx, tenantID, guardianID, status)
+	if errors.Is(err, domain.ErrGuardianNotFound) {
+		return domain.ManagedGuardian{}, ErrGuardianNotFound
+	}
+	return item, err
+}
+
+func (s *Service) ResetManagedGuardianPassword(ctx context.Context, tenantID, guardianID string) (string, error) {
+	guardianID = strings.TrimSpace(guardianID)
+	if guardianID == "" {
+		return "", ErrInvalidInput
+	}
+	temp, err := s.repo.ResetManagedGuardianPassword(ctx, tenantID, guardianID)
+	if errors.Is(err, domain.ErrGuardianNotFound) {
+		return "", ErrGuardianNotFound
+	}
+	return temp, err
+}
+
+func (s *Service) LinkManagedGuardianStudent(ctx context.Context, tenantID, guardianID string, input domain.LinkManagedGuardianStudentInput) (domain.ManagedGuardian, error) {
+	guardianID = strings.TrimSpace(guardianID)
+	input.StudentID = strings.TrimSpace(input.StudentID)
+	if guardianID == "" || input.StudentID == "" {
+		return domain.ManagedGuardian{}, ErrInvalidInput
+	}
+	item, err := s.repo.LinkManagedGuardianStudent(ctx, tenantID, guardianID, input)
+	if errors.Is(err, domain.ErrGuardianNotFound) {
+		return domain.ManagedGuardian{}, ErrGuardianNotFound
+	}
+	if errors.Is(err, domain.ErrStudentNotFound) {
+		return domain.ManagedGuardian{}, ErrStudentNotFound
+	}
+	if errors.Is(err, domain.ErrGuardianLinkExists) {
+		return domain.ManagedGuardian{}, ErrGuardianLinkExists
+	}
+	return item, err
+}
+
+func (s *Service) UnlinkManagedGuardianStudent(ctx context.Context, tenantID, guardianID, studentID string) (domain.ManagedGuardian, error) {
+	guardianID = strings.TrimSpace(guardianID)
+	studentID = strings.TrimSpace(studentID)
+	if guardianID == "" || studentID == "" {
+		return domain.ManagedGuardian{}, ErrInvalidInput
+	}
+	item, err := s.repo.UnlinkManagedGuardianStudent(ctx, tenantID, guardianID, studentID)
+	if errors.Is(err, domain.ErrGuardianNotFound) {
+		return domain.ManagedGuardian{}, ErrGuardianNotFound
+	}
+	return item, err
 }
 
 func (s *Service) ResetTeacherPassword(ctx context.Context, tenantID string, teacherID string) (string, error) {

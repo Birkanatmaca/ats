@@ -80,7 +80,7 @@ func TestTransportGuardianSummaryScope(t *testing.T) {
 	}
 }
 
-func TestTransportRouteUpdateWritesGuardianNotification(t *testing.T) {
+func TestTransportRouteUpdateDoesNotAutoNotifyGuardians(t *testing.T) {
 	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)
 	store := NewStore(func() time.Time { return fixed })
 	service := transportapp.NewService(store, func() time.Time { return fixed })
@@ -91,11 +91,7 @@ func TestTransportRouteUpdateWritesGuardianNotification(t *testing.T) {
 	if _, err := service.UpdateRoute(ctx, demoTenantID, "service-route-5a-morning", demoPrincipalUserID, transportdomain.UpdateRouteInput{Name: &name}); err != nil {
 		t.Fatalf("expected route update, got %v", err)
 	}
-	if len(store.notifications) <= before {
-		t.Fatalf("expected guardian service notification, before=%d after=%d", before, len(store.notifications))
-	}
-	latest := store.notifications[len(store.notifications)-1]
-	if latest.UserID != demoGuardianUserID || latest.Kind == "" {
-		t.Fatalf("expected service notification for guardian, got %#v", latest)
+	if len(store.notifications) != before {
+		t.Fatalf("route update should not auto-notify guardians, before=%d after=%d", before, len(store.notifications))
 	}
 }

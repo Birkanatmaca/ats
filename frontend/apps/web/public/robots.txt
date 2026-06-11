@@ -1,7 +1,2 @@
 User-agent: *
-Disallow: /admin
-Disallow: /dashboard
-Disallow: /first-login
-Disallow: /forgot-password
-Disallow: /reset-password
-Allow: /login
+Disallow: /

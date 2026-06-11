@@ -32,6 +32,17 @@ export function Footer() {
           </div>
 
           <div className="footer-block">
+            <h3 className="footer-block__title">Çözümler</h3>
+            <nav aria-label="SEO çözüm sayfaları" className="footer-nav">
+              <Link to="/okul-takip">Okul takip</Link>
+              <Link to="/okul-takip-sistemi">Okul takip sistemi</Link>
+              <Link to="/okul-yonetim">Okul yönetim</Link>
+              <Link to="/okul-yonetim-sistemi">Okul yönetim sistemi</Link>
+              <Link to="/cozumler">Tüm çözümler</Link>
+            </nav>
+          </div>
+
+          <div className="footer-block">
             <h3 className="footer-block__title">Erişim</h3>
             <div className="footer-actions">
               <a className="footer-action footer-action--panel" href={APP_URL}>

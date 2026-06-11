@@ -178,6 +178,17 @@ export type GuardianNotification = {
   createdAt: string;
 };
 
+export type GuardianGuidanceUpdate = {
+  id: string;
+  caseId: string;
+  caseTitle: string;
+  eventType: GuidanceCaseEventType;
+  title: string;
+  body: string;
+  actorName: string;
+  occurredAt: string;
+};
+
 export type ClassSummary = {
   classId: string;
   className: string;
@@ -368,6 +379,7 @@ export type Tenant = {
   name: string;
   plan: string;
   timezone: string;
+  enabledModules?: string[];
 };
 
 export type PrincipalSummary = {
@@ -543,6 +555,123 @@ export type GuidanceSupportPlan = {
   updatedAt: string;
 };
 
+export type GuidanceCaseStatus = "open" | "monitoring" | "closed";
+export type GuidanceCasePriority = "low" | "medium" | "high" | "critical";
+export type GuidanceCaseEventType =
+  | "note"
+  | "meeting"
+  | "plan"
+  | "risk"
+  | "status_change"
+  | "file"
+  | "follow_up";
+export type GuidanceCaseEventVisibility = "guidance_only" | "principal_summary" | "shared_with_guardian";
+
+export type GuidanceCase = {
+  id: string;
+  tenantId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  ownerUserId: string;
+  ownerName: string;
+  status: GuidanceCaseStatus;
+  priority: GuidanceCasePriority;
+  title: string;
+  summary: string;
+  sensitivity: string;
+  openedAt: string;
+  closedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  masked?: boolean;
+};
+
+export type GuidanceCaseEvent = {
+  id: string;
+  tenantId: string;
+  caseId: string;
+  eventType: GuidanceCaseEventType;
+  title: string;
+  body: string;
+  actorUserId: string;
+  actorName: string;
+  visibility: GuidanceCaseEventVisibility;
+  occurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+  masked?: boolean;
+};
+
+export type GuidanceCaseTimelineItem = {
+  id: string;
+  source: "case_event" | "guidance_note" | "support_plan" | "risk_tracking";
+  eventType: string;
+  title: string;
+  body: string;
+  actorName: string;
+  occurredAt: string;
+  visibility?: GuidanceCaseEventVisibility;
+  masked?: boolean;
+};
+
+export type GuidanceCaseCloseResult = {
+  case: GuidanceCase;
+  warnings?: string[];
+};
+
+export type GuidanceCaseInboxStats = {
+  openCount: number;
+  monitoringCount: number;
+  criticalCount: number;
+  overduePlanCount: number;
+};
+
+export type GuidanceEarlyWarningSignal = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  signalType: "attendance_absent" | "observation_repeat" | "risk_without_case";
+  severity: "medium" | "high";
+  title: string;
+  summary: string;
+  suggestedAction: string;
+  hasOpenCase: boolean;
+  detectedAt: string;
+};
+
+export type ManagedGuardianStudent = {
+  studentId: string;
+  studentName: string;
+  className: string;
+  schoolNumber: string;
+  relation: string;
+  isPrimary: boolean;
+};
+
+export type ManagedGuardian = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone: string;
+  status: "active" | "passive";
+  mustChangePassword: boolean;
+  students: ManagedGuardianStudent[];
+  createdAt: string;
+};
+
+export type ProvisionGuardianResult = {
+  userId: string;
+  email: string;
+  temporaryPassword: string;
+  linkedStudents: number;
+};
+
 export type PrincipalSchoolRoster = {
   classes: Array<{ id: string; name: string; createdAt: string }>;
   sections: Array<{
@@ -584,8 +713,19 @@ export type Announcement = {
   readCount?: number;
   targetCount?: number;
   deliveryCount?: number;
+  pushSentCount?: number;
+  pushDroppedCount?: number;
+  pushFailedCount?: number;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type AnnouncementTemplate = {
+  id: string;
+  name: string;
+  titleTemplate: string;
+  bodyTemplate: string;
+  category: string;
 };
 
 export type AnnouncementAudienceTarget = {
@@ -603,6 +743,31 @@ export type SuperAdminOverview = {
   usage: UsagePoint[];
   incidents: Incident[];
   modules: ModuleStatus[];
+};
+
+export type PushHealth = {
+  activeTokens: number;
+  revokedTokens: number;
+  sentLast24h: number;
+  failedLast24h: number;
+  failureRate24h: number;
+};
+
+export type PushDeliveryLog = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  deviceTokenId?: string;
+  sourceKind?: string;
+  category: string;
+  title: string;
+  status: string;
+  provider: string;
+  providerReceiptId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  sentAt?: string;
+  createdAt: string;
 };
 
 export type UsagePoint = {
@@ -631,6 +796,51 @@ export type AITenantUsageRow = {
   tokenOutput: number;
   estCostUsd: number;
   estCostTry: number;
+  dailyMessageLimit?: number | null;
+  monthlyTokenLimit?: number | null;
+};
+
+export type AIRoleUsageRow = {
+  role: string;
+  userMessages: number;
+  tokenInput: number;
+  tokenOutput: number;
+};
+
+export type AIProviderStatus = {
+  keySource: "env" | "platform" | "none" | string;
+  keyConfigured: boolean;
+  keyHint?: string;
+  envOverridesKey: boolean;
+  model: string;
+  useLlm: boolean;
+  llmReady: boolean;
+  fallbackRuleEngine: boolean;
+};
+
+export type AIProviderSettings = {
+  model: string;
+  useLlm: boolean;
+};
+
+export type AIProviderTestResult = {
+  ok: boolean;
+  model: string;
+  latencyMs: number;
+  responseHint?: string;
+  error?: string;
+};
+
+export type AiUsageSummary = {
+  messagesLast24h: number;
+  messagesToday: number;
+  dailyLimit: number;
+  remainingToday: number;
+  tenantMessagesToday: number;
+  tenantDailyLimit: number;
+  tenantRemainingToday: number;
+  tenantTokensThisMonth: number;
+  tenantMonthlyTokenLimit: number;
 };
 
 export type AIModelUsageRow = {
@@ -655,6 +865,8 @@ export type AIPlatformAnalytics = {
   dailyUsage: AIUsagePoint[];
   byTenant: AITenantUsageRow[];
   byModel: AIModelUsageRow[];
+  byRole: AIRoleUsageRow[];
+  provider: AIProviderStatus;
 };
 
 export type AIRetentionResult = {
@@ -903,6 +1115,8 @@ export type ServiceRouteStop = {
   name: string;
   plannedTime: string;
   sortOrder: number;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type ServiceAssignment = {
@@ -954,7 +1168,14 @@ export type ServiceRouteInput = {
   driverId?: string;
   attendantId?: string;
   status?: ServiceStatus;
-  stops?: Array<{ name: string; plannedTime: string; sortOrder?: number }>;
+  stops?: Array<{
+    id?: string;
+    name: string;
+    plannedTime: string;
+    sortOrder?: number;
+    latitude?: number;
+    longitude?: number;
+  }>;
 };
 
 export type ServiceDelayNotification = {
@@ -972,6 +1193,59 @@ export type ServiceAssignmentInput = {
   status?: ServiceStatus;
 };
 
+export type ServiceTripStatus = "active" | "completed" | "canceled";
+
+export type ServiceTripLocation = {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  speedKph?: number;
+  headingDegrees?: number;
+  capturedAt: string;
+  createdAt: string;
+};
+
+export type ServiceLiveStatus = {
+  active: boolean;
+  lastLocationAt?: string;
+  speedKph?: number;
+  etaMinutes?: number | null;
+  distanceKm?: number | null;
+  locationStale?: boolean;
+  stopLatitude?: number;
+  stopLongitude?: number;
+};
+
+export type ServiceTrip = {
+  id: string;
+  tenantId: string;
+  routeId: string;
+  routeName?: string;
+  driverUserId: string;
+  driverId: string;
+  driverName?: string;
+  direction: ServiceDirection;
+  status: ServiceTripStatus;
+  startedAt: string;
+  endedAt?: string;
+  lastLocation?: ServiceTripLocation;
+  liveStatus?: ServiceLiveStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceTripEvent = {
+  id: string;
+  tenantId: string;
+  tripId: string;
+  eventType: string;
+  payload?: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type GuardianServiceSummary = {
   studentId: string;
   studentName: string;
@@ -979,6 +1253,8 @@ export type GuardianServiceSummary = {
   className?: string;
   assignments: ServiceAssignment[];
   routes: ServiceRoute[];
+  activeTrip?: ServiceTrip;
+  liveStatus?: ServiceLiveStatus;
   updatedAt: string;
   hasAssignment: boolean;
 };
@@ -1205,6 +1481,7 @@ export type Institution = {
 };
 
 export type InstitutionDetail = Institution & {
+  enabledModules?: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -1491,6 +1768,11 @@ export const api = {
     }),
   superAdminInstitution: (institutionId: string) =>
     request<InstitutionDetail>(`/api/v1/super-admin/institutions/${institutionId}`),
+  updateSuperAdminInstitutionModules: (institutionId: string, enabledModules: string[]) =>
+    request<InstitutionDetail>(`/api/v1/super-admin/institutions/${institutionId}/modules`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabledModules })
+    }),
   superAdminInstitutionUsers: (institutionId: string) =>
     request<UserAccount[]>(`/api/v1/super-admin/institutions/${institutionId}/users`),
   createSuperAdminInstitutionUser: (
@@ -1538,6 +1820,17 @@ export const api = {
     return request<AuditPurgeResult>(`/api/v1/super-admin/audit-logs?${params.toString()}`, {
       method: "DELETE"
     });
+  },
+  superAdminPushHealth: (tenantId?: string) => {
+    const suffix = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : "";
+    return request<PushHealth>(`/api/v1/super-admin/push/health${suffix}`);
+  },
+  superAdminPushLogs: (params?: { tenantId?: string; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.tenantId) query.set("tenantId", params.tenantId);
+    if (params?.limit) query.set("limit", String(params.limit));
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<PushDeliveryLog[]>(`/api/v1/super-admin/push/logs${suffix}`);
   },
   superAdminSettings: () => request<PlatformSettings>("/api/v1/super-admin/settings"),
   superAdminSupportTickets: () => request<SupportTicket[]>("/api/v1/super-admin/support/tickets"),
@@ -1592,6 +1885,15 @@ export const api = {
     }),
   superAdminAIOverview: (days = 30) =>
     request<AIPlatformAnalytics>(`/api/v1/super-admin/ai/overview?days=${encodeURIComponent(String(days))}`),
+  superAdminAIProvider: () =>
+    request<{ status: AIProviderStatus; models: string[] }>("/api/v1/super-admin/ai/provider"),
+  updateSuperAdminAIProvider: (payload: AIProviderSettings) =>
+    request<{ settings: AIProviderSettings; status: AIProviderStatus }>("/api/v1/super-admin/ai/provider", {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  testSuperAdminAIProvider: () =>
+    request<AIProviderTestResult>("/api/v1/super-admin/ai/provider/test", { method: "POST" }),
   updateSuperAdminAICostSettings: (payload: AICostSettings) =>
     request<AICostSettings>("/api/v1/super-admin/ai/cost-settings", {
       method: "PATCH",
@@ -1672,6 +1974,15 @@ export const api = {
   serviceStaff: () => request<ServiceStaff[] | null>("/api/v1/services/staff").then(asArray),
   createServiceStaff: (payload: { fullName: string; phone?: string; role: ServiceStaffRole }) =>
     request<ServiceStaff>("/api/v1/services/staff", { method: "POST", body: JSON.stringify(payload) }),
+  activeServiceTrips: () => request<ServiceTrip[] | null>("/api/v1/services/trips/active").then(asArray),
+  serviceTripLocations: (tripId: string, limit = 20) =>
+    request<ServiceTripLocation[] | null>(
+      `/api/v1/services/trips/${tripId}/locations?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
+  serviceTripEvents: (tripId: string, limit = 20) =>
+    request<ServiceTripEvent[] | null>(
+      `/api/v1/services/trips/${tripId}/events?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
   assignServiceStudent: (payload: ServiceAssignmentInput) =>
     request<ServiceAssignment>("/api/v1/services/assignments", { method: "POST", body: JSON.stringify(payload) }),
   guardianService: (studentId: string) =>
@@ -1838,7 +2149,7 @@ export const api = {
   saveSchedulingRequirements: (items: Array<{ classId: string; subjectId: string; weeklyHours: number }>) =>
     request<SchedulingRequirement[]>("/api/v1/scheduling/requirements", {
       method: "POST",
-      body: JSON.stringify({ items })
+      body: JSON.stringify(items)
     }),
   listTeacherAvailabilities: () =>
     request<TeacherAvailability[] | null>("/api/v1/scheduling/teacher-availabilities").then(asArray),
@@ -1853,7 +2164,7 @@ export const api = {
   ) =>
     request<TeacherAvailability[]>("/api/v1/scheduling/teacher-availabilities", {
       method: "POST",
-      body: JSON.stringify({ items })
+      body: JSON.stringify(items)
     }),
   saveTeacherAvailabilitiesBulk: (
     items: Array<{
@@ -1974,6 +2285,8 @@ export const api = {
     }),
   publishAnnouncement: (announcementId: string) =>
     request<Announcement>(`/api/v1/announcements/${announcementId}/publish`, { method: "POST", body: "{}" }),
+  announcementTemplates: () =>
+    request<AnnouncementTemplate[] | null>("/api/v1/announcement-templates").then(asArray),
   markAnnouncementRead: (announcementId: string) =>
     request<void>(`/api/v1/announcements/${announcementId}/read`, { method: "PATCH", body: "{}" }),
   classSummary: (classId: string, date?: string) =>
@@ -1985,6 +2298,8 @@ export const api = {
     request<GuardianStudentSchedule>(`/api/v1/guardian/students/${studentId}/schedule`),
   guardianStudentAttendance: (studentId: string) =>
     request<GuardianStudentAttendance>(`/api/v1/guardian/students/${studentId}/attendance`),
+  guardianStudentGuidanceUpdates: (studentId: string) =>
+    request<GuardianGuidanceUpdate[] | null>(`/api/v1/guardian/students/${studentId}/guidance-updates`).then(asArray),
   guardianAnnouncements: () => request<Announcement[] | null>("/api/v1/guardian/announcements").then(asArray),
   guardianNotifications: () => request<GuardianNotification[] | null>("/api/v1/guardian/notifications").then(asArray),
   guardianNotificationMarkRead: (notificationId: string) =>
@@ -2016,6 +2331,49 @@ export const api = {
     request<{ teacher: SchoolTeacherRecord; email: string; temporaryPassword: string }>("/api/v1/principal/teachers", {
       method: "POST",
       body: JSON.stringify(payload)
+    }),
+  principalGuardians: () => request<ManagedGuardian[] | null>("/api/v1/principal/guardians").then(asArray),
+  principalGuardian: (guardianId: string) => request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}`),
+  provisionGuardian: (payload: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    studentIds: string[];
+    relation?: string;
+  }) =>
+    request<ProvisionGuardianResult>("/api/v1/principal/guardians", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updatePrincipalGuardian: (
+    guardianId: string,
+    payload: Partial<{ firstName: string; lastName: string; phone: string }>
+  ) =>
+    request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  setPrincipalGuardianStatus: (guardianId: string, status: "active" | "passive") =>
+    request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status })
+    }),
+  resetPrincipalGuardianPassword: (guardianId: string) =>
+    request<{ temporaryPassword: string }>(`/api/v1/principal/guardians/${guardianId}/reset-password`, {
+      method: "POST",
+      body: "{}"
+    }),
+  linkPrincipalGuardianStudent: (
+    guardianId: string,
+    payload: { studentId: string; relation?: string; isPrimary?: boolean }
+  ) =>
+    request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}/students`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  unlinkPrincipalGuardianStudent: (guardianId: string, studentId: string) =>
+    request<ManagedGuardian>(`/api/v1/principal/guardians/${guardianId}/students/${studentId}`, {
+      method: "DELETE"
     }),
   provisionServiceDriver: (payload: { email: string; firstName: string; lastName: string; phone?: string; title?: string }) =>
     request<{ userId: string; serviceStaffId: string; email: string; temporaryPassword: string }>(
@@ -2117,8 +2475,63 @@ export const api = {
     }),
   deleteSupportPlan: (planId: string) =>
     request<void>(`/api/v1/guidance/support-plans/${planId}`, { method: "DELETE" }),
+  guidanceCases: (params?: { studentId?: string; status?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.studentId) query.set("studentId", params.studentId);
+    if (params?.status) query.set("status", params.status);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<GuidanceCase[] | null>(`/api/v1/guidance/cases${suffix}`).then(asArray);
+  },
+  guidanceCaseStats: () => request<GuidanceCaseInboxStats>("/api/v1/guidance/cases/stats"),
+  guidanceCase: (caseId: string) => request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}`),
+  createGuidanceCase: (payload: {
+    studentId: string;
+    title: string;
+    summary?: string;
+    priority?: GuidanceCasePriority;
+    sensitivity?: string;
+  }) =>
+    request<GuidanceCase>("/api/v1/guidance/cases", { method: "POST", body: JSON.stringify(payload) }),
+  updateGuidanceCase: (
+    caseId: string,
+    payload: Partial<{
+      title: string;
+      summary: string;
+      status: GuidanceCaseStatus;
+      priority: GuidanceCasePriority;
+      sensitivity: string;
+    }>
+  ) =>
+    request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  closeGuidanceCase: (caseId: string) =>
+    request<GuidanceCaseCloseResult>(`/api/v1/guidance/cases/${caseId}/close`, { method: "POST", body: "{}" }),
+  reopenGuidanceCase: (caseId: string) =>
+    request<GuidanceCase>(`/api/v1/guidance/cases/${caseId}/reopen`, { method: "POST", body: "{}" }),
+  guidanceCaseEvents: (caseId: string) =>
+    request<GuidanceCaseEvent[] | null>(`/api/v1/guidance/cases/${caseId}/events`).then(asArray),
+  guidanceCaseTimeline: (caseId: string) =>
+    request<GuidanceCaseTimelineItem[] | null>(`/api/v1/guidance/cases/${caseId}/timeline`).then(asArray),
+  createGuidanceCaseEvent: (
+    caseId: string,
+    payload: {
+      eventType?: GuidanceCaseEventType;
+      title: string;
+      body: string;
+      visibility?: GuidanceCaseEventVisibility;
+    }
+  ) =>
+    request<GuidanceCaseEvent>(`/api/v1/guidance/cases/${caseId}/events`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  guidanceEarlyWarnings: () =>
+    request<GuidanceEarlyWarningSignal[] | null>("/api/v1/guidance/early-warnings").then(asArray),
 
   aiCapabilities: () => request<AiCapabilitiesResult>("/api/v1/ai/capabilities"),
+  aiUsage: () => request<AiUsageSummary>("/api/v1/ai/usage"),
   createAiConversation: (payload?: { title?: string }) =>
     request<AiConversation>("/api/v1/ai/conversations", {
       method: "POST",

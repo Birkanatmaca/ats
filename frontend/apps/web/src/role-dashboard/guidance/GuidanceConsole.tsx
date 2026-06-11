@@ -1,15 +1,17 @@
-import { AlertTriangle, Bell, FileText, HeartHandshake, Home, LifeBuoy, Loader2, Megaphone, NotebookTabs, UserCircle, UsersRound } from "lucide-react";
+import { AlertTriangle, Bell, FileText, FolderOpen, HeartHandshake, Home, LifeBuoy, Loader2, Megaphone, NotebookTabs, UserCircle, UsersRound } from "lucide-react";
 import { AppBrand } from "../../components/AppBrand";
 import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
-import type { AuthSession, GuidanceNote, GuidanceStudent, GuidanceSupportPlan } from "../../lib/api";
+import type { AuthSession, GuidanceEarlyWarningSignal, GuidanceNote, GuidanceStudent, GuidanceSupportPlan } from "../../lib/api";
 import { api } from "../../lib/api";
 import { ProfilePage } from "../pages/ProfilePage";
 import { RoleNotificationsPage } from "../pages/RoleNotificationsPage";
 import { RoleSupportPage } from "../pages/RoleSupportPage";
 import { GuidanceAnnouncementsPage } from "./pages/GuidanceAnnouncementsPage";
+import { GuidanceCaseDetailPage } from "./pages/GuidanceCaseDetailPage";
+import { GuidanceCasesPage } from "./pages/GuidanceCasesPage";
 import { GuidanceNotesPage } from "./pages/GuidanceNotesPage";
 import { GuidanceObservationsPage } from "./pages/GuidanceObservationsPage";
 import { GuidanceOverviewPage } from "./pages/GuidanceOverviewPage";
@@ -27,6 +29,7 @@ const guidanceTabs = [
   { id: "observations", label: "Öğretmen gözlemleri", icon: <NotebookTabs size={18} /> },
   { id: "notes", label: "Rehberlik notları", icon: <FileText size={18} /> },
   { id: "students", label: "Öğrenciler", icon: <UsersRound size={18} /> },
+  { id: "cases", label: "Vaka dosyaları", icon: <FolderOpen size={18} /> },
   { id: "risks", label: "Riskler", icon: <AlertTriangle size={18} /> },
   { id: "plans", label: "Takip", icon: <HeartHandshake size={18} /> },
   { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
@@ -49,6 +52,7 @@ export function GuidanceConsole({
   onSessionUpdate: (session: AuthSession) => void;
 }) {
   const [data, setData] = useState<GuidanceData>(() => initialGuidanceData());
+  const [earlyWarnings, setEarlyWarnings] = useState<GuidanceEarlyWarningSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -61,14 +65,15 @@ export function GuidanceConsole({
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const [tenant, summary, observations, announcements, guidanceStudents, guidanceNotes, supportPlans] = await Promise.allSettled([
+    const [tenant, summary, observations, announcements, guidanceStudents, guidanceNotes, supportPlans, warningItems] = await Promise.allSettled([
       api.tenant(),
       api.dashboard(),
       api.observations(),
       api.announcements(),
       api.guidanceStudents(),
       api.guidanceNotes(),
-      api.supportPlans()
+      api.supportPlans(),
+      api.guidanceEarlyWarnings()
     ]);
 
     setData({
@@ -81,7 +86,9 @@ export function GuidanceConsole({
       supportPlans: supportPlans.status === "fulfilled" ? (supportPlans.value ?? []) : []
     });
 
-    const failed = [tenant, summary, observations, announcements, guidanceStudents, guidanceNotes, supportPlans].some(
+    setEarlyWarnings(warningItems.status === "fulfilled" ? (warningItems.value ?? []) : []);
+
+    const failed = [tenant, summary, observations, announcements, guidanceStudents, guidanceNotes, supportPlans, warningItems].some(
       (result) => result.status === "rejected"
     );
     if (failed) {
@@ -149,9 +156,18 @@ export function GuidanceConsole({
             <Route
               path="overview"
               element={
-                <GuidanceOverviewPage data={data} risks={risks} students={students} notes={data.guidanceNotes} plans={data.supportPlans} />
+                <GuidanceOverviewPage
+                  data={data}
+                  earlyWarnings={earlyWarnings}
+                  risks={risks}
+                  students={students}
+                  notes={data.guidanceNotes}
+                  plans={data.supportPlans}
+                />
               }
             />
+            <Route path="cases" element={<GuidanceCasesPage />} />
+            <Route path="cases/:caseId" element={<GuidanceCaseDetailPage />} />
             <Route path="observations" element={<GuidanceObservationsPage observations={data.observations} />} />
             <Route path="notes" element={<GuidanceNotesPage students={data.guidanceStudents} notes={data.guidanceNotes} onReload={() => void load()} />} />
             <Route

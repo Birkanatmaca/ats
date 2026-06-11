@@ -1,4 +1,4 @@
-import { APP_URL, CONTACT_EMAIL, LANDING_URL } from "./constants";
+import { CONTACT_EMAIL, LANDING_URL } from "./constants";
 import { globalKeywordsMeta } from "./seo-keywords";
 import type { SolutionPageConfig } from "./solution-pages";
 import { solutionPages } from "./solution-pages";
@@ -154,7 +154,7 @@ export function organizationJsonLd() {
       contactType: "sales",
       availableLanguage: ["tr-TR"]
     },
-    sameAs: [APP_URL.replace(/\/$/, "")]
+    sameAs: [absoluteUrl("/")]
   };
 }
 

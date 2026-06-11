@@ -2,7 +2,7 @@
 
 > Amaç: Okul servis rotaları, araç/şoför bilgisi ve öğrenci servis atamalarını yönetmek; veliyi servis bilgileriyle bilgilendirmek.
 
-> Güncelleme (2026-06-05): İlk canlı takip backend dilimi uygulandı. Rota/araç/personel/atama altyapısına ek olarak aktif sefer (`service_trips`), konum kaydı (`service_trip_locations`), driver paylaşım başlat/durdur, principal aktif sefer listesi ve guardian kendi öğrencisinin aktif sefer okuma akışı var. Native GPS toplama, harita, ETA, otomatik bildirim ve sefer event timeline'ı sonraki fazdır.
+> Güncelleme (2026-06-08): Canlı takip + müdür web panelinde durak koordinatı düzenleme tamamlandı. Durak koordinatları (`000030`), ETA/mesafe hesabı (`liveStatus`), konum/event API'leri, şoför GPS paylaşımı (mobil `expo-location`, 15 sn), veli canlı harita + ETA polling, principal canlı sefer paneli (mobil + web OSM harita) devrede. Yaklaşma bildirimi GPS + planlı saat penceresi ile çalışır.
 
 ---
 

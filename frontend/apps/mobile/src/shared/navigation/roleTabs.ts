@@ -65,7 +65,12 @@ export const roleHiddenTabScreens: Record<
 > = {
   principal: [],
   teacher: [{ name: "attendance", title: "Yoklama" }],
-  guardian: [{ name: "attendance", title: "Devamsızlık" }],
+  guardian: [
+    { name: "attendance", title: "Devamsızlık" },
+    { name: "service", title: "Servis" },
+    { name: "billing", title: "Tahsilat" },
+    { name: "academic", title: "Akademik" },
+  ],
   guidance: [{ name: "notes", title: "Notlar" }, { name: "observations", title: "Gözlemler" }, { name: "plans", title: "Takip planları" }]
 };
 
@@ -94,6 +99,12 @@ export function getMoreMenuItems(shell: TabbedRoleShell): MoreMenuItem[] {
         ? shell === "guardian"
           ? "Çocuğunuzun devamsızlık özeti"
           : "Günlük yoklama takibi"
+        : tab.name === "service"
+          ? "Servis ataması ve canlı durum"
+          : tab.name === "billing"
+            ? "Ödeme planı ve gecikmiş taksitler"
+            : tab.name === "academic"
+              ? "Akademik rapor ve destek sinyalleri"
         : tab.name === "observations"
           ? "Öğretmen gözlem kayıtları"
           : tab.name === "plans"

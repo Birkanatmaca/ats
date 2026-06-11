@@ -12,6 +12,9 @@ type Config struct {
 	HTTPAddr              string
 	DatabaseURL           string
 	AllowInMemoryFallback bool
+	FileStoragePath       string
+	FileStorageBaseURL    string
+	FileUploadMaxMB       int
 	JWTSecret             string
 	CORSAllowedOrigins    []string
 	LogLevel              slog.Level
@@ -31,6 +34,9 @@ func Load() Config {
 		HTTPAddr:              getEnv("HTTP_ADDR", ":8080"),
 		DatabaseURL:           getEnv("DATABASE_URL", "postgres://ots:ots@localhost:5432/ots?sslmode=disable"),
 		AllowInMemoryFallback: getEnv("ALLOW_IN_MEMORY_FALLBACK", "false") == "true",
+		FileStoragePath:       getEnv("FILE_STORAGE_PATH", "./uploads"),
+		FileStorageBaseURL:    strings.TrimRight(getEnv("FILE_STORAGE_BASE_URL", ""), "/"),
+		FileUploadMaxMB:       parseInt(getEnv("FILE_UPLOAD_MAX_MB", "8"), 8),
 		JWTSecret:             getEnv("JWT_SECRET", "ots-dev-jwt-secret-change-in-production"),
 		CORSAllowedOrigins:    splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006,http://panel.ogtasis.com,https://panel.ogtasis.com,http://188.132.234.29:3110,http://188.132.234.29")),
 		LogLevel:              parseLogLevel(getEnv("LOG_LEVEL", "info")),

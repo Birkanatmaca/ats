@@ -24,11 +24,25 @@ func (h *Handler) RegisterGuidanceRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/guidance/risk-trackings", h.listRiskTrackings)
 	mux.HandleFunc("POST /api/v1/guidance/risk-trackings", h.createRiskTracking)
 	mux.HandleFunc("DELETE /api/v1/guidance/risk-trackings/{id}", h.deleteRiskTracking)
+	mux.HandleFunc("GET /api/v1/guidance/early-warnings", h.listGuidanceEarlyWarnings)
 	h.RegisterGuidanceCaseRoutes(mux)
 }
 
 func requireGuidanceRole(w http.ResponseWriter, r *http.Request) (identity.Principal, bool) {
 	return requirePrincipalRole(w, r, identity.RoleGuidance, identity.RolePrincipal, identity.RoleSystemAdmin)
+}
+
+func (h *Handler) listGuidanceEarlyWarnings(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireGuidanceRole(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.guidance.ListEarlyWarnings(r.Context(), principal.TenantID, principal.UserID, string(principal.Role))
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "GUIDANCE_EARLY_WARNINGS_FAILED", "Erken uyarı sinyalleri alınamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, items, nil)
 }
 
 func (h *Handler) guidanceStudents(w http.ResponseWriter, r *http.Request) {

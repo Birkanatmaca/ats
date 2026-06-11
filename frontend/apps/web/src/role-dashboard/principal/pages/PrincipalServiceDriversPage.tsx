@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import "../../guidance/GuidanceDataPage.css";
+import { ServiceLiveTrackingPanel } from "../components/ServiceLiveTrackingPanel";
+import { ServiceRouteStopsPanel } from "../components/ServiceRouteStopsPanel";
 import { api } from "../../../lib/api";
 import type { ServiceRoute } from "../../../lib/api";
 
@@ -79,6 +82,9 @@ export function PrincipalServiceDriversPage() {
 
   return (
     <section className="principal-page-stack guidance-data-page">
+      <ServiceLiveTrackingPanel />
+      <ServiceRouteStopsPanel />
+
       <article className="guidance-data-card">
         <header className="guidance-data-card-head">
           <h2>Servis şoförü oluştur</h2>

@@ -36,6 +36,13 @@ type Repository interface {
 	PushHealth(ctx context.Context, tenantID string) (pushdomain.PushHealth, error)
 	ListDeliveryLogs(ctx context.Context, tenantID string, limit int) ([]pushdomain.DeliveryLog, error)
 	ListActiveTenantIDs(ctx context.Context) ([]string, error)
+	ListServiceRouteGuardianTargets(ctx context.Context, tenantID, routeID string) ([]pushdomain.TransportRecipient, error)
+	GetPrincipalAttendancePendingSummary(ctx context.Context, tenantID string) (pushdomain.PrincipalAttendancePending, error)
+	ListPrincipalNotifyUserIDs(ctx context.Context, tenantID string) ([]string, error)
+	TenantHasModule(ctx context.Context, tenantID, module string) bool
+	ListBillingUpcomingReminders(ctx context.Context, tenantID string, withinDays int) ([]pushdomain.BillingInstallmentReminder, error)
+	ListBillingOverdueReminders(ctx context.Context, tenantID string) ([]pushdomain.BillingInstallmentReminder, error)
+	GetBillingOverdueSummary(ctx context.Context, tenantID string) (pushdomain.BillingOverdueSummary, error)
 }
 
 type Service struct {
@@ -229,6 +236,81 @@ func (s *Service) NotifySchedulePublished(ctx context.Context, tenantID string) 
 	}
 }
 
+func (s *Service) NotifyTransportStudentGuardians(ctx context.Context, tenantID, studentID, title, body, kind, tripID string) int {
+	title = strings.TrimSpace(title)
+	body = strings.TrimSpace(body)
+	if title == "" {
+		title = "Servis bildirimi"
+	}
+	if len(body) > 180 {
+		body = body[:177] + "..."
+	}
+	guardianIDs, err := s.repo.ListGuardianUserIDsForStudent(ctx, tenantID, strings.TrimSpace(studentID))
+	if err != nil || len(guardianIDs) == 0 {
+		return 0
+	}
+	delivered := 0
+	for _, userID := range guardianIDs {
+		eventKind := kind
+		if eventKind == "" {
+			eventKind = fmt.Sprintf("transport:student:%s:%s", studentID, userID)
+		} else {
+			eventKind = fmt.Sprintf("%s:%s:%s", eventKind, userID, studentID)
+		}
+		data := map[string]string{
+			"category":  pushdomain.CategoryTransport,
+			"studentId": studentID,
+		}
+		if tripID != "" {
+			data["tripId"] = tripID
+		}
+		if s.sendToUser(ctx, tenantID, userID, pushdomain.CategoryTransport, title, body, eventKind, data) {
+			delivered++
+		}
+	}
+	return delivered
+}
+
+func (s *Service) NotifyTransportRouteGuardians(ctx context.Context, tenantID, routeID, title, body, kind, tripID string) int {
+	title = strings.TrimSpace(title)
+	body = strings.TrimSpace(body)
+	if title == "" {
+		title = "Servis bildirimi"
+	}
+	if len(body) > 180 {
+		body = body[:177] + "..."
+	}
+	recipients, err := s.repo.ListServiceRouteGuardianTargets(ctx, tenantID, strings.TrimSpace(routeID))
+	if err != nil || len(recipients) == 0 {
+		return 0
+	}
+	delivered := 0
+	for _, recipient := range recipients {
+		userID := strings.TrimSpace(recipient.UserID)
+		if userID == "" {
+			continue
+		}
+		eventKind := kind
+		if eventKind == "" {
+			eventKind = fmt.Sprintf("transport:%s:%s", routeID, userID)
+		} else if recipient.StudentID != "" {
+			eventKind = fmt.Sprintf("%s:%s:%s", eventKind, userID, recipient.StudentID)
+		}
+		data := map[string]string{
+			"category":  pushdomain.CategoryTransport,
+			"routeId":   routeID,
+			"studentId": recipient.StudentID,
+		}
+		if tripID != "" {
+			data["tripId"] = tripID
+		}
+		if s.sendToUser(ctx, tenantID, userID, pushdomain.CategoryTransport, title, body, eventKind, data) {
+			delivered++
+		}
+	}
+	return delivered
+}
+
 func (s *Service) NotifyGuidancePlanReminders(ctx context.Context, tenantID string) {
 	reminders, err := s.repo.ListGuidancePlanReminders(ctx, tenantID, 3)
 	if err != nil || len(reminders) == 0 {
@@ -253,24 +335,166 @@ func (s *Service) RunGuidanceRemindersAllTenants(ctx context.Context) {
 	}
 }
 
-func (s *Service) sendToUser(ctx context.Context, tenantID, userID, category, title, body, kind string, data map[string]string) {
+func (s *Service) NotifyPrincipalAttendanceGaps(ctx context.Context, tenantID string) {
+	summary, err := s.repo.GetPrincipalAttendancePendingSummary(ctx, tenantID)
+	if err != nil {
+		return
+	}
+	pending := summary.PendingLessons()
+	if pending <= 0 {
+		return
+	}
+	userIDs, err := s.repo.ListPrincipalNotifyUserIDs(ctx, tenantID)
+	if err != nil || len(userIDs) == 0 {
+		return
+	}
+	title := "Bekleyen yoklama"
+	body := fmt.Sprintf("Bugün %d ders yoklaması henüz tamamlanmadı.", pending)
+	if len(summary.PendingClasses) > 0 {
+		classes := summary.PendingClasses
+		if len(classes) > 3 {
+			classes = append(classes[:3], fmt.Sprintf("+%d sınıf", len(summary.PendingClasses)-3))
+		}
+		body = fmt.Sprintf("%s (%s)", body, strings.Join(classes, ", "))
+	}
+	dateKey := strings.TrimSpace(summary.DateKey)
+	if dateKey == "" {
+		dateKey = time.Now().UTC().Format("2006-01-02")
+	}
+	for _, userID := range userIDs {
+		kind := fmt.Sprintf("principal_attendance_pending:%s:%s", dateKey, userID)
+		s.sendToUser(ctx, tenantID, userID, pushdomain.CategoryAttendance, title, body, kind, map[string]string{
+			"category": pushdomain.CategoryAttendance,
+		})
+	}
+}
+
+func (s *Service) RunPrincipalAttendanceRemindersAllTenants(ctx context.Context) {
+	tenantIDs, _ := s.repo.ListActiveTenantIDs(ctx)
+	for _, tenantID := range tenantIDs {
+		s.NotifyPrincipalAttendanceGaps(ctx, tenantID)
+	}
+}
+
+func (s *Service) NotifyBillingUpcomingReminders(ctx context.Context, tenantID string) {
+	if !s.repo.TenantHasModule(ctx, tenantID, "billing") {
+		return
+	}
+	reminders, err := s.repo.ListBillingUpcomingReminders(ctx, tenantID, 3)
+	if err != nil || len(reminders) == 0 {
+		return
+	}
+	for _, item := range reminders {
+		title := "Ödeme hatırlatması"
+		body := fmt.Sprintf("%s için yaklaşan bir taksit var. Detaylar uygulamada.", strings.TrimSpace(item.StudentName))
+		if body == " için yaklaşan bir taksit var. Detaylar uygulamada." {
+			body = "Yaklaşan bir ödeme planınız var. Detaylar uygulamada."
+		}
+		kind := fmt.Sprintf("billing_upcoming:%s:%s", item.InstallmentID, item.UserID)
+		s.sendToUser(ctx, tenantID, item.UserID, pushdomain.CategoryBilling, title, body, kind, map[string]string{
+			"category":      pushdomain.CategoryBilling,
+			"studentId":     item.StudentID,
+			"installmentId": item.InstallmentID,
+		})
+	}
+}
+
+func (s *Service) NotifyBillingOverdueReminders(ctx context.Context, tenantID string) {
+	if !s.repo.TenantHasModule(ctx, tenantID, "billing") {
+		return
+	}
+	reminders, err := s.repo.ListBillingOverdueReminders(ctx, tenantID)
+	if err != nil || len(reminders) == 0 {
+		return
+	}
+	dateKey := time.Now().UTC().Format("2006-01-02")
+	for _, item := range reminders {
+		title := "Geciken ödeme"
+		body := "Bekleyen bir taksit bulunuyor. Lütfen uygulamadan kontrol edin."
+		kind := fmt.Sprintf("billing_overdue:%s:%s:%s", dateKey, item.InstallmentID, item.UserID)
+		s.sendToUser(ctx, tenantID, item.UserID, pushdomain.CategoryBilling, title, body, kind, map[string]string{
+			"category":      pushdomain.CategoryBilling,
+			"studentId":     item.StudentID,
+			"installmentId": item.InstallmentID,
+		})
+	}
+}
+
+func (s *Service) NotifyPrincipalBillingOverdueSummary(ctx context.Context, tenantID string) {
+	if !s.repo.TenantHasModule(ctx, tenantID, "billing") {
+		return
+	}
+	summary, err := s.repo.GetBillingOverdueSummary(ctx, tenantID)
+	if err != nil || summary.Count <= 0 {
+		return
+	}
+	userIDs, err := s.repo.ListPrincipalNotifyUserIDs(ctx, tenantID)
+	if err != nil || len(userIDs) == 0 {
+		return
+	}
+	title := "Geciken tahsilat"
+	body := fmt.Sprintf("%d taksit gecikmiş durumda. Tahsilat panelinden inceleyin.", summary.Count)
+	dateKey := strings.TrimSpace(summary.DateKey)
+	if dateKey == "" {
+		dateKey = time.Now().UTC().Format("2006-01-02")
+	}
+	for _, userID := range userIDs {
+		kind := fmt.Sprintf("principal_billing_overdue:%s:%s", dateKey, userID)
+		s.sendToUser(ctx, tenantID, userID, pushdomain.CategoryBilling, title, body, kind, map[string]string{
+			"category": pushdomain.CategoryBilling,
+		})
+	}
+}
+
+func (s *Service) NotifyBillingPaymentRecorded(ctx context.Context, tenantID, studentID string) {
+	if !s.repo.TenantHasModule(ctx, tenantID, "billing") || strings.TrimSpace(studentID) == "" {
+		return
+	}
+	guardianIDs, err := s.repo.ListGuardianUserIDsForStudent(ctx, tenantID, studentID)
+	if err != nil || len(guardianIDs) == 0 {
+		return
+	}
+	title := "Ödeme kaydı"
+	body := "Okul tarafından ödeme kaydı girildi. Detaylar uygulamada."
+	for _, userID := range guardianIDs {
+		kind := fmt.Sprintf("billing_payment:%s:%s:%d", studentID, userID, time.Now().UTC().Unix())
+		s.sendToUser(ctx, tenantID, userID, pushdomain.CategoryBilling, title, body, kind, map[string]string{
+			"category":  pushdomain.CategoryBilling,
+			"studentId": studentID,
+		})
+	}
+}
+
+func (s *Service) RunBillingRemindersAllTenants(ctx context.Context) {
+	tenantIDs, _ := s.repo.ListActiveTenantIDs(ctx)
+	for _, tenantID := range tenantIDs {
+		s.NotifyBillingUpcomingReminders(ctx, tenantID)
+		s.NotifyBillingOverdueReminders(ctx, tenantID)
+		s.NotifyPrincipalBillingOverdueSummary(ctx, tenantID)
+	}
+}
+
+func (s *Service) sendToUser(ctx context.Context, tenantID, userID, category, title, body, kind string, data map[string]string) bool {
 	prefs, err := s.repo.GetNotificationPreferences(ctx, tenantID, userID)
 	if err != nil {
 		prefs = pushdomain.DefaultPreferences()
 	}
 	if !categoryEnabled(prefs, category) {
-		s.recordDropped(ctx, tenantID, userID, category, title, "preference_disabled")
-		return
+		s.recordDropped(ctx, tenantID, userID, category, title, kind, "preference_disabled")
+		return false
 	}
 
 	if kind != "" {
-		_, _ = s.repo.EnsureUserNotification(ctx, tenantID, userID, title, body, kind)
+		notificationID, _ := s.repo.EnsureUserNotification(ctx, tenantID, userID, title, body, kind)
+		if notificationID == "" {
+			return false
+		}
 	}
 
 	tokens, err := s.repo.ListDeviceTokensForUser(ctx, tenantID, userID)
 	if err != nil || len(tokens) == 0 {
-		s.recordDropped(ctx, tenantID, userID, category, title, "no_active_tokens")
-		return
+		s.recordDropped(ctx, tenantID, userID, category, title, kind, "no_active_tokens")
+		return true
 	}
 
 	tokenByValue := map[string]pushdomain.DeviceToken{}
@@ -283,8 +507,8 @@ func (s *Service) sendToUser(ctx context.Context, tenantID, userID, category, ti
 		pushTokens = append(pushTokens, item.Token)
 	}
 	if len(pushTokens) == 0 {
-		s.recordDropped(ctx, tenantID, userID, category, title, "no_active_tokens")
-		return
+		s.recordDropped(ctx, tenantID, userID, category, title, kind, "no_active_tokens")
+		return true
 	}
 
 	results, sendErr := s.sender.Send(ctx, pushTokens, title, body, data)
@@ -295,6 +519,7 @@ func (s *Service) sendToUser(ctx context.Context, tenantID, userID, category, ti
 				TenantID:      tenantID,
 				UserID:        userID,
 				DeviceTokenID: item.ID,
+				SourceKind:    kind,
 				Category:      category,
 				Title:         title,
 				Status:        pushdomain.DeliveryStatusFailed,
@@ -305,7 +530,7 @@ func (s *Service) sendToUser(ctx context.Context, tenantID, userID, category, ti
 			now := time.Now().UTC()
 			_ = s.repo.UpdateDeliveryLog(ctx, logID, pushdomain.DeliveryStatusFailed, "", "provider_error", sendErr.Error(), &now)
 		}
-		return
+		return true
 	}
 
 	now := time.Now().UTC()
@@ -328,6 +553,7 @@ func (s *Service) sendToUser(ctx context.Context, tenantID, userID, category, ti
 			TenantID:      tenantID,
 			UserID:        userID,
 			DeviceTokenID: item.ID,
+			SourceKind:    kind,
 			Category:      category,
 			Title:         title,
 			Status:        pushdomain.DeliveryStatusQueued,
@@ -336,16 +562,18 @@ func (s *Service) sendToUser(ctx context.Context, tenantID, userID, category, ti
 		sentAt := now
 		_ = s.repo.UpdateDeliveryLog(ctx, logID, status, result.TicketID, errorCode, errorMessage, &sentAt)
 	}
+	return true
 }
 
-func (s *Service) recordDropped(ctx context.Context, tenantID, userID, category, title, reason string) {
+func (s *Service) recordDropped(ctx context.Context, tenantID, userID, category, title, kind, reason string) {
 	logID, _ := s.repo.RecordDeliveryLog(ctx, pushdomain.DeliveryLog{
-		TenantID: tenantID,
-		UserID:   userID,
-		Category: category,
-		Title:    title,
-		Status:   pushdomain.DeliveryStatusDropped,
-		Provider: "expo",
+		TenantID:   tenantID,
+		UserID:     userID,
+		SourceKind: kind,
+		Category:   category,
+		Title:      title,
+		Status:     pushdomain.DeliveryStatusDropped,
+		Provider:   "expo",
 	})
 	now := time.Now().UTC()
 	_ = s.repo.UpdateDeliveryLog(ctx, logID, pushdomain.DeliveryStatusDropped, "", reason, reason, &now)
@@ -367,6 +595,12 @@ func mergePreferences(current pushdomain.Preferences, input pushdomain.UpdatePre
 	if input.Schedule != nil {
 		current.Schedule = *input.Schedule
 	}
+	if input.Transport != nil {
+		current.Transport = *input.Transport
+	}
+	if input.Billing != nil {
+		current.Billing = *input.Billing
+	}
 	return current
 }
 
@@ -382,6 +616,10 @@ func categoryEnabled(prefs pushdomain.Preferences, category string) bool {
 		return prefs.Guidance
 	case pushdomain.CategorySchedule:
 		return prefs.Schedule
+	case pushdomain.CategoryTransport:
+		return prefs.Transport
+	case pushdomain.CategoryBilling:
+		return prefs.Billing
 	default:
 		return true
 	}

@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 
 	transportapp "ots/backend/internal/app/transport"
 	"ots/backend/internal/domain/identity"
@@ -24,6 +27,8 @@ func (h *Handler) registerTransportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/services/staff", h.createServiceStaff)
 	mux.HandleFunc("PATCH /api/v1/services/staff/{id}", h.updateServiceStaff)
 	mux.HandleFunc("GET /api/v1/services/trips/active", h.listActiveServiceTrips)
+	mux.HandleFunc("GET /api/v1/services/trips/{id}/locations", h.listServiceTripLocations)
+	mux.HandleFunc("GET /api/v1/services/trips/{id}/events", h.listServiceTripEvents)
 	mux.HandleFunc("GET /api/v1/driver/me", h.currentDriverSummary)
 	mux.HandleFunc("POST /api/v1/driver/sharing/start", h.startDriverSharing)
 	mux.HandleFunc("POST /api/v1/driver/sharing/stop", h.stopDriverSharing)
@@ -32,6 +37,7 @@ func (h *Handler) registerTransportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/services/assignments/{id}", h.updateServiceAssignment)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/service", h.guardianStudentService)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/service/trip", h.guardianStudentServiceTrip)
+	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/service/trip/locations", h.guardianStudentServiceTripLocations)
 }
 
 func (h *Handler) listServiceRoutes(w http.ResponseWriter, r *http.Request) {
@@ -105,6 +111,17 @@ func (h *Handler) reportServiceRouteDelay(w http.ResponseWriter, r *http.Request
 	result, err := h.transport.ReportRouteDelay(r.Context(), principal.TenantID, r.PathValue("id"), principal.UserID, input)
 	if writeTransportError(w, err) {
 		return
+	}
+	if h.push != nil {
+		result.DeliveredCount = h.push.NotifyTransportRouteGuardians(
+			r.Context(),
+			principal.TenantID,
+			result.RouteID,
+			result.NotificationTitle,
+			result.NotificationBody,
+			result.NotificationKind,
+			"",
+		)
 	}
 	httpx.WriteJSON(w, http.StatusOK, result, nil)
 }
@@ -245,9 +262,20 @@ func (h *Handler) startDriverSharing(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	item, err := h.transport.StartDriverSharing(r.Context(), principal.TenantID, principal.UserID, principal.UserID)
+	item, trip, err := h.transport.StartDriverSharing(r.Context(), principal.TenantID, principal.UserID, principal.UserID)
 	if writeTransportError(w, err) {
 		return
+	}
+	if trip != nil {
+		tripID := trip.ID
+		h.dispatchTransportRouteEvent(
+			principal.TenantID,
+			trip.RouteID,
+			tripID,
+			"Servis başladı",
+			fmt.Sprintf("%s servisi yola çıktı. Canlı konumu uygulamadan takip edebilirsiniz.", trip.RouteName),
+			fmt.Sprintf("transport:trip_started:%s", tripID),
+		)
 	}
 	httpx.WriteJSON(w, http.StatusOK, item, nil)
 }
@@ -257,9 +285,20 @@ func (h *Handler) stopDriverSharing(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	item, err := h.transport.StopDriverSharing(r.Context(), principal.TenantID, principal.UserID, principal.UserID)
+	item, trip, err := h.transport.StopDriverSharing(r.Context(), principal.TenantID, principal.UserID, principal.UserID)
 	if writeTransportError(w, err) {
 		return
+	}
+	if trip != nil {
+		tripID := trip.ID
+		h.dispatchTransportRouteEvent(
+			principal.TenantID,
+			trip.RouteID,
+			tripID,
+			"Servis tamamlandı",
+			fmt.Sprintf("%s servisi tamamlandı.", trip.RouteName),
+			fmt.Sprintf("transport:trip_completed:%s", tripID),
+		)
 	}
 	httpx.WriteJSON(w, http.StatusOK, item, nil)
 }
@@ -277,6 +316,20 @@ func (h *Handler) recordDriverTripLocation(w http.ResponseWriter, r *http.Reques
 	location, err := h.transport.RecordDriverLocation(r.Context(), principal.TenantID, principal.UserID, r.PathValue("id"), input)
 	if writeTransportError(w, err) {
 		return
+	}
+	if alerts, alertErr := h.transport.EvaluateApproachingAlerts(r.Context(), principal.TenantID, r.PathValue("id"), location.CapturedAt); alertErr == nil {
+		for _, alert := range alerts {
+			studentID := alert.StudentID
+			tripID := alert.TripID
+			title := alert.Title
+			body := alert.Body
+			kind := alert.Kind
+			h.dispatchPush(func(ctx context.Context) {
+				if h.push != nil {
+					h.push.NotifyTransportStudentGuardians(ctx, principal.TenantID, studentID, title, body, kind, tripID)
+				}
+			})
+		}
 	}
 	httpx.WriteJSON(w, http.StatusCreated, location, nil)
 }
@@ -327,6 +380,42 @@ func (h *Handler) guardianStudentService(w http.ResponseWriter, r *http.Request)
 	httpx.WriteJSON(w, http.StatusOK, summary, nil)
 }
 
+func (h *Handler) listServiceTripLocations(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireTransportOperator(w, r)
+	if !ok {
+		return
+	}
+	limit := 120
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	locations, err := h.transport.TripLocations(r.Context(), principal.TenantID, r.PathValue("id"), limit)
+	if writeTransportError(w, err) {
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, locations, nil)
+}
+
+func (h *Handler) listServiceTripEvents(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireTransportOperator(w, r)
+	if !ok {
+		return
+	}
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	events, err := h.transport.TripEvents(r.Context(), principal.TenantID, r.PathValue("id"), limit)
+	if writeTransportError(w, err) {
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, events, nil)
+}
+
 func (h *Handler) guardianStudentServiceTrip(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireGuardian(w, r)
 	if !ok {
@@ -337,6 +426,24 @@ func (h *Handler) guardianStudentServiceTrip(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, trip, nil)
+}
+
+func (h *Handler) guardianStudentServiceTripLocations(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireGuardian(w, r)
+	if !ok {
+		return
+	}
+	limit := 60
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	locations, err := h.transport.GuardianTripLocations(r.Context(), principal.TenantID, principal.UserID, r.PathValue("studentId"), limit)
+	if writeTransportError(w, err) {
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, locations, nil)
 }
 
 func requireTransportOperator(w http.ResponseWriter, r *http.Request) (identity.Principal, bool) {

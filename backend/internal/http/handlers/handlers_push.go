@@ -247,6 +247,15 @@ func (h *Handler) pushSupportTicketUpdate(ctx context.Context, ticket superadmin
 	h.push.NotifySupportTicketUpdate(ctx, ticket)
 }
 
+func (h *Handler) dispatchTransportRouteEvent(tenantID, routeID, tripID, title, body, kind string) {
+	if h.push == nil || strings.TrimSpace(routeID) == "" {
+		return
+	}
+	h.dispatchPush(func(ctx context.Context) {
+		h.push.NotifyTransportRouteGuardians(ctx, tenantID, routeID, title, body, kind, tripID)
+	})
+}
+
 func (h *Handler) pushSchedulePublished(ctx context.Context, tenantID string) {
 	h.push.NotifySchedulePublished(ctx, tenantID)
 }

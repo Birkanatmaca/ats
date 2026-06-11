@@ -7,8 +7,8 @@ RUN npm ci
 
 COPY . .
 
-ARG VITE_APP_URL=http://panel.ogtasis.com
-ARG VITE_LANDING_URL=http://ogtasis.com
+ARG VITE_APP_URL=https://panel.ogtasis.com
+ARG VITE_LANDING_URL=https://ogtasis.com
 ENV VITE_APP_URL=$VITE_APP_URL
 ENV VITE_LANDING_URL=$VITE_LANDING_URL
 

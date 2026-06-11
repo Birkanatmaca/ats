@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   useCallback,
@@ -20,8 +20,10 @@ import {
   upsertDraftInQueue
 } from "./queue";
 import { fetchConnectivity, isOnline, subscribeConnectivity, type ConnectivitySnapshot } from "./netInfo";
-import { loadOfflineQueue, saveOfflineQueue } from "./storage";
+import { prefetchTodayAttendanceSessions } from "./prefetch";
+import { loadOfflineQueue, saveOfflineQueue, saveTeacherCalendarCache } from "./storage";
 import { syncOfflineDraft } from "./sync";
+import { currentWeekday, lessonsForDay } from "@/shared/utils/lessonSchedule";
 import type { OfflineAttendanceDraft, OfflineConflictState } from "./types";
 import { isPendingSyncStatus } from "./types";
 import { recordsVersion } from "./version";
@@ -30,10 +32,16 @@ type OfflineAttendanceContextValue = {
   online: boolean;
   drafts: OfflineAttendanceDraft[];
   pendingCount: number;
+  localBackupCount: number;
+  cachedLessonCount: number;
+  prefetching: boolean;
   syncing: boolean;
   activeConflict: OfflineConflictState | null;
   cacheOpenedSession: (session: AttendanceSession, lesson?: Lesson) => Promise<void>;
-  persistSessionChanges: (session: AttendanceSession, options?: { finalizePending?: boolean }) => Promise<void>;
+  persistSessionChanges: (
+    session: AttendanceSession,
+    options?: { finalizePending?: boolean; syncStatus?: OfflineAttendanceDraft["syncStatus"] }
+  ) => Promise<void>;
   loadDraftSession: (lessonId: string) => AttendanceSession | null;
   getDraftForLesson: (lessonId: string) => OfflineAttendanceDraft | undefined;
   syncNow: () => Promise<void>;
@@ -56,12 +64,24 @@ export function OfflineAttendanceProvider({ children }: { children: ReactNode })
   const [connectivity, setConnectivity] = useState<ConnectivitySnapshot>({ isConnected: true, isInternetReachable: true });
   const [drafts, setDrafts] = useState<OfflineAttendanceDraft[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [prefetching, setPrefetching] = useState(false);
+  const [cachedLessonCount, setCachedLessonCount] = useState(0);
   const [activeConflict, setActiveConflict] = useState<OfflineConflictState | null>(null);
   const syncInFlight = useRef(false);
+  const prefetchInFlight = useRef(false);
+  const prefetchStateRef = useRef({ dateKey: "", lessonIds: new Set<string>() });
+  const wasOnlineRef = useRef(true);
   const draftsRef = useRef<OfflineAttendanceDraft[]>([]);
   draftsRef.current = drafts;
 
   const online = isOnline(connectivity);
+
+  const calendarQ = useQuery({
+    queryKey: queryKeys.teacherCalendar,
+    queryFn: () => api.teacherCalendar(),
+    enabled: enabled && online,
+    staleTime: 5 * 60 * 1000
+  });
 
   const persistDrafts = useCallback(
     async (nextDrafts: OfflineAttendanceDraft[]) => {
@@ -111,7 +131,6 @@ export function OfflineAttendanceProvider({ children }: { children: ReactNode })
           break;
         }
       }
-      nextDrafts = nextDrafts.filter((draft) => draft.syncStatus !== "synced");
       await persistDrafts(nextDrafts);
       void queryClient.invalidateQueries({ queryKey: queryKeys.teacherCalendar });
     } finally {
@@ -125,6 +144,78 @@ export function OfflineAttendanceProvider({ children }: { children: ReactNode })
       void runSync();
     }
   }, [online, enabled, runSync]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (wasOnlineRef.current && !online) {
+      const currentDrafts = draftsRef.current;
+      const promoted = currentDrafts.map((draft) =>
+        draft.syncStatus === "draft" ? { ...draft, syncStatus: "queued" as const } : draft
+      );
+      if (promoted.some((draft, index) => draft.syncStatus !== currentDrafts[index]?.syncStatus)) {
+        void persistDrafts(promoted);
+      }
+    }
+    wasOnlineRef.current = online;
+  }, [enabled, online, persistDrafts]);
+
+  const getDraftForLesson = useCallback(
+    (lessonId: string) => draftsRef.current.find((draft) => draft.lessonId === lessonId),
+    []
+  );
+
+  useEffect(() => {
+    if (!enabled || !online || !calendarQ.data?.length || prefetchInFlight.current) return;
+
+    const dateKey = new Date().toISOString().slice(0, 10);
+    if (prefetchStateRef.current.dateKey !== dateKey) {
+      prefetchStateRef.current = { dateKey, lessonIds: new Set<string>() };
+    }
+
+    const todayLessons = lessonsForDay(calendarQ.data, currentWeekday());
+    const pendingLessons = todayLessons.filter((lesson) => !prefetchStateRef.current.lessonIds.has(lesson.id));
+    if (pendingLessons.length === 0) {
+      setCachedLessonCount(
+        todayLessons.filter((lesson) => Boolean(getDraftForLesson(lesson.id))).length
+      );
+      return;
+    }
+
+    prefetchInFlight.current = true;
+    setPrefetching(true);
+    void (async () => {
+      try {
+        await saveTeacherCalendarCache(tenantId, teacherId, calendarQ.data ?? []);
+        await prefetchTodayAttendanceSessions(pendingLessons, {
+          getDraftForLesson,
+          cacheOpenedSession: async (session, lesson) => {
+            const currentDrafts = draftsRef.current;
+            const existing = currentDrafts.find((draft) => draft.lessonId === session.lessonId);
+            const nextDraft = existing
+              ? applyRecordUpdatesToDraft(existing, session.records, { syncStatus: "synced" })
+              : createDraftFromSession({
+                  session,
+                  tenantId,
+                  teacherId,
+                  lesson,
+                  syncStatus: "synced",
+                  baseVersion: recordsVersion(session.records)
+                });
+            await persistDrafts(upsertDraftInQueue(currentDrafts, { ...nextDraft, sessionId: session.id }));
+          }
+        });
+        for (const lesson of pendingLessons) {
+          prefetchStateRef.current.lessonIds.add(lesson.id);
+        }
+        setCachedLessonCount(
+          todayLessons.filter((lesson) => Boolean(draftsRef.current.find((draft) => draft.lessonId === lesson.id))).length
+        );
+      } finally {
+        prefetchInFlight.current = false;
+        setPrefetching(false);
+      }
+    })();
+  }, [calendarQ.data, calendarQ.dataUpdatedAt, enabled, getDraftForLesson, online, persistDrafts, teacherId, tenantId]);
 
   const cacheOpenedSession = useCallback(
     async (opened: AttendanceSession, lesson?: Lesson) => {
@@ -147,7 +238,10 @@ export function OfflineAttendanceProvider({ children }: { children: ReactNode })
   );
 
   const persistSessionChanges = useCallback(
-    async (changed: AttendanceSession, options?: { finalizePending?: boolean }) => {
+    async (
+      changed: AttendanceSession,
+      options?: { finalizePending?: boolean; syncStatus?: OfflineAttendanceDraft["syncStatus"] }
+    ) => {
       if (!enabled) return;
       const currentDrafts = draftsRef.current;
       const existing =
@@ -156,14 +250,16 @@ export function OfflineAttendanceProvider({ children }: { children: ReactNode })
           session: changed,
           tenantId,
           teacherId,
-          syncStatus: "queued"
+          syncStatus: options?.syncStatus ?? (isOnline(connectivity) ? "draft" : "queued")
         });
+      const syncStatus =
+        options?.syncStatus ?? (options?.finalizePending ? "queued" : isOnline(connectivity) ? "draft" : "queued");
       const nextDraft = applyRecordUpdatesToDraft(existing, changed.records, {
         finalizePending: options?.finalizePending,
-        syncStatus: "queued"
+        syncStatus
       });
       await persistDrafts(upsertDraftInQueue(currentDrafts, nextDraft));
-      if (isOnline(connectivity)) {
+      if (syncStatus === "queued" && isOnline(connectivity)) {
         void runSync();
       }
     },
@@ -172,14 +268,13 @@ export function OfflineAttendanceProvider({ children }: { children: ReactNode })
 
   const loadDraftSession = useCallback(
     (lessonId: string) => {
-      const draft = drafts.find((item) => item.lessonId === lessonId && isPendingSyncStatus(item.syncStatus));
-      return draft ? sessionFromDraft(draft) : null;
+      const draft = drafts.find((item) => item.lessonId === lessonId);
+      if (!draft) return null;
+      if (draft.syncStatus === "synced" || isPendingSyncStatus(draft.syncStatus)) {
+        return sessionFromDraft(draft);
+      }
+      return null;
     },
-    [drafts]
-  );
-
-  const getDraftForLesson = useCallback(
-    (lessonId: string) => drafts.find((draft) => draft.lessonId === lessonId),
     [drafts]
   );
 
@@ -240,15 +335,36 @@ export function OfflineAttendanceProvider({ children }: { children: ReactNode })
   }, [persistDrafts]);
 
   const pendingCount = useMemo(
-    () => drafts.filter((draft) => draft.syncStatus === "queued" || draft.syncStatus === "syncing" || draft.syncStatus === "failed" || draft.syncStatus === "conflict").length,
+    () =>
+      drafts.filter(
+        (draft) =>
+          draft.syncStatus === "queued" ||
+          draft.syncStatus === "syncing" ||
+          draft.syncStatus === "failed" ||
+          draft.syncStatus === "conflict"
+      ).length,
     [drafts]
   );
+
+  const localBackupCount = useMemo(
+    () => drafts.filter((draft) => draft.syncStatus === "draft").length,
+    [drafts]
+  );
+
+  useEffect(() => {
+    if (!enabled || !calendarQ.data?.length) return;
+    const todayLessons = lessonsForDay(calendarQ.data, currentWeekday());
+    setCachedLessonCount(todayLessons.filter((lesson) => getDraftForLesson(lesson.id)).length);
+  }, [calendarQ.data, drafts, enabled, getDraftForLesson]);
 
   const value = useMemo<OfflineAttendanceContextValue>(
     () => ({
       online,
       drafts,
       pendingCount,
+      localBackupCount,
+      cachedLessonCount,
+      prefetching,
       syncing,
       activeConflict,
       cacheOpenedSession,
@@ -266,6 +382,9 @@ export function OfflineAttendanceProvider({ children }: { children: ReactNode })
       online,
       drafts,
       pendingCount,
+      localBackupCount,
+      cachedLessonCount,
+      prefetching,
       syncing,
       activeConflict,
       cacheOpenedSession,

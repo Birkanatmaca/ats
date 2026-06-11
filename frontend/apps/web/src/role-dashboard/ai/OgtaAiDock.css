@@ -51,6 +51,32 @@
   font-size: 0.82rem;
 }
 
+.ogta-ai-usage {
+  margin-top: 0.55rem;
+  display: grid;
+  gap: 0.25rem;
+  max-width: 240px;
+}
+
+.ogta-ai-usage__bar {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.35);
+  overflow: hidden;
+}
+
+.ogta-ai-usage__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+}
+
+.ogta-ai-usage small {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
 .ogta-ai-icon-button {
   border: none;
   background: transparent;

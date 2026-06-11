@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	attendanceapp "ots/backend/internal/app/attendance"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
 	identityapp "ots/backend/internal/app/identity"
 	observationapp "ots/backend/internal/app/observation"
 	pushapp "ots/backend/internal/app/push"
+	schedulingapp "ots/backend/internal/app/scheduling"
 	schoolapp "ots/backend/internal/app/school"
 	transportapp "ots/backend/internal/app/transport"
 	"ots/backend/internal/http/middleware"
@@ -37,6 +39,8 @@ func newHandlerTestServer() handlerTestServer {
 	h := New(Dependencies{
 		Identity:    identityapp.NewService(store, jwtIssuer, clock),
 		School:      schoolapp.NewService(store),
+		Scheduling:  schedulingapp.NewService(store),
+		Attendance:  attendanceapp.NewService(store),
 		Observation: observationapp.NewService(store),
 		Guardian:    guardianapp.NewService(store),
 		Guidance:    guidanceapp.NewService(store),

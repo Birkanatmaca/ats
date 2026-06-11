@@ -16,13 +16,22 @@ type UsagePoint struct {
 }
 
 type TenantUsageRow struct {
-	TenantID     string  `json:"tenantId"`
-	TenantName   string  `json:"tenantName"`
-	UserMessages int     `json:"userMessages"`
-	TokenInput   int     `json:"tokenInput"`
-	TokenOutput  int     `json:"tokenOutput"`
-	EstCostUSD   float64 `json:"estCostUsd"`
-	EstCostTRY   float64 `json:"estCostTry"`
+	TenantID            string  `json:"tenantId"`
+	TenantName          string  `json:"tenantName"`
+	UserMessages        int     `json:"userMessages"`
+	TokenInput          int     `json:"tokenInput"`
+	TokenOutput         int     `json:"tokenOutput"`
+	EstCostUSD          float64 `json:"estCostUsd"`
+	EstCostTRY          float64 `json:"estCostTry"`
+	DailyMessageLimit   *int    `json:"dailyMessageLimit,omitempty"`
+	MonthlyTokenLimit   *int    `json:"monthlyTokenLimit,omitempty"`
+}
+
+type RoleUsageRow struct {
+	Role         string `json:"role"`
+	UserMessages int    `json:"userMessages"`
+	TokenInput   int    `json:"tokenInput"`
+	TokenOutput  int    `json:"tokenOutput"`
 }
 
 type ModelUsageRow struct {
@@ -47,4 +56,6 @@ type PlatformAnalytics struct {
 	DailyUsage         []UsagePoint     `json:"dailyUsage"`
 	ByTenant           []TenantUsageRow `json:"byTenant"`
 	ByModel            []ModelUsageRow  `json:"byModel"`
+	ByRole             []RoleUsageRow   `json:"byRole"`
+	Provider           ProviderStatus   `json:"provider"`
 }

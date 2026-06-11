@@ -163,3 +163,17 @@ type CaseTimelineItem struct {
 	Visibility string    `json:"visibility,omitempty"`
 	Masked     bool      `json:"masked,omitempty"`
 }
+
+type EarlyWarningSignal struct {
+	ID              string    `json:"id"`
+	StudentID       string    `json:"studentId"`
+	StudentName     string    `json:"studentName"`
+	ClassName       string    `json:"className"`
+	SignalType      string    `json:"signalType"`
+	Severity        string    `json:"severity"`
+	Title           string    `json:"title"`
+	Summary         string    `json:"summary"`
+	SuggestedAction string    `json:"suggestedAction"`
+	HasOpenCase     bool      `json:"hasOpenCase"`
+	DetectedAt      time.Time `json:"detectedAt"`
+}

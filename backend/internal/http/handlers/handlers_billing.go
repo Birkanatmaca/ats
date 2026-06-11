@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	billingapp "ots/backend/internal/app/billing"
 	billingdomain "ots/backend/internal/domain/billing"
 	"ots/backend/internal/domain/identity"
+	schooldomain "ots/backend/internal/domain/school"
 	"ots/backend/internal/platform/httpx"
 )
 
@@ -24,7 +26,7 @@ func (h *Handler) registerBillingRoutes(mux *http.ServeMux) {
 }
 
 func (h *Handler) billingStudentAccount(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -33,7 +35,7 @@ func (h *Handler) billingStudentAccount(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) createBillingStudentPlan(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -50,7 +52,7 @@ func (h *Handler) createBillingStudentPlan(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) updateBillingPlan(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -67,7 +69,7 @@ func (h *Handler) updateBillingPlan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listBillingInstallments(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -84,7 +86,7 @@ func (h *Handler) listBillingInstallments(w http.ResponseWriter, r *http.Request
 }
 
 func (h *Handler) createBillingPayment(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -97,11 +99,16 @@ func (h *Handler) createBillingPayment(w http.ResponseWriter, r *http.Request) {
 	if writeBillingError(w, err) {
 		return
 	}
+	if h.push != nil && installment.StudentID != "" {
+		h.dispatchPush(func(ctx context.Context) {
+			h.push.NotifyBillingPaymentRecorded(ctx, principal.TenantID, installment.StudentID)
+		})
+	}
 	httpx.WriteJSON(w, http.StatusCreated, installment, nil)
 }
 
 func (h *Handler) updateBillingPayment(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -118,7 +125,7 @@ func (h *Handler) updateBillingPayment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) voidBillingPayment(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -130,7 +137,7 @@ func (h *Handler) voidBillingPayment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) billingDashboard(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -142,7 +149,7 @@ func (h *Handler) billingDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) billingOverdueReport(w http.ResponseWriter, r *http.Request) {
-	principal, ok := requireBillingOperator(w, r)
+	principal, ok := h.requireBillingAccess(w, r)
 	if !ok {
 		return
 	}
@@ -155,7 +162,7 @@ func (h *Handler) billingOverdueReport(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) guardianBillingSummary(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireGuardian(w, r)
-	if !ok {
+	if !ok || !h.requireBillingModule(w, r, principal.TenantID) {
 		return
 	}
 	summary, err := h.billing.GuardianSummary(r.Context(), principal.TenantID, principal.UserID, r.PathValue("studentId"))
@@ -165,8 +172,24 @@ func (h *Handler) guardianBillingSummary(w http.ResponseWriter, r *http.Request)
 	httpx.WriteJSON(w, http.StatusOK, summary, nil)
 }
 
-func requireBillingOperator(w http.ResponseWriter, r *http.Request) (identity.Principal, bool) {
-	return requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
+func (h *Handler) requireBillingAccess(w http.ResponseWriter, r *http.Request) (identity.Principal, bool) {
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin)
+	if !ok {
+		return principal, false
+	}
+	if !h.requireBillingModule(w, r, principal.TenantID) {
+		return principal, false
+	}
+	return principal, true
+}
+
+func (h *Handler) requireBillingModule(w http.ResponseWriter, r *http.Request, tenantID string) bool {
+	tenant, ok := h.school.CurrentTenant(r.Context(), tenantID)
+	if !ok || !schooldomain.HasModule(tenant.EnabledModules, schooldomain.ModuleBilling) {
+		httpx.WriteError(w, http.StatusForbidden, "MODULE_DISABLED", "Tahsilat modülü bu kurumda aktif değil.", nil)
+		return false
+	}
+	return true
 }
 
 func writeBillingLookup(w http.ResponseWriter, data any, err error) {

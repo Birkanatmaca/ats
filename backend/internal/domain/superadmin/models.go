@@ -138,8 +138,13 @@ type Institution struct {
 
 type InstitutionDetail struct {
 	Institution
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	EnabledModules []string  `json:"enabledModules"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
+type UpdateInstitutionModulesInput struct {
+	EnabledModules []string `json:"enabledModules"`
 }
 
 type CreateInstitutionInput struct {

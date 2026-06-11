@@ -550,7 +550,42 @@ GROUP BY t.id, t.name, t.plan, t.timezone, t.created_at, t.updated_at`
 	if err != nil {
 		return superadmindomain.InstitutionDetail{}, false, err
 	}
+	modules, modulesErr := s.TenantEnabledModules(ctx, tenantID)
+	if modulesErr != nil {
+		return superadmindomain.InstitutionDetail{}, false, modulesErr
+	}
+	detail.EnabledModules = modules
 	return detail, true, nil
+}
+
+func (s *Store) UpdateInstitutionModules(ctx context.Context, actor identity.Principal, tenantID string, modules []string) (superadmindomain.InstitutionDetail, bool, error) {
+	updated, err := s.UpdateTenantEnabledModules(ctx, tenantID, modules)
+	if err != nil {
+		return superadmindomain.InstitutionDetail{}, false, err
+	}
+	detail, ok, err := s.GetInstitution(ctx, tenantID)
+	if err != nil || !ok {
+		return superadmindomain.InstitutionDetail{}, ok, err
+	}
+	detail.EnabledModules = updated
+	metadata := fmt.Sprintf(`{"modules":[%s]}`, quoteJSONStrings(updated))
+	metadata = platformaudit.MergeRequestDetails(ctx, metadata)
+	_, _ = s.db.ExecContext(ctx, `
+INSERT INTO audit_logs (tenant_id, actor_user_id, action, resource_type, resource_id, sensitivity, metadata)
+VALUES ($1, NULLIF($2, '')::uuid, $3, 'tenant', NULLIF($4, '')::uuid, 'operational', $5::jsonb)`,
+		actor.TenantID, actor.UserID, "tenant.modules.update", tenantID, metadata)
+	return detail, true, nil
+}
+
+func quoteJSONStrings(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		parts = append(parts, fmt.Sprintf("%q", value))
+	}
+	return strings.Join(parts, ",")
 }
 
 func (s *Store) CreateInstitution(ctx context.Context, actor identity.Principal, input superadmindomain.CreateInstitutionInput) (superadmindomain.InstitutionDetail, error) {
@@ -1696,7 +1731,7 @@ func defaultModules() []superadmindomain.ModuleStatus {
 		{Name: "Scheduling", Status: "operational", Description: "AI ders programı üretim yüzeyi MVP kapsamında."},
 		{Name: "Attendance", Status: "operational", Description: "Akıllı yoklama akışı canlı API'ye bağlı."},
 		{Name: "Guidance", Status: "limited", Description: "Öğrenci gözlem kayıtları temel seviyede."},
-		{Name: "Billing", Status: "planned", Description: "Lisans ve tahsilat premium faza ayrıldı."},
+		{Name: "Billing", Status: "operational", Description: "Öğrenci tahsilat planı ve taksit takibi aktif."},
 	}
 }
 

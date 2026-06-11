@@ -41,6 +41,14 @@ type Repository interface {
 	GuardianHasStudent(ctx context.Context, tenantID, guardianUserID, studentID string) bool
 	GuardianServiceSummary(ctx context.Context, tenantID, studentID string) (transportdomain.GuardianServiceSummary, bool, error)
 	NotifyServiceRouteGuardians(ctx context.Context, tenantID, routeID, title, body, kind string) (int, error)
+	GetServiceTrip(ctx context.Context, tenantID, tripID string) (transportdomain.Trip, bool, error)
+	ListStopsForRoute(ctx context.Context, tenantID, routeID string) ([]transportdomain.RouteStop, error)
+	ListAssignmentsForRoute(ctx context.Context, tenantID, routeID string) ([]transportdomain.Assignment, error)
+	HasTripStopAlert(ctx context.Context, tenantID, tripID, stopID string) (bool, error)
+	MarkTripStopAlert(ctx context.Context, tenantID, tripID, stopID string) error
+	ListServiceTripLocations(ctx context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripLocation, error)
+	ListServiceTripEvents(ctx context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripEvent, error)
+	RecordServiceTripEvent(ctx context.Context, tenantID, tripID, eventType string, payload map[string]any) error
 	RecordOperationalAudit(ctx context.Context, tenantID, actorUserID, action, resourceType, resourceID, metadata string)
 }
 
@@ -127,24 +135,32 @@ func (s *Service) CreateStaff(ctx context.Context, tenantID, actorUserID string,
 	return created, nil
 }
 
-func (s *Service) StartDriverSharing(ctx context.Context, tenantID, userID, actorUserID string) (transportdomain.Staff, error) {
+func (s *Service) StartDriverSharing(ctx context.Context, tenantID, userID, actorUserID string) (transportdomain.Staff, *transportdomain.Trip, error) {
 	staff, err := s.repo.SetDriverSharing(ctx, tenantID, strings.TrimSpace(userID), true, s.clock())
 	if err != nil {
-		return transportdomain.Staff{}, mapNotFound(err)
+		return transportdomain.Staff{}, nil, mapNotFound(err)
 	}
 	s.ensureActiveTripForDriver(ctx, tenantID, userID)
+	var trip *transportdomain.Trip
+	if activeTrip, ok, tripErr := s.repo.ActiveServiceTripForDriver(ctx, tenantID, userID); tripErr == nil && ok {
+		trip = &activeTrip
+	}
 	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.driver.sharing.start", "service_staff", staff.ID, `{}`)
-	return staff, nil
+	return staff, trip, nil
 }
 
-func (s *Service) StopDriverSharing(ctx context.Context, tenantID, userID, actorUserID string) (transportdomain.Staff, error) {
+func (s *Service) StopDriverSharing(ctx context.Context, tenantID, userID, actorUserID string) (transportdomain.Staff, *transportdomain.Trip, error) {
+	stoppedTrip, hadTrip, _ := s.repo.StopActiveServiceTrip(ctx, tenantID, strings.TrimSpace(userID), s.clock())
 	staff, err := s.repo.SetDriverSharing(ctx, tenantID, strings.TrimSpace(userID), false, s.clock())
 	if err != nil {
-		return transportdomain.Staff{}, mapNotFound(err)
+		return transportdomain.Staff{}, nil, mapNotFound(err)
 	}
-	_, _, _ = s.repo.StopActiveServiceTrip(ctx, tenantID, userID, s.clock())
+	var trip *transportdomain.Trip
+	if hadTrip {
+		trip = &stoppedTrip
+	}
 	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.driver.sharing.stop", "service_staff", staff.ID, `{}`)
-	return staff, nil
+	return staff, trip, nil
 }
 
 func (s *Service) UpdateStaff(ctx context.Context, tenantID, staffID, actorUserID string, input transportdomain.UpdateStaffInput) (transportdomain.Staff, error) {
@@ -246,14 +262,6 @@ func (s *Service) UpdateRoute(ctx context.Context, tenantID, routeID, actorUserI
 		return transportdomain.Route{}, mapNotFound(err)
 	}
 	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.route.update", "service_route", route.ID, `{}`)
-	_, _ = s.repo.NotifyServiceRouteGuardians(
-		ctx,
-		tenantID,
-		route.ID,
-		"Servis rotası güncellendi",
-		"Servis rota bilgilerinde değişiklik var. Detayları uygulamadan kontrol edin.",
-		fmt.Sprintf("service_route_change:%s:%d", route.ID, s.clock().Unix()),
-	)
 	return route, nil
 }
 
@@ -274,16 +282,14 @@ func (s *Service) ReportRouteDelay(ctx context.Context, tenantID, routeID, actor
 		body = body + " " + note
 	}
 	kind := fmt.Sprintf("service_delay:%s:%d:%d", route.ID, input.DelayMinutes, s.clock().Unix()/300)
-	delivered, err := s.repo.NotifyServiceRouteGuardians(ctx, tenantID, route.ID, "Servis gecikme bildirimi", body, kind)
-	if err != nil {
-		return transportdomain.ServiceDelayNotification{}, err
-	}
-	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.route.delay_notify", "service_route", route.ID, fmt.Sprintf(`{"delayMinutes":%d,"deliveredCount":%d}`, input.DelayMinutes, delivered))
+	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.route.delay_notify", "service_route", route.ID, fmt.Sprintf(`{"delayMinutes":%d}`, input.DelayMinutes))
 	return transportdomain.ServiceDelayNotification{
 		RouteID:        route.ID,
 		RouteName:      route.Name,
 		DelayMinutes:   input.DelayMinutes,
-		DeliveredCount: delivered,
+		NotificationKind: kind,
+		NotificationTitle: "Servis gecikme bildirimi",
+		NotificationBody:  body,
 	}, nil
 }
 
@@ -357,9 +363,86 @@ func (s *Service) GuardianSummary(ctx context.Context, tenantID, guardianUserID,
 		return transportdomain.GuardianServiceSummary{}, err
 	} else if ok {
 		summary.ActiveTrip = &trip
+		stopLat, stopLng := guardianStopCoordinates(summary)
+		summary.LiveStatus = buildServiceLiveStatus(&trip, stopLat, stopLng, s.clock())
 	}
 	summary.UpdatedAt = s.clock()
 	return summary, nil
+}
+
+func guardianStopCoordinates(summary transportdomain.GuardianServiceSummary) (*float64, *float64) {
+	assignment := firstActiveAssignment(summary.Assignments)
+	if assignment == nil || assignment.StopID == "" {
+		return nil, nil
+	}
+	for _, route := range summary.Routes {
+		if route.ID != assignment.RouteID {
+			continue
+		}
+		for _, stop := range route.Stops {
+			if stop.ID == assignment.StopID {
+				return stop.Latitude, stop.Longitude
+			}
+		}
+	}
+	return nil, nil
+}
+
+func firstActiveAssignment(assignments []transportdomain.Assignment) *transportdomain.Assignment {
+	for i := range assignments {
+		if assignments[i].Status == transportdomain.StatusActive {
+			return &assignments[i]
+		}
+	}
+	if len(assignments) > 0 {
+		return &assignments[0]
+	}
+	return nil
+}
+
+func (s *Service) TripLocations(ctx context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripLocation, error) {
+	if strings.TrimSpace(tripID) == "" {
+		return nil, ErrInvalidInput
+	}
+	if limit <= 0 || limit > 500 {
+		limit = 120
+	}
+	if _, ok, err := s.repo.GetServiceTrip(ctx, tenantID, tripID); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, ErrNotFound
+	}
+	return s.repo.ListServiceTripLocations(ctx, tenantID, tripID, limit)
+}
+
+func (s *Service) GuardianTripLocations(ctx context.Context, tenantID, guardianUserID, studentID string, limit int) ([]transportdomain.TripLocation, error) {
+	studentID = strings.TrimSpace(studentID)
+	if studentID == "" || !s.repo.GuardianHasStudent(ctx, tenantID, guardianUserID, studentID) {
+		return nil, ErrForbidden
+	}
+	trip, ok, err := s.repo.ActiveServiceTripForStudent(ctx, tenantID, studentID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return s.TripLocations(ctx, tenantID, trip.ID, limit)
+}
+
+func (s *Service) TripEvents(ctx context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripEvent, error) {
+	if strings.TrimSpace(tripID) == "" {
+		return nil, ErrInvalidInput
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	if _, ok, err := s.repo.GetServiceTrip(ctx, tenantID, tripID); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, ErrNotFound
+	}
+	return s.repo.ListServiceTripEvents(ctx, tenantID, tripID, limit)
 }
 
 func (s *Service) DriverSummary(ctx context.Context, tenantID, driverUserID string) (transportdomain.DriverServiceSummary, error) {
@@ -380,7 +463,16 @@ func (s *Service) DriverSummary(ctx context.Context, tenantID, driverUserID stri
 }
 
 func (s *Service) ActiveTrips(ctx context.Context, tenantID string) ([]transportdomain.Trip, error) {
-	return s.repo.ListActiveServiceTrips(ctx, tenantID)
+	trips, err := s.repo.ListActiveServiceTrips(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	now := s.clock()
+	for i := range trips {
+		copy := trips[i]
+		trips[i].LiveStatus = buildServiceLiveStatus(&copy, nil, nil, now)
+	}
+	return trips, nil
 }
 
 func (s *Service) GuardianActiveTrip(ctx context.Context, tenantID, guardianUserID, studentID string) (transportdomain.Trip, error) {
@@ -394,6 +486,13 @@ func (s *Service) GuardianActiveTrip(ctx context.Context, tenantID, guardianUser
 	}
 	if !ok {
 		return transportdomain.Trip{}, ErrNotFound
+	}
+	summary, summaryOK, err := s.repo.GuardianServiceSummary(ctx, tenantID, studentID)
+	if err == nil && summaryOK {
+		stopLat, stopLng := guardianStopCoordinates(summary)
+		trip.LiveStatus = buildServiceLiveStatus(&trip, stopLat, stopLng, s.clock())
+	} else {
+		trip.LiveStatus = buildServiceLiveStatus(&trip, nil, nil, s.clock())
 	}
 	return trip, nil
 }

@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MapPin, PauseCircle, PlayCircle } from "lucide-react-native";
 import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { formatLiveStatus } from "@/features/transport/formatLiveStatus";
+import { ServiceLiveMap } from "@/features/transport/ServiceLiveMap";
+import { useDriverLocationSharing } from "@/features/transport/useDriverLocationSharing";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { api } from "@/shared/api/client";
 import { queryKeys } from "@/shared/api/queryKeys";
@@ -23,7 +26,15 @@ function formatLocation(latitude?: number, longitude?: number) {
 export function DriverTrackingScreen() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const sessionQ = useQuery({ queryKey: queryKeys.driverSession, queryFn: () => api.driverSession() });
+  const sessionQ = useQuery({
+    queryKey: queryKeys.driverSession,
+    queryFn: () => api.driverSession(),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const sharing = data?.isSharing || data?.staff.sharingStatus === "active";
+      return sharing ? 12_000 : false;
+    }
+  });
 
   const startMut = useMutation({
     mutationFn: () => api.startDriverSharing(),
@@ -47,6 +58,7 @@ export function DriverTrackingScreen() {
   const route = summary?.routes?.[0];
   const sharingActive = summary?.isSharing ?? summary?.staff.sharingStatus === "active";
   const busy = startMut.isPending || stopMut.isPending;
+  const locationShare = useDriverLocationSharing(sharingActive, activeTrip?.id);
 
   const routeLabel = useMemo(() => {
     if (activeTrip?.routeName) return activeTrip.routeName;
@@ -95,6 +107,19 @@ export function DriverTrackingScreen() {
             <Text style={styles.tripMetaText}>Canlı oturum {activeTrip.id.slice(0, 8)}</Text>
             <Text style={styles.tripMetaText}>{formatSeenAt(activeTrip.startedAt)}</Text>
           </View>
+        ) : null}
+
+        {sharingActive && activeTrip?.liveStatus ? (
+          <Text style={styles.liveStatus}>{formatLiveStatus(activeTrip.liveStatus)}</Text>
+        ) : null}
+
+        {sharingActive ? (
+          <ServiceLiveMap label="Son konumu haritada aç" latitude={lastLocation?.latitude} longitude={lastLocation?.longitude} />
+        ) : null}
+
+        {locationShare.error ? <Text style={styles.shareError}>{locationShare.error}</Text> : null}
+        {locationShare.lastSentAt ? (
+          <Text style={styles.shareMeta}>Son GPS gönderimi: {formatSeenAt(locationShare.lastSentAt)}</Text>
         ) : null}
 
         {(route?.stops ?? []).slice(0, 4).map((stop, index) => (
@@ -157,6 +182,9 @@ const styles = StyleSheet.create({
   routeMeta: { color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "700" },
   tripMeta: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" },
   tripMetaText: { color: "rgba(255,255,255,0.72)", flex: 1, fontSize: 11, fontWeight: "800" },
+  liveStatus: { color: colors.success, fontSize: 12, fontWeight: "800" },
+  shareError: { color: colors.danger, fontSize: 12, fontWeight: "800" },
+  shareMeta: { color: "rgba(255,255,255,0.65)", fontSize: 11, fontWeight: "700" },
   stopRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" },
   stopIndex: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.12)" },
   stopIndexActive: { backgroundColor: colors.accent },

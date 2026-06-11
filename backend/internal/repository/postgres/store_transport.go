@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -534,7 +535,12 @@ RETURNING id::text`, tenantID, routeID, driverUserID, driverStaffID, string(dire
 	if err != nil {
 		return transportdomain.Trip{}, err
 	}
-	return s.getServiceTrip(ctx, tenantID, id)
+	trip, err := s.getServiceTrip(ctx, tenantID, id)
+	if err != nil {
+		return transportdomain.Trip{}, err
+	}
+	_ = s.RecordServiceTripEvent(ctx, tenantID, trip.ID, "trip_started", map[string]any{"routeId": routeID})
+	return trip, nil
 }
 
 func (s *Store) StopActiveServiceTrip(ctx context.Context, tenantID, driverUserID string, stoppedAt time.Time) (transportdomain.Trip, bool, error) {
@@ -560,7 +566,11 @@ RETURNING id::text`, tenantID, driverUserID, stoppedAt).Scan(&id)
 		return transportdomain.Trip{}, false, err
 	}
 	trip, err := s.getServiceTrip(ctx, tenantID, id)
-	return trip, err == nil, err
+	if err != nil {
+		return transportdomain.Trip{}, false, err
+	}
+	_ = s.RecordServiceTripEvent(ctx, tenantID, trip.ID, "trip_completed", nil)
+	return trip, true, nil
 }
 
 func (s *Store) RecordServiceTripLocation(ctx context.Context, tenantID, driverUserID, tripID string, input transportdomain.TripLocationInput, capturedAt time.Time) (transportdomain.TripLocation, error) {
@@ -756,7 +766,7 @@ func (s *Store) hydrateServiceRoute(ctx context.Context, tenantID string, route 
 
 func (s *Store) listServiceStops(ctx context.Context, tenantID, routeID string) ([]transportdomain.RouteStop, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id::text, tenant_id::text, route_id::text, name, to_char(planned_time, 'HH24:MI'), sort_order
+SELECT id::text, tenant_id::text, route_id::text, name, to_char(planned_time, 'HH24:MI'), sort_order, latitude, longitude
 FROM service_route_stops
 WHERE tenant_id = $1 AND route_id = $2::uuid
 ORDER BY sort_order`, tenantID, routeID)
@@ -767,8 +777,17 @@ ORDER BY sort_order`, tenantID, routeID)
 	out := []transportdomain.RouteStop{}
 	for rows.Next() {
 		var item transportdomain.RouteStop
-		if err := rows.Scan(&item.ID, &item.TenantID, &item.RouteID, &item.Name, &item.PlannedTime, &item.SortOrder); err != nil {
+		var lat, lng sql.NullFloat64
+		if err := rows.Scan(&item.ID, &item.TenantID, &item.RouteID, &item.Name, &item.PlannedTime, &item.SortOrder, &lat, &lng); err != nil {
 			return nil, err
+		}
+		if lat.Valid {
+			value := lat.Float64
+			item.Latitude = &value
+		}
+		if lng.Valid {
+			value := lng.Float64
+			item.Longitude = &value
 		}
 		out = append(out, item)
 	}
@@ -808,8 +827,8 @@ WHERE tenant_id = $1 AND route_id = $2::uuid`, tenantID, routeID); err != nil {
 			sortOrder = index + 1
 		}
 		if _, err := tx.ExecContext(ctx, `
-INSERT INTO service_route_stops (tenant_id, route_id, name, planned_time, sort_order)
-VALUES ($1::uuid, $2::uuid, $3, $4::time, $5)`, tenantID, routeID, stop.Name, stop.PlannedTime, sortOrder); err != nil {
+INSERT INTO service_route_stops (tenant_id, route_id, name, planned_time, sort_order, latitude, longitude)
+VALUES ($1::uuid, $2::uuid, $3, $4::time, $5, $6, $7)`, tenantID, routeID, stop.Name, stop.PlannedTime, sortOrder, stop.Latitude, stop.Longitude); err != nil {
 			return err
 		}
 	}
@@ -1038,4 +1057,99 @@ func sortServiceStops(stops []transportdomain.RouteStop) {
 	sort.Slice(stops, func(i, j int) bool {
 		return stops[i].SortOrder < stops[j].SortOrder
 	})
+}
+
+func (s *Store) GetServiceTrip(ctx context.Context, tenantID, tripID string) (transportdomain.Trip, bool, error) {
+	trip, err := s.getServiceTrip(ctx, tenantID, tripID)
+	if err != nil {
+		return transportdomain.Trip{}, false, err
+	}
+	return trip, true, nil
+}
+
+func (s *Store) ListStopsForRoute(ctx context.Context, tenantID, routeID string) ([]transportdomain.RouteStop, error) {
+	return s.listServiceStops(ctx, tenantID, routeID)
+}
+
+func (s *Store) ListAssignmentsForRoute(ctx context.Context, tenantID, routeID string) ([]transportdomain.Assignment, error) {
+	return s.listServiceAssignments(ctx, tenantID, "route", routeID)
+}
+
+func (s *Store) HasTripStopAlert(ctx context.Context, tenantID, tripID, stopID string) (bool, error) {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `
+SELECT EXISTS(
+  SELECT 1 FROM service_trip_events
+  WHERE tenant_id = $1::uuid
+    AND trip_id = $2::uuid
+    AND event_type = 'approaching_notified'
+    AND payload->>'stopId' = $3
+)`, tenantID, tripID, stopID).Scan(&exists)
+	return exists, err
+}
+
+func (s *Store) MarkTripStopAlert(ctx context.Context, tenantID, tripID, stopID string) error {
+	return s.RecordServiceTripEvent(ctx, tenantID, tripID, "approaching_notified", map[string]any{"stopId": stopID})
+}
+
+func (s *Store) ListServiceTripLocations(ctx context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripLocation, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id::text, tenant_id::text, trip_id::text, latitude, longitude,
+       accuracy_meters, speed_kph, heading_degrees, captured_at, created_at
+FROM service_trip_locations
+WHERE tenant_id = $1::uuid AND trip_id = $2::uuid
+ORDER BY captured_at DESC, created_at DESC
+LIMIT $3`, tenantID, tripID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []transportdomain.TripLocation{}
+	for rows.Next() {
+		item, ok := scanServiceTripLocation(rows)
+		if ok {
+			out = append(out, item)
+		}
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ListServiceTripEvents(ctx context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripEvent, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id::text, tenant_id::text, trip_id::text, event_type, payload, created_at
+FROM service_trip_events
+WHERE tenant_id = $1::uuid AND trip_id = $2::uuid
+ORDER BY created_at DESC
+LIMIT $3`, tenantID, tripID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []transportdomain.TripEvent{}
+	for rows.Next() {
+		var item transportdomain.TripEvent
+		var payload []byte
+		if err := rows.Scan(&item.ID, &item.TenantID, &item.TripID, &item.EventType, &payload, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		if len(payload) > 0 {
+			_ = json.Unmarshal(payload, &item.Payload)
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) RecordServiceTripEvent(ctx context.Context, tenantID, tripID, eventType string, payload map[string]any) error {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `
+INSERT INTO service_trip_events (tenant_id, trip_id, event_type, payload)
+VALUES ($1::uuid, $2::uuid, $3, $4::jsonb)`, tenantID, tripID, eventType, raw)
+	return err
 }

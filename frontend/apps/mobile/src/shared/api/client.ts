@@ -67,6 +67,7 @@ import type {
   ServiceRouteInput,
   ServiceStaff,
   ServiceTrip,
+  ServiceTripEvent,
   ServiceTripLocation,
   ServiceVehicle,
   StudyAttendance,
@@ -516,6 +517,14 @@ export const api = {
   createServiceStaff: (payload: { fullName: string; phone?: string; role: "driver" | "attendant" }) =>
     request<ServiceStaff>("/api/v1/services/staff", { method: "POST", body: JSON.stringify(payload) }),
   activeServiceTrips: () => request<ServiceTrip[] | null>("/api/v1/services/trips/active").then(asArray),
+  serviceTripLocations: (tripId: string, limit = 20) =>
+    request<ServiceTripLocation[] | null>(
+      `/api/v1/services/trips/${tripId}/locations?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
+  serviceTripEvents: (tripId: string, limit = 20) =>
+    request<ServiceTripEvent[] | null>(
+      `/api/v1/services/trips/${tripId}/events?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
   driverSession: () => request<DriverServiceSummary>("/api/v1/driver/me"),
   startDriverSharing: () => request<ServiceStaff>("/api/v1/driver/sharing/start", { method: "POST", body: "{}" }),
   stopDriverSharing: () => request<ServiceStaff>("/api/v1/driver/sharing/stop", { method: "POST", body: "{}" }),
@@ -536,6 +545,10 @@ export const api = {
     }),
   guardianStudentServiceTrip: (studentId: string) =>
     request<ServiceTrip>(`/api/v1/guardian/students/${studentId}/service/trip`),
+  guardianStudentServiceTripLocations: (studentId: string, limit = 20) =>
+    request<ServiceTripLocation[] | null>(
+      `/api/v1/guardian/students/${studentId}/service/trip/locations?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
   assignServiceStudent: (payload: ServiceAssignmentInput) =>
     request<ServiceAssignment>("/api/v1/services/assignments", { method: "POST", body: JSON.stringify(payload) }),
   lifeMeals: (params?: { fromDate?: string; toDate?: string }) => {

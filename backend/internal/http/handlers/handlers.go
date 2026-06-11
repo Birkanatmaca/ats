@@ -16,6 +16,7 @@ import (
 	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
+	homeworkapp "ots/backend/internal/app/homework"
 	identityapp "ots/backend/internal/app/identity"
 	lifeapp "ots/backend/internal/app/life"
 	observationapp "ots/backend/internal/app/observation"
@@ -32,6 +33,7 @@ import (
 	schoolDomain "ots/backend/internal/domain/school"
 	superadminDomain "ots/backend/internal/domain/superadmin"
 	"ots/backend/internal/platform/httpx"
+	"ots/backend/internal/platform/storage"
 )
 
 type Dependencies struct {
@@ -43,6 +45,7 @@ type Dependencies struct {
 	Observation   *observationapp.Service
 	Guardian      *guardianapp.Service
 	Guidance      *guidanceapp.Service
+	Homework      *homeworkapp.Service
 	Dashboard     *dashboardapp.Service
 	SuperAdmin    *superadminapp.Service
 	Billing       *billingapp.Service
@@ -52,6 +55,7 @@ type Dependencies struct {
 	Push          *pushapp.Service
 	Announcements *announcementapp.Service
 	StudentImport *studentimportapp.Service
+	FileStorage   *storage.LocalStore
 	Clock         func() time.Time
 }
 
@@ -64,6 +68,7 @@ type Handler struct {
 	observation   *observationapp.Service
 	guardian      *guardianapp.Service
 	guidance      *guidanceapp.Service
+	homework      *homeworkapp.Service
 	dashboard     *dashboardapp.Service
 	superAdmin    *superadminapp.Service
 	billing       *billingapp.Service
@@ -73,6 +78,7 @@ type Handler struct {
 	push          *pushapp.Service
 	announcements *announcementapp.Service
 	studentImport *studentimportapp.Service
+	fileStorage   *storage.LocalStore
 	clock         func() time.Time
 }
 
@@ -86,6 +92,7 @@ func New(deps Dependencies) *Handler {
 		observation:   deps.Observation,
 		guardian:      deps.Guardian,
 		guidance:      deps.Guidance,
+		homework:      deps.Homework,
 		dashboard:     deps.Dashboard,
 		superAdmin:    deps.SuperAdmin,
 		billing:       deps.Billing,
@@ -95,6 +102,7 @@ func New(deps Dependencies) *Handler {
 		push:          deps.Push,
 		announcements: deps.Announcements,
 		studentImport: deps.StudentImport,
+		fileStorage:   deps.FileStorage,
 		clock:         deps.Clock,
 	}
 }
@@ -115,6 +123,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/guardian/me/students", h.guardianStudents)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/schedule", h.guardianStudentSchedule)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/attendance", h.guardianStudentAttendance)
+	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/guidance-updates", h.guardianStudentGuidanceUpdates)
 	mux.HandleFunc("GET /api/v1/guardian/announcements", h.guardianAnnouncements)
 	mux.HandleFunc("GET /api/v1/guardian/notifications", h.guardianNotifications)
 	mux.HandleFunc("PATCH /api/v1/guardian/notifications/{id}/read", h.guardianNotificationRead)
@@ -123,6 +132,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/notifications/{id}/read", h.userNotificationRead)
 	mux.HandleFunc("DELETE /api/v1/notifications/{id}", h.userNotificationDelete)
 	h.registerPushRoutes(mux)
+	h.registerFileRoutes(mux)
+	h.registerHomeworkRoutes(mux)
+	h.registerMobileGuardianRoutes(mux)
 	mux.HandleFunc("GET /api/v1/support/tickets", h.mySupportTickets)
 	mux.HandleFunc("POST /api/v1/support/tickets", h.createSupportTicket)
 	mux.HandleFunc("GET /api/v1/dashboard/principal/summary", h.principalSummary)
@@ -130,12 +142,14 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/principal/teachers", h.principalTeachers)
 	mux.HandleFunc("POST /api/v1/principal/teachers", h.provisionPrincipalTeacher)
 	mux.HandleFunc("POST /api/v1/principal/guardians", h.provisionPrincipalGuardian)
+	h.registerPrincipalGuardianRoutes(mux)
 	mux.HandleFunc("GET /api/v1/principal/school/roster", h.principalSchoolRoster)
 	mux.HandleFunc("GET /api/v1/super-admin/overview", h.superAdminOverview)
 	mux.HandleFunc("GET /api/v1/super-admin/system/metrics", h.superAdminSystemMetrics)
 	mux.HandleFunc("GET /api/v1/super-admin/institutions", h.superAdminInstitutions)
 	mux.HandleFunc("POST /api/v1/super-admin/institutions", h.createSuperAdminInstitution)
 	mux.HandleFunc("GET /api/v1/super-admin/institutions/{id}", h.superAdminInstitution)
+	mux.HandleFunc("PATCH /api/v1/super-admin/institutions/{id}/modules", h.updateSuperAdminInstitutionModules)
 	mux.HandleFunc("GET /api/v1/super-admin/institutions/{id}/users", h.superAdminInstitutionUsers)
 	mux.HandleFunc("POST /api/v1/super-admin/institutions/{id}/users", h.createSuperAdminInstitutionUser)
 	mux.HandleFunc("GET /api/v1/super-admin/users", h.superAdminUsers)
@@ -363,6 +377,23 @@ func (h *Handler) guardianStudentAttendance(w http.ResponseWriter, r *http.Reque
 	httpx.WriteJSON(w, http.StatusOK, attendance, nil)
 }
 
+func (h *Handler) guardianStudentGuidanceUpdates(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireGuardian(w, r)
+	if !ok {
+		return
+	}
+	updates, err := h.guardian.StudentGuidanceUpdates(r.Context(), principal.TenantID, principal.UserID, r.PathValue("studentId"))
+	if errors.Is(err, guardianapp.ErrForbidden) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu öğrenciye erişim yetkiniz yok.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "GUARDIAN_GUIDANCE_UPDATES_FAILED", "Rehberlik paylaşımları alınamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, updates, nil)
+}
+
 func (h *Handler) guardianNotifications(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireGuardian(w, r)
 	if !ok {
@@ -500,6 +531,32 @@ func (h *Handler) superAdminInstitution(w http.ResponseWriter, r *http.Request) 
 	institution, found, err := h.superAdmin.Institution(r.Context(), r.PathValue("id"))
 	if err != nil {
 		httpx.WriteError(w, http.StatusInternalServerError, "INSTITUTION_FAILED", "Kurum bilgisi alınamadı.", nil)
+		return
+	}
+	if !found {
+		httpx.WriteError(w, http.StatusNotFound, "INSTITUTION_NOT_FOUND", "Kurum bulunamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, institution, nil)
+}
+
+func (h *Handler) updateSuperAdminInstitutionModules(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireSuperAdmin(w, r)
+	if !ok {
+		return
+	}
+	var input superadminDomain.UpdateInstitutionModulesInput
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Modül listesi okunamadı.", nil)
+		return
+	}
+	institution, found, err := h.superAdmin.UpdateInstitutionModules(r.Context(), principal, r.PathValue("id"), input)
+	if errors.Is(err, superadminapp.ErrInvalidInstitution) {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli modül listesi gerekli.", nil)
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "INSTITUTION_MODULES_FAILED", "Kurum modülleri güncellenemedi.", nil)
 		return
 	}
 	if !found {

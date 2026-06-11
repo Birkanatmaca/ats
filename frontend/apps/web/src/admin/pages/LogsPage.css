@@ -4,6 +4,62 @@
 	gap: 16px;
 }
 
+.sa-push-health-body {
+	display: grid;
+	gap: 14px;
+}
+
+.sa-push-tenant-filter {
+	display: grid;
+	gap: 8px;
+	max-width: 360px;
+	font-size: 0.84rem;
+	color: var(--text-muted, #64748b);
+}
+
+.sa-push-tenant-filter input {
+	border: 1px solid var(--sa-border, #e2e8f0);
+	border-radius: 10px;
+	padding: 10px 12px;
+	background: var(--sa-surface, #fff);
+	color: var(--sa-ink, #0f172a);
+}
+
+.sa-push-health-grid {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.sa-push-health-grid strong {
+	display: block;
+	margin-top: 6px;
+	font-size: 1.35rem;
+}
+
+.sa-push-log-table-wrap {
+	overflow-x: auto;
+}
+
+.sa-push-log-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.84rem;
+}
+
+.sa-push-log-table th,
+.sa-push-log-table td {
+	padding: 10px 12px;
+	border-bottom: 1px solid var(--sa-border, #e2e8f0);
+	text-align: left;
+	vertical-align: top;
+}
+
+.sa-push-log-table th {
+	color: var(--text-muted, #64748b);
+	font-weight: 700;
+}
+
 .sa-log-summary-grid,
 .sa-log-toolbar-grid,
 .sa-log-purge-grid {

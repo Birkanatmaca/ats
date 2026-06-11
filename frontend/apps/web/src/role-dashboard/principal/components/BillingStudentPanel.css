@@ -1,0 +1,171 @@
+.billing-student-panel {
+	display: grid;
+	gap: 14px;
+	padding: 16px;
+	border: 1px solid var(--sa-border, #e2e8f0);
+	border-radius: 14px;
+	background: var(--sa-surface, #fff);
+}
+
+.billing-student-panel-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.billing-student-panel-head h3 {
+	margin: 0;
+	font-size: 1.05rem;
+}
+
+.billing-student-panel-head p {
+	margin: 4px 0 0;
+	color: var(--text-muted, #64748b);
+	font-size: 0.86rem;
+}
+
+.billing-student-panel-total {
+	font-size: 1.2rem;
+	color: var(--sa-accent, #2563eb);
+}
+
+.billing-student-panel-loading {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--text-muted, #64748b);
+}
+
+.billing-student-metrics {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.billing-student-metrics > div {
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: var(--sa-muted, #f8fafc);
+	border: 1px solid var(--sa-border, #e2e8f0);
+}
+
+.billing-student-metrics small {
+	display: block;
+	color: var(--text-muted, #64748b);
+	font-size: 0.75rem;
+}
+
+.billing-student-metrics strong {
+	display: block;
+	margin-top: 4px;
+	font-size: 1rem;
+}
+
+.billing-student-metrics strong.is-danger {
+	color: #dc2626;
+}
+
+.billing-installment-list {
+	display: grid;
+	gap: 8px;
+}
+
+.billing-installment-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	border: 1px solid var(--sa-border, #e2e8f0);
+}
+
+.billing-installment-copy {
+	flex: 1;
+	display: grid;
+	gap: 2px;
+}
+
+.billing-installment-copy strong {
+	font-size: 0.9rem;
+}
+
+.billing-installment-copy span {
+	font-size: 0.8rem;
+	color: var(--text-muted, #64748b);
+}
+
+.billing-payment-form,
+.billing-plan-form {
+	display: grid;
+	gap: 12px;
+	padding-top: 8px;
+	border-top: 1px solid var(--sa-border, #e2e8f0);
+}
+
+.billing-payment-form h4,
+.billing-plan-form h4,
+.billing-payment-history h4 {
+	margin: 0;
+	font-size: 0.95rem;
+}
+
+.billing-payment-grid,
+.billing-plan-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.billing-payment-grid label,
+.billing-plan-grid label {
+	display: grid;
+	gap: 6px;
+	font-size: 0.82rem;
+	color: var(--text-muted, #64748b);
+}
+
+.billing-payment-grid input,
+.billing-payment-grid select,
+.billing-plan-grid input {
+	border: 1px solid var(--sa-border, #e2e8f0);
+	border-radius: 10px;
+	padding: 10px 12px;
+	background: #fff;
+	color: var(--sa-ink, #0f172a);
+}
+
+.billing-payment-note {
+	grid-column: 1 / -1;
+}
+
+.billing-payment-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.billing-payment-history {
+	display: grid;
+	gap: 8px;
+}
+
+.billing-payment-history-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background: var(--sa-muted, #f8fafc);
+}
+
+.billing-payment-history-row strong {
+	display: block;
+}
+
+.billing-payment-history-row span {
+	display: block;
+	font-size: 0.8rem;
+	color: var(--text-muted, #64748b);
+}
