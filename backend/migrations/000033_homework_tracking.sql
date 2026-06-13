@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS homework_assignments (
     id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
-    class_id UUID,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    class_id UUID REFERENCES classes(id) ON DELETE SET NULL,
     course TEXT NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
@@ -17,9 +17,9 @@ CREATE INDEX IF NOT EXISTS idx_homework_assignments_tenant_class_due ON homework
 
 CREATE TABLE IF NOT EXISTS homework_submissions (
     id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     assignment_id UUID NOT NULL REFERENCES homework_assignments(id) ON DELETE CASCADE,
-    student_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE RESTRICT,
     content TEXT NOT NULL DEFAULT '',
     file_key TEXT NOT NULL DEFAULT '',
     score NUMERIC(5,2),
