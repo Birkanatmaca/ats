@@ -1,10 +1,12 @@
-import { Bell, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Hash, School, UserRound, XCircle } from "lucide-react";
-import { useMemo } from "react";
+import { Bell, Bus, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Hash, MapPinned, Radio, School, UserRound, XCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { GuidanceKpiCard } from "../../guidance/components/GuidanceKpiCard";
 import { GuidanceMetricGrid } from "../../guidance/components/GuidanceMetricGrid";
 import { GuidanceSectionPanel } from "../../guidance/components/GuidanceSectionPanel";
 import "../../guidance/GuidanceOverview.css";
 import "../../guidance/GuidanceSurface.css";
+import { api } from "../../../lib/api";
+import type { GuardianServiceLive, GuardianServiceSummary, ServiceLiveStatus } from "../../../lib/api";
 import { GuardianAttendanceList } from "../components/GuardianAttendanceList";
 import { GuardianGuidanceUpdatesList } from "../components/GuardianGuidanceUpdatesList";
 import { GuardianLessonList } from "../components/GuardianLessonList";
@@ -21,6 +23,140 @@ function mapNotificationsToNotices(notifications: GuardianData["notifications"])
     body: item.body,
     tone: item.readAt ? ("success" as const) : item.kind === "attendance" ? ("warning" as const) : ("info" as const)
   }));
+}
+
+const LIVE_POLL_MS = 12_000;
+
+function staticMapUrl(latitude: number, longitude: number) {
+  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=640x260&markers=${latitude},${longitude},red-pushpin`;
+}
+
+function directionLabel(value?: string) {
+  if (value === "evening") return "Akşam";
+  if (value === "both") return "Sabah/Akşam";
+  return "Sabah";
+}
+
+function formatLiveStatus(status?: ServiceLiveStatus | null) {
+  if (!status?.active) return "Servis şu an canlı değil.";
+  if (status.locationStale) return "Son konum güncellemesi gecikmiş olabilir.";
+  const parts: string[] = [];
+  if (typeof status.etaMinutes === "number" && status.etaMinutes > 0) {
+    parts.push(`Tahmini varış ~${status.etaMinutes} dk`);
+  }
+  if (typeof status.distanceKm === "number" && status.distanceKm > 0) {
+    parts.push(`${status.distanceKm.toFixed(1)} km`);
+  }
+  if (typeof status.speedKph === "number" && status.speedKph > 0) {
+    parts.push(`${Math.round(status.speedKph)} km/s`);
+  }
+  if (status.lastLocationAt) {
+    parts.push(new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(new Date(status.lastLocationAt)));
+  }
+  return parts.length > 0 ? parts.join(" · ") : "Canlı konum alınıyor";
+}
+
+function eventLabel(eventType?: string) {
+  if (eventType === "trip_started") return "Servis yola çıktı";
+  if (eventType === "trip_completed") return "Servis tamamlandı";
+  if (eventType === "approaching_notified") return "Durağa yaklaşıyor";
+  return eventType ? "Servis olayı" : "Henüz olay yok";
+}
+
+function GuardianServicePanel({ studentId }: { studentId: string }) {
+  const [summary, setSummary] = useState<GuardianServiceSummary | null>(null);
+  const [live, setLive] = useState<GuardianServiceLive | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const [summaryResult, liveResult] = await Promise.allSettled([
+        api.guardianService(studentId),
+        api.guardianServiceLive(studentId, 8, 8)
+      ]);
+      if (cancelled) {
+        return;
+      }
+      setSummary(summaryResult.status === "fulfilled" ? summaryResult.value : null);
+      setLive(liveResult.status === "fulfilled" ? liveResult.value : null);
+      setError(liveResult.status === "rejected" ? "Canlı servis bilgisi alınamadı." : null);
+      setLoading(false);
+    }
+
+    void load();
+    const timer = window.setInterval(() => {
+      void load();
+    }, LIVE_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [studentId]);
+
+  const route = summary?.routes?.[0];
+  const assignment = summary?.assignments?.[0];
+  const liveStatus = live?.liveStatus ?? summary?.liveStatus;
+  const mapLat = live?.activeTrip?.lastLocation?.latitude ?? liveStatus?.stopLatitude;
+  const mapLng = live?.activeTrip?.lastLocation?.longitude ?? liveStatus?.stopLongitude;
+  const latestEvent = live?.events?.[0];
+
+  return (
+    <div className="guardian-service-panel">
+      <div className="guardian-service-head">
+        <div className="guardian-service-icon">
+          <Bus size={20} />
+        </div>
+        <div>
+          <strong>{loading ? "Servis bilgisi yükleniyor" : route?.name ?? "Servis ataması bulunmuyor"}</strong>
+          <span>
+            {route ? `${directionLabel(route.direction)} · ${route.vehiclePlate || "Araç bekleniyor"}` : "Aktif rota atanmadı"}
+          </span>
+        </div>
+        <span className={live?.active ? "guardian-service-live is-active" : "guardian-service-live"}>
+          <Radio size={14} />
+          {live?.active ? "Canlı" : "Pasif"}
+        </span>
+      </div>
+
+      {error ? <p className="form-error">{error}</p> : null}
+
+      <p className="guardian-service-status">{formatLiveStatus(liveStatus)}</p>
+
+      {typeof mapLat === "number" && typeof mapLng === "number" ? (
+        <a className="guardian-service-map-link" href={`https://www.google.com/maps/search/?api=1&query=${mapLat},${mapLng}`} rel="noreferrer" target="_blank">
+          <img alt="Servis canlı harita" className="guardian-service-map" src={staticMapUrl(mapLat, mapLng)} />
+        </a>
+      ) : (
+        <div className="guardian-service-map-placeholder">
+          <MapPinned size={18} />
+          <span>Canlı konum henüz paylaşılmadı.</span>
+        </div>
+      )}
+
+      <div className="guardian-service-meta-grid">
+        <div>
+          <span>Durak</span>
+          <strong>{assignment?.stopName ?? "Seçilmedi"}</strong>
+        </div>
+        <div>
+          <span>Planlanan saat</span>
+          <strong>{route?.stops?.find((stop) => stop.id === assignment?.stopId)?.plannedTime ?? "—"}</strong>
+        </div>
+        <div>
+          <span>Şoför</span>
+          <strong>{route?.driverName ?? "Atanmadı"}</strong>
+        </div>
+        <div>
+          <span>Son olay</span>
+          <strong>{eventLabel(latestEvent?.eventType)}</strong>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function GuardianChildPage({
@@ -157,6 +293,10 @@ export function GuardianChildPage({
               <strong>{child.tenantName}</strong>
             </div>
           </div>
+        </GuidanceSectionPanel>
+
+        <GuidanceSectionPanel title="Servis">
+          <GuardianServicePanel studentId={child.id} />
         </GuidanceSectionPanel>
 
         <GuidanceSectionPanel title="Ders programı">

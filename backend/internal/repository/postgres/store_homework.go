@@ -134,6 +134,58 @@ WHERE tenant_id = $1 AND assignment_id = $2::uuid`, tenantID, assignmentID).Scan
 	return count, err
 }
 
+func (s *Store) TeacherCanManageClass(ctx context.Context, tenantID, teacherUserID, classID string) bool {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `
+SELECT EXISTS (
+  SELECT 1
+  FROM schedule_lessons sl
+  JOIN schedules sch ON sch.id = sl.schedule_id AND sch.tenant_id = sl.tenant_id
+  JOIN teachers t ON t.id = sl.teacher_id AND t.tenant_id = sl.tenant_id
+  WHERE sl.tenant_id = $1
+    AND t.user_id = $2
+    AND sch.status = 'published'
+    AND sl.class_id = NULLIF($3, '')::uuid
+)`, tenantID, teacherUserID, classID).Scan(&exists)
+	return err == nil && exists
+}
+
+func (s *Store) StudentCurrentClassID(ctx context.Context, tenantID, studentID string) (string, bool) {
+	var classID string
+	err := s.db.QueryRowContext(ctx, `
+SELECT cs.class_id::text
+FROM class_students cs
+WHERE cs.tenant_id = $1::uuid
+  AND cs.student_id = $2::uuid
+  AND (cs.ends_on IS NULL OR cs.ends_on >= CURRENT_DATE)
+ORDER BY cs.starts_on DESC NULLS LAST
+LIMIT 1`, tenantID, studentID).Scan(&classID)
+	if err == sql.ErrNoRows {
+		return "", false
+	}
+	if err != nil {
+		return "", false
+	}
+	return classID, true
+}
+
+func (s *Store) StudentCanAccessAssignment(ctx context.Context, tenantID, studentID, assignmentID string) bool {
+	var exists bool
+	err := s.db.QueryRowContext(ctx, `
+SELECT EXISTS (
+  SELECT 1
+  FROM homework_assignments a
+  JOIN class_students cs
+    ON cs.tenant_id = a.tenant_id
+   AND cs.class_id = a.class_id
+   AND cs.student_id = $2::uuid
+   AND (cs.ends_on IS NULL OR cs.ends_on >= CURRENT_DATE)
+  WHERE a.tenant_id = $1::uuid
+    AND a.id = $3::uuid
+)`, tenantID, studentID, assignmentID).Scan(&exists)
+	return err == nil && exists
+}
+
 type assignmentScanner interface {
 	Scan(dest ...any) error
 }

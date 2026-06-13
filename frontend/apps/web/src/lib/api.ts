@@ -1246,6 +1246,35 @@ export type ServiceTripEvent = {
   createdAt: string;
 };
 
+export type ServiceTripEventInput = {
+  eventType: string;
+  studentId?: string;
+  stopId?: string;
+  note?: string;
+  payload?: Record<string, unknown>;
+};
+
+export type StartServiceTripInput = {
+  direction?: ServiceDirection;
+};
+
+export type ServiceTripLive = {
+  trip: ServiceTrip;
+  liveStatus?: ServiceLiveStatus;
+  locations: ServiceTripLocation[];
+  events: ServiceTripEvent[];
+  updatedAt: string;
+};
+
+export type ServiceTripTimelineItem = {
+  id: string;
+  type: "event" | "location";
+  eventType?: string;
+  event?: ServiceTripEvent;
+  location?: ServiceTripLocation;
+  occurredAt: string;
+};
+
 export type GuardianServiceSummary = {
   studentId: string;
   studentName: string;
@@ -1257,6 +1286,16 @@ export type GuardianServiceSummary = {
   liveStatus?: ServiceLiveStatus;
   updatedAt: string;
   hasAssignment: boolean;
+};
+
+export type GuardianServiceLive = {
+  studentId: string;
+  active: boolean;
+  activeTrip?: ServiceTrip;
+  liveStatus?: ServiceLiveStatus;
+  locations: ServiceTripLocation[];
+  events: ServiceTripEvent[];
+  updatedAt: string;
 };
 
 export type LifeMealType = "breakfast" | "lunch" | "snack";
@@ -1975,6 +2014,21 @@ export const api = {
   createServiceStaff: (payload: { fullName: string; phone?: string; role: ServiceStaffRole }) =>
     request<ServiceStaff>("/api/v1/services/staff", { method: "POST", body: JSON.stringify(payload) }),
   activeServiceTrips: () => request<ServiceTrip[] | null>("/api/v1/services/trips/active").then(asArray),
+  startServiceRouteTrip: (routeId: string, payload: StartServiceTripInput = {}) =>
+    request<ServiceTrip>(`/api/v1/services/routes/${routeId}/start`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  completeServiceTrip: (tripId: string) =>
+    request<ServiceTrip>(`/api/v1/services/trips/${tripId}/complete`, { method: "POST", body: "{}" }),
+  serviceTripLive: (tripId: string, limit = 120, eventLimit = 50) =>
+    request<ServiceTripLive>(
+      `/api/v1/services/trips/${tripId}/live?limit=${encodeURIComponent(String(limit))}&eventLimit=${encodeURIComponent(String(eventLimit))}`
+    ),
+  serviceTripTimeline: (tripId: string, limit = 50) =>
+    request<ServiceTripTimelineItem[] | null>(
+      `/api/v1/services/trips/${tripId}/timeline?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
   serviceTripLocations: (tripId: string, limit = 20) =>
     request<ServiceTripLocation[] | null>(
       `/api/v1/services/trips/${tripId}/locations?limit=${encodeURIComponent(String(limit))}`
@@ -1983,10 +2037,19 @@ export const api = {
     request<ServiceTripEvent[] | null>(
       `/api/v1/services/trips/${tripId}/events?limit=${encodeURIComponent(String(limit))}`
     ).then(asArray),
+  createServiceTripEvent: (tripId: string, payload: ServiceTripEventInput) =>
+    request<ServiceTripEvent>(`/api/v1/services/trips/${tripId}/events`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   assignServiceStudent: (payload: ServiceAssignmentInput) =>
     request<ServiceAssignment>("/api/v1/services/assignments", { method: "POST", body: JSON.stringify(payload) }),
   guardianService: (studentId: string) =>
     request<GuardianServiceSummary>(`/api/v1/guardian/students/${studentId}/service`),
+  guardianServiceLive: (studentId: string, limit = 20, eventLimit = 20) =>
+    request<GuardianServiceLive>(
+      `/api/v1/guardian/students/${studentId}/service/live?limit=${encodeURIComponent(String(limit))}&eventLimit=${encodeURIComponent(String(eventLimit))}`
+    ),
   guardianLife: (studentId: string) =>
     request<GuardianLifeSummary>(`/api/v1/guardian/students/${studentId}/life`),
   lifeMeals: (params?: { fromDate?: string; toDate?: string }) => {

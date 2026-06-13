@@ -850,6 +850,35 @@ export type ServiceTripEvent = {
   createdAt: string;
 };
 
+export type ServiceTripEventInput = {
+  eventType: string;
+  studentId?: string;
+  stopId?: string;
+  note?: string;
+  payload?: Record<string, unknown>;
+};
+
+export type StartServiceTripInput = {
+  direction?: ServiceDirection;
+};
+
+export type ServiceTripLive = {
+  trip: ServiceTrip;
+  liveStatus?: ServiceLiveStatus;
+  locations: ServiceTripLocation[];
+  events: ServiceTripEvent[];
+  updatedAt: string;
+};
+
+export type ServiceTripTimelineItem = {
+  id: string;
+  type: "event" | "location";
+  eventType?: string;
+  event?: ServiceTripEvent;
+  location?: ServiceTripLocation;
+  occurredAt: string;
+};
+
 export type GuardianServiceSummary = {
   studentId: string;
   studentName: string;
@@ -861,6 +890,16 @@ export type GuardianServiceSummary = {
   liveStatus?: ServiceLiveStatus;
   updatedAt: string;
   hasAssignment: boolean;
+};
+
+export type GuardianServiceLive = {
+  studentId: string;
+  active: boolean;
+  activeTrip?: ServiceTrip;
+  liveStatus?: ServiceLiveStatus;
+  locations: ServiceTripLocation[];
+  events: ServiceTripEvent[];
+  updatedAt: string;
 };
 
 export type DriverServiceSummary = {

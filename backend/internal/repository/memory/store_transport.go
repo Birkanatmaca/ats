@@ -250,7 +250,7 @@ func (s *Store) StartServiceTrip(_ context.Context, tenantID, driverUserID, rout
 	}
 	s.serviceTrips = append(s.serviceTrips, trip)
 	snapshot := s.serviceTripSnapshotLocked(trip)
-	_ = s.RecordServiceTripEvent(context.Background(), tenantID, snapshot.ID, "trip_started", map[string]any{"routeId": routeID})
+	s.recordServiceTripEventLocked(tenantID, snapshot.ID, "trip_started", map[string]any{"routeId": routeID})
 	return snapshot, nil
 }
 
@@ -271,7 +271,7 @@ func (s *Store) StopActiveServiceTrip(_ context.Context, tenantID, driverUserID 
 		s.serviceTrips[index].EndedAt = &stoppedAt
 		s.serviceTrips[index].UpdatedAt = stoppedAt
 		snapshot := s.serviceTripSnapshotLocked(s.serviceTrips[index])
-		_ = s.RecordServiceTripEvent(context.Background(), tenantID, snapshot.ID, "trip_completed", nil)
+		s.recordServiceTripEventLocked(tenantID, snapshot.ID, "trip_completed", nil)
 		return snapshot, true, nil
 	}
 	return transportdomain.Trip{}, false, nil
@@ -832,7 +832,7 @@ func (s *Store) GetServiceTrip(_ context.Context, tenantID, tripID string) (tran
 	defer s.mu.RUnlock()
 	for _, item := range s.serviceTrips {
 		if item.TenantID == tenantID && item.ID == tripID {
-			return item, true, nil
+			return s.serviceTripSnapshotLocked(item), true, nil
 		}
 	}
 	return transportdomain.Trip{}, false, nil
@@ -912,6 +912,11 @@ func (s *Store) ListServiceTripEvents(_ context.Context, tenantID, tripID string
 func (s *Store) RecordServiceTripEvent(_ context.Context, tenantID, tripID, eventType string, payload map[string]any) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.recordServiceTripEventLocked(tenantID, tripID, eventType, payload)
+	return nil
+}
+
+func (s *Store) recordServiceTripEventLocked(tenantID, tripID, eventType string, payload map[string]any) {
 	if payload == nil {
 		payload = map[string]any{}
 	}
@@ -931,5 +936,4 @@ func (s *Store) RecordServiceTripEvent(_ context.Context, tenantID, tripID, even
 			s.serviceTripApproachAlerts[tenantID+":"+tripID+":"+stopID] = struct{}{}
 		}
 	}
-	return nil
 }

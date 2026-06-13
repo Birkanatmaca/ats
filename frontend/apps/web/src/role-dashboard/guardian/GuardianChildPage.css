@@ -302,6 +302,137 @@
   color: #0f172a;
 }
 
+.guardian-service-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.guardian-service-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.guardian-service-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 10px;
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.guardian-service-head strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.guardian-service-head > div > span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.guardian-service-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.guardian-service-live.is-active {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.guardian-service-status {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.guardian-service-map-link {
+  display: block;
+}
+
+.guardian-service-map {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 6;
+  min-height: 180px;
+  max-height: 260px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #e2e8f0;
+}
+
+.guardian-service-map-placeholder {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  gap: 8px;
+  padding: 20px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #64748b;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.guardian-service-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.guardian-service-meta-grid div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.guardian-service-meta-grid span {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.guardian-service-meta-grid strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
 .guardian-child-page .guardian-lesson-list,
 .guardian-child-page .guardian-notice-list,
 .guardian-child-page .guardian-attendance-list {
@@ -357,7 +488,8 @@
   }
 
   .guardian-stat-breakdown-grid,
-  .guardian-info-grid {
+  .guardian-info-grid,
+  .guardian-service-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -365,7 +497,17 @@
 @media (max-width: 520px) {
   .guardian-child-page.guidance-surface-page .guidance-metric-grid,
   .guardian-stat-breakdown-grid,
-  .guardian-info-grid {
+  .guardian-info-grid,
+  .guardian-service-meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .guardian-service-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .guardian-service-live {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }

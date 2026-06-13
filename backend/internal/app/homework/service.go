@@ -12,6 +12,7 @@ import (
 var (
 	ErrInvalidInput = errors.New("invalid homework input")
 	ErrNotFound     = errors.New("homework not found")
+	ErrForbidden    = errors.New("homework forbidden")
 )
 
 // Repository defines all persistence operations for the homework module.
@@ -21,6 +22,9 @@ type Repository interface {
 	GetAssignment(ctx context.Context, tenantID, assignmentID string) (domain.Assignment, bool, error)
 	SubmitAssignment(ctx context.Context, submission domain.Submission) (domain.Submission, error)
 	CountSubmissions(ctx context.Context, tenantID, assignmentID string) (int, error)
+	TeacherCanManageClass(ctx context.Context, tenantID, teacherUserID, classID string) bool
+	StudentCurrentClassID(ctx context.Context, tenantID, studentID string) (string, bool)
+	StudentCanAccessAssignment(ctx context.Context, tenantID, studentID, assignmentID string) bool
 	RecordHomeworkAudit(ctx context.Context, tenantID, actorID, action, resourceType, resourceID string)
 }
 
@@ -46,6 +50,9 @@ func (s *Service) CreateAssignment(ctx context.Context, tenantID, teacherID stri
 	input.DueDate = strings.TrimSpace(input.DueDate)
 	if tenantID == "" || teacherID == "" || input.ClassID == "" || input.Title == "" || input.DueDate == "" {
 		return domain.Assignment{}, ErrInvalidInput
+	}
+	if !s.repo.TeacherCanManageClass(ctx, tenantID, teacherID, input.ClassID) {
+		return domain.Assignment{}, ErrForbidden
 	}
 	if _, err := time.Parse("2006-01-02", input.DueDate); err != nil {
 		return domain.Assignment{}, ErrInvalidInput
@@ -115,6 +122,9 @@ func (s *Service) SubmitAssignment(ctx context.Context, tenantID, assignmentID, 
 	if !found {
 		return domain.Submission{}, ErrNotFound
 	}
+	if !s.repo.StudentCanAccessAssignment(ctx, tenantID, studentID, assignmentID) {
+		return domain.Submission{}, ErrForbidden
+	}
 	now := s.clock()
 	submission := domain.Submission{
 		TenantID:     tenantID,
@@ -130,4 +140,23 @@ func (s *Service) SubmitAssignment(ctx context.Context, tenantID, assignmentID, 
 	}
 	s.repo.RecordHomeworkAudit(ctx, tenantID, studentID, "homework.submission.create", "submission", saved.ID)
 	return saved, nil
+}
+
+func (s *Service) StudentCurrentClassID(ctx context.Context, tenantID, studentID string) (string, bool) {
+	tenantID = strings.TrimSpace(tenantID)
+	studentID = strings.TrimSpace(studentID)
+	if tenantID == "" || studentID == "" {
+		return "", false
+	}
+	return s.repo.StudentCurrentClassID(ctx, tenantID, studentID)
+}
+
+func (s *Service) StudentCanAccessAssignment(ctx context.Context, tenantID, studentID, assignmentID string) bool {
+	tenantID = strings.TrimSpace(tenantID)
+	studentID = strings.TrimSpace(studentID)
+	assignmentID = strings.TrimSpace(assignmentID)
+	if tenantID == "" || studentID == "" || assignmentID == "" {
+		return false
+	}
+	return s.repo.StudentCanAccessAssignment(ctx, tenantID, studentID, assignmentID)
 }

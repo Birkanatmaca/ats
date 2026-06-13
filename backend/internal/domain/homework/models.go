@@ -39,6 +39,7 @@ type CreateAssignmentInput struct {
 }
 
 type SubmitAssignmentInput struct {
+	StudentID string `json:"studentId"`
 	Content string `json:"content"`
 	FileKey string `json:"fileKey,omitempty"`
 }

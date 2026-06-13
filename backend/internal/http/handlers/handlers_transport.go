@@ -18,6 +18,7 @@ func (h *Handler) registerTransportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/services/routes", h.createServiceRoute)
 	mux.HandleFunc("GET /api/v1/services/routes/{id}", h.getServiceRoute)
 	mux.HandleFunc("PATCH /api/v1/services/routes/{id}", h.updateServiceRoute)
+	mux.HandleFunc("POST /api/v1/services/routes/{id}/start", h.startServiceRouteTrip)
 	mux.HandleFunc("POST /api/v1/services/routes/{id}/delay", h.reportServiceRouteDelay)
 	mux.HandleFunc("DELETE /api/v1/services/routes/{id}", h.deleteServiceRoute)
 	mux.HandleFunc("GET /api/v1/services/vehicles", h.listServiceVehicles)
@@ -27,15 +28,22 @@ func (h *Handler) registerTransportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/services/staff", h.createServiceStaff)
 	mux.HandleFunc("PATCH /api/v1/services/staff/{id}", h.updateServiceStaff)
 	mux.HandleFunc("GET /api/v1/services/trips/active", h.listActiveServiceTrips)
+	mux.HandleFunc("GET /api/v1/services/trips/{id}/live", h.getServiceTripLive)
+	mux.HandleFunc("GET /api/v1/services/trips/{id}/timeline", h.listServiceTripTimeline)
 	mux.HandleFunc("GET /api/v1/services/trips/{id}/locations", h.listServiceTripLocations)
 	mux.HandleFunc("GET /api/v1/services/trips/{id}/events", h.listServiceTripEvents)
+	mux.HandleFunc("POST /api/v1/services/trips/{id}/start", h.startServiceRouteTrip)
+	mux.HandleFunc("POST /api/v1/services/trips/{id}/complete", h.completeServiceTrip)
+	mux.HandleFunc("POST /api/v1/services/trips/{id}/events", h.createServiceTripEvent)
 	mux.HandleFunc("GET /api/v1/driver/me", h.currentDriverSummary)
 	mux.HandleFunc("POST /api/v1/driver/sharing/start", h.startDriverSharing)
 	mux.HandleFunc("POST /api/v1/driver/sharing/stop", h.stopDriverSharing)
 	mux.HandleFunc("POST /api/v1/driver/trips/{id}/locations", h.recordDriverTripLocation)
+	mux.HandleFunc("POST /api/v1/driver/trips/{id}/events", h.createDriverTripEvent)
 	mux.HandleFunc("POST /api/v1/services/assignments", h.assignServiceStudent)
 	mux.HandleFunc("PATCH /api/v1/services/assignments/{id}", h.updateServiceAssignment)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/service", h.guardianStudentService)
+	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/service/live", h.guardianStudentServiceLive)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/service/trip", h.guardianStudentServiceTrip)
 	mux.HandleFunc("GET /api/v1/guardian/students/{studentId}/service/trip/locations", h.guardianStudentServiceTripLocations)
 }
@@ -124,6 +132,31 @@ func (h *Handler) reportServiceRouteDelay(w http.ResponseWriter, r *http.Request
 		)
 	}
 	httpx.WriteJSON(w, http.StatusOK, result, nil)
+}
+
+func (h *Handler) startServiceRouteTrip(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireTransportOperator(w, r)
+	if !ok {
+		return
+	}
+	var input transportdomain.StartTripInput
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Servis başlatma verisi okunamadı.", nil)
+		return
+	}
+	trip, err := h.transport.StartRouteTrip(r.Context(), principal.TenantID, r.PathValue("id"), principal.UserID, input)
+	if writeTransportError(w, err) {
+		return
+	}
+	h.dispatchTransportRouteEvent(
+		principal.TenantID,
+		trip.RouteID,
+		trip.ID,
+		"Servis başladı",
+		fmt.Sprintf("%s servisi yola çıktı. Canlı konumu uygulamadan takip edebilirsiniz.", trip.RouteName),
+		fmt.Sprintf("transport:trip_started:%s", trip.ID),
+	)
+	httpx.WriteJSON(w, http.StatusCreated, trip, nil)
 }
 
 func (h *Handler) deleteServiceRoute(w http.ResponseWriter, r *http.Request) {
@@ -334,6 +367,24 @@ func (h *Handler) recordDriverTripLocation(w http.ResponseWriter, r *http.Reques
 	httpx.WriteJSON(w, http.StatusCreated, location, nil)
 }
 
+func (h *Handler) createDriverTripEvent(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipalRole(w, r, identity.RoleDriver)
+	if !ok {
+		return
+	}
+	var input transportdomain.TripEventInput
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Servis olay verisi okunamadı.", nil)
+		return
+	}
+	event, err := h.transport.RecordDriverTripEvent(r.Context(), principal.TenantID, principal.UserID, r.PathValue("id"), input)
+	if writeTransportError(w, err) {
+		return
+	}
+	h.dispatchTransportTripEventPush(principal.TenantID, event)
+	httpx.WriteJSON(w, http.StatusCreated, event, nil)
+}
+
 func (h *Handler) assignServiceStudent(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireTransportOperator(w, r)
 	if !ok {
@@ -398,6 +449,48 @@ func (h *Handler) listServiceTripLocations(w http.ResponseWriter, r *http.Reques
 	httpx.WriteJSON(w, http.StatusOK, locations, nil)
 }
 
+func (h *Handler) getServiceTripLive(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireTransportOperator(w, r)
+	if !ok {
+		return
+	}
+	locationLimit := 120
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			locationLimit = parsed
+		}
+	}
+	eventLimit := 50
+	if raw := r.URL.Query().Get("eventLimit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			eventLimit = parsed
+		}
+	}
+	live, err := h.transport.TripLive(r.Context(), principal.TenantID, r.PathValue("id"), locationLimit, eventLimit)
+	if writeTransportError(w, err) {
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, live, nil)
+}
+
+func (h *Handler) listServiceTripTimeline(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireTransportOperator(w, r)
+	if !ok {
+		return
+	}
+	limit := 50
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	items, err := h.transport.TripTimeline(r.Context(), principal.TenantID, r.PathValue("id"), limit)
+	if writeTransportError(w, err) {
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, items, nil)
+}
+
 func (h *Handler) listServiceTripEvents(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireTransportOperator(w, r)
 	if !ok {
@@ -416,6 +509,44 @@ func (h *Handler) listServiceTripEvents(w http.ResponseWriter, r *http.Request) 
 	httpx.WriteJSON(w, http.StatusOK, events, nil)
 }
 
+func (h *Handler) completeServiceTrip(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireTransportOperator(w, r)
+	if !ok {
+		return
+	}
+	trip, err := h.transport.CompleteTrip(r.Context(), principal.TenantID, r.PathValue("id"), principal.UserID)
+	if writeTransportError(w, err) {
+		return
+	}
+	h.dispatchTransportRouteEvent(
+		principal.TenantID,
+		trip.RouteID,
+		trip.ID,
+		"Servis tamamlandı",
+		fmt.Sprintf("%s servisi tamamlandı.", trip.RouteName),
+		fmt.Sprintf("transport:trip_completed:%s", trip.ID),
+	)
+	httpx.WriteJSON(w, http.StatusOK, trip, nil)
+}
+
+func (h *Handler) createServiceTripEvent(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireTransportOperator(w, r)
+	if !ok {
+		return
+	}
+	var input transportdomain.TripEventInput
+	if err := httpx.DecodeJSON(r, &input); err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Servis olay verisi okunamadı.", nil)
+		return
+	}
+	event, err := h.transport.RecordTripEvent(r.Context(), principal.TenantID, principal.UserID, r.PathValue("id"), input)
+	if writeTransportError(w, err) {
+		return
+	}
+	h.dispatchTransportTripEventPush(principal.TenantID, event)
+	httpx.WriteJSON(w, http.StatusCreated, event, nil)
+}
+
 func (h *Handler) guardianStudentServiceTrip(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requireGuardian(w, r)
 	if !ok {
@@ -426,6 +557,30 @@ func (h *Handler) guardianStudentServiceTrip(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, trip, nil)
+}
+
+func (h *Handler) guardianStudentServiceLive(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requireGuardian(w, r)
+	if !ok {
+		return
+	}
+	locationLimit := 20
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			locationLimit = parsed
+		}
+	}
+	eventLimit := 20
+	if raw := r.URL.Query().Get("eventLimit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			eventLimit = parsed
+		}
+	}
+	live, err := h.transport.GuardianLive(r.Context(), principal.TenantID, principal.UserID, r.PathValue("studentId"), locationLimit, eventLimit)
+	if writeTransportError(w, err) {
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, live, nil)
 }
 
 func (h *Handler) guardianStudentServiceTripLocations(w http.ResponseWriter, r *http.Request) {
@@ -444,6 +599,35 @@ func (h *Handler) guardianStudentServiceTripLocations(w http.ResponseWriter, r *
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, locations, nil)
+}
+
+func (h *Handler) dispatchTransportTripEventPush(tenantID string, event transportdomain.TripEvent) {
+	if h.push == nil || event.Payload == nil {
+		return
+	}
+	studentID, _ := event.Payload["studentId"].(string)
+	if studentID == "" {
+		return
+	}
+	title := ""
+	body := ""
+	switch event.EventType {
+	case "student_boarded":
+		title = "Servis biniş bildirimi"
+		body = "Öğrenciniz servise bindi."
+	case "student_left":
+		title = "Servis iniş bildirimi"
+		body = "Öğrenciniz servisten indi."
+	default:
+		return
+	}
+	if note, ok := event.Payload["note"].(string); ok && note != "" {
+		body = body + " " + note
+	}
+	kind := fmt.Sprintf("transport:%s:%s:%s", event.EventType, event.TripID, studentID)
+	h.dispatchPush(func(ctx context.Context) {
+		h.push.NotifyTransportStudentGuardians(ctx, tenantID, studentID, title, body, kind, event.TripID)
+	})
 }
 
 func requireTransportOperator(w http.ResponseWriter, r *http.Request) (identity.Principal, bool) {

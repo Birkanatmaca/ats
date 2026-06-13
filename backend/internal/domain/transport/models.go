@@ -114,14 +114,14 @@ type Assignment struct {
 }
 
 type ServiceLiveStatus struct {
-	Active          bool       `json:"active"`
-	LastLocationAt  *time.Time `json:"lastLocationAt,omitempty"`
-	SpeedKph        float64    `json:"speedKph,omitempty"`
-	EtaMinutes      *int       `json:"etaMinutes,omitempty"`
-	DistanceKm      *float64   `json:"distanceKm,omitempty"`
-	LocationStale   bool       `json:"locationStale"`
-	StopLatitude    *float64   `json:"stopLatitude,omitempty"`
-	StopLongitude   *float64   `json:"stopLongitude,omitempty"`
+	Active         bool       `json:"active"`
+	LastLocationAt *time.Time `json:"lastLocationAt,omitempty"`
+	SpeedKph       float64    `json:"speedKph,omitempty"`
+	EtaMinutes     *int       `json:"etaMinutes,omitempty"`
+	DistanceKm     *float64   `json:"distanceKm,omitempty"`
+	LocationStale  bool       `json:"locationStale"`
+	StopLatitude   *float64   `json:"stopLatitude,omitempty"`
+	StopLongitude  *float64   `json:"stopLongitude,omitempty"`
 }
 
 type TripEvent struct {
@@ -146,6 +146,33 @@ type GuardianServiceSummary struct {
 	HasAssignment bool               `json:"hasAssignment"`
 }
 
+type GuardianServiceLive struct {
+	StudentID  string             `json:"studentId"`
+	Active     bool               `json:"active"`
+	ActiveTrip *Trip              `json:"activeTrip,omitempty"`
+	LiveStatus *ServiceLiveStatus `json:"liveStatus,omitempty"`
+	Locations  []TripLocation     `json:"locations"`
+	Events     []TripEvent        `json:"events"`
+	UpdatedAt  time.Time          `json:"updatedAt"`
+}
+
+type ServiceTripLive struct {
+	Trip       Trip               `json:"trip"`
+	LiveStatus *ServiceLiveStatus `json:"liveStatus,omitempty"`
+	Locations  []TripLocation     `json:"locations"`
+	Events     []TripEvent        `json:"events"`
+	UpdatedAt  time.Time          `json:"updatedAt"`
+}
+
+type ServiceTripTimelineItem struct {
+	ID         string        `json:"id"`
+	Type       string        `json:"type"`
+	EventType  string        `json:"eventType,omitempty"`
+	Event      *TripEvent    `json:"event,omitempty"`
+	Location   *TripLocation `json:"location,omitempty"`
+	OccurredAt time.Time     `json:"occurredAt"`
+}
+
 type DriverServiceSummary struct {
 	UserID     string     `json:"userId"`
 	Staff      Staff      `json:"staff"`
@@ -157,17 +184,17 @@ type DriverServiceSummary struct {
 }
 
 type Trip struct {
-	ID           string        `json:"id"`
-	TenantID     string        `json:"tenantId"`
-	RouteID      string        `json:"routeId"`
-	RouteName    string        `json:"routeName,omitempty"`
-	DriverUserID string        `json:"driverUserId"`
-	DriverID     string        `json:"driverId"`
-	DriverName   string        `json:"driverName,omitempty"`
-	Direction    Direction     `json:"direction"`
-	Status       TripStatus    `json:"status"`
-	StartedAt    time.Time     `json:"startedAt"`
-	EndedAt      *time.Time    `json:"endedAt,omitempty"`
+	ID           string             `json:"id"`
+	TenantID     string             `json:"tenantId"`
+	RouteID      string             `json:"routeId"`
+	RouteName    string             `json:"routeName,omitempty"`
+	DriverUserID string             `json:"driverUserId"`
+	DriverID     string             `json:"driverId"`
+	DriverName   string             `json:"driverName,omitempty"`
+	Direction    Direction          `json:"direction"`
+	Status       TripStatus         `json:"status"`
+	StartedAt    time.Time          `json:"startedAt"`
+	EndedAt      *time.Time         `json:"endedAt,omitempty"`
 	LastLocation *TripLocation      `json:"lastLocation,omitempty"`
 	LiveStatus   *ServiceLiveStatus `json:"liveStatus,omitempty"`
 	CreatedAt    time.Time          `json:"createdAt"`
@@ -259,6 +286,18 @@ type ServiceDelayNotification struct {
 	NotificationKind  string `json:"-"`
 	NotificationTitle string `json:"-"`
 	NotificationBody  string `json:"-"`
+}
+
+type StartTripInput struct {
+	Direction Direction `json:"direction,omitempty"`
+}
+
+type TripEventInput struct {
+	EventType string         `json:"eventType"`
+	StudentID string         `json:"studentId,omitempty"`
+	StopID    string         `json:"stopId,omitempty"`
+	Note      string         `json:"note,omitempty"`
+	Payload   map[string]any `json:"payload,omitempty"`
 }
 
 type AssignmentInput struct {

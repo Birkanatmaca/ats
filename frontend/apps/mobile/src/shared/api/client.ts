@@ -34,6 +34,7 @@ import type {
   GuardianAttendanceRecord,
   GuardianBillingSummary,
   GuardianNotification,
+  GuardianServiceLive,
   GuardianStudent,
   Lesson,
   NotificationPreferences,
@@ -68,8 +69,12 @@ import type {
   ServiceStaff,
   ServiceTrip,
   ServiceTripEvent,
+  ServiceTripEventInput,
+  ServiceTripLive,
   ServiceTripLocation,
+  ServiceTripTimelineItem,
   ServiceVehicle,
+  StartServiceTripInput,
   StudyAttendance,
   StudyAttendanceInput,
   StudySession,
@@ -300,6 +305,10 @@ export const api = {
     request<GuardianBillingSummary>(`/api/v1/guardian/students/${studentId}/billing`),
   guardianService: (studentId: string) =>
     request<GuardianServiceSummary>(`/api/v1/guardian/students/${studentId}/service`),
+  guardianStudentServiceLive: (studentId: string, limit = 20, eventLimit = 20) =>
+    request<GuardianServiceLive>(
+      `/api/v1/guardian/students/${studentId}/service/live?limit=${encodeURIComponent(String(limit))}&eventLimit=${encodeURIComponent(String(eventLimit))}`
+    ),
   guardianLife: (studentId: string) =>
     request<GuardianLifeSummary>(`/api/v1/guardian/students/${studentId}/life`),
 
@@ -517,6 +526,21 @@ export const api = {
   createServiceStaff: (payload: { fullName: string; phone?: string; role: "driver" | "attendant" }) =>
     request<ServiceStaff>("/api/v1/services/staff", { method: "POST", body: JSON.stringify(payload) }),
   activeServiceTrips: () => request<ServiceTrip[] | null>("/api/v1/services/trips/active").then(asArray),
+  startServiceRouteTrip: (routeId: string, payload: StartServiceTripInput = {}) =>
+    request<ServiceTrip>(`/api/v1/services/routes/${routeId}/start`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  completeServiceTrip: (tripId: string) =>
+    request<ServiceTrip>(`/api/v1/services/trips/${tripId}/complete`, { method: "POST", body: "{}" }),
+  serviceTripLive: (tripId: string, limit = 120, eventLimit = 50) =>
+    request<ServiceTripLive>(
+      `/api/v1/services/trips/${tripId}/live?limit=${encodeURIComponent(String(limit))}&eventLimit=${encodeURIComponent(String(eventLimit))}`
+    ),
+  serviceTripTimeline: (tripId: string, limit = 50) =>
+    request<ServiceTripTimelineItem[] | null>(
+      `/api/v1/services/trips/${tripId}/timeline?limit=${encodeURIComponent(String(limit))}`
+    ).then(asArray),
   serviceTripLocations: (tripId: string, limit = 20) =>
     request<ServiceTripLocation[] | null>(
       `/api/v1/services/trips/${tripId}/locations?limit=${encodeURIComponent(String(limit))}`
@@ -525,6 +549,11 @@ export const api = {
     request<ServiceTripEvent[] | null>(
       `/api/v1/services/trips/${tripId}/events?limit=${encodeURIComponent(String(limit))}`
     ).then(asArray),
+  createDriverTripEvent: (tripId: string, payload: ServiceTripEventInput) =>
+    request<ServiceTripEvent>(`/api/v1/driver/trips/${tripId}/events`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   driverSession: () => request<DriverServiceSummary>("/api/v1/driver/me"),
   startDriverSharing: () => request<ServiceStaff>("/api/v1/driver/sharing/start", { method: "POST", body: "{}" }),
   stopDriverSharing: () => request<ServiceStaff>("/api/v1/driver/sharing/stop", { method: "POST", body: "{}" }),

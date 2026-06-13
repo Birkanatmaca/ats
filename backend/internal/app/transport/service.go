@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -284,13 +285,85 @@ func (s *Service) ReportRouteDelay(ctx context.Context, tenantID, routeID, actor
 	kind := fmt.Sprintf("service_delay:%s:%d:%d", route.ID, input.DelayMinutes, s.clock().Unix()/300)
 	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.route.delay_notify", "service_route", route.ID, fmt.Sprintf(`{"delayMinutes":%d}`, input.DelayMinutes))
 	return transportdomain.ServiceDelayNotification{
-		RouteID:        route.ID,
-		RouteName:      route.Name,
-		DelayMinutes:   input.DelayMinutes,
-		NotificationKind: kind,
+		RouteID:           route.ID,
+		RouteName:         route.Name,
+		DelayMinutes:      input.DelayMinutes,
+		NotificationKind:  kind,
 		NotificationTitle: "Servis gecikme bildirimi",
 		NotificationBody:  body,
 	}, nil
+}
+
+func (s *Service) StartRouteTrip(ctx context.Context, tenantID, routeID, actorUserID string, input transportdomain.StartTripInput) (transportdomain.Trip, error) {
+	route, ok, err := s.repo.GetServiceRoute(ctx, tenantID, strings.TrimSpace(routeID))
+	if err != nil {
+		return transportdomain.Trip{}, err
+	}
+	if !ok {
+		return transportdomain.Trip{}, ErrNotFound
+	}
+	driverUserID, err := s.routeDriverUserID(ctx, tenantID, route.DriverID)
+	if err != nil {
+		return transportdomain.Trip{}, err
+	}
+	direction := input.Direction
+	if direction == "" {
+		direction = route.Direction
+	} else {
+		direction = normalizeDirection(direction)
+	}
+	trip, err := s.repo.StartServiceTrip(ctx, tenantID, driverUserID, route.ID, direction, s.clock())
+	if err != nil {
+		return transportdomain.Trip{}, mapNotFound(err)
+	}
+	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.trip.start", "service_trip", trip.ID, fmt.Sprintf(`{"routeId":"%s"}`, route.ID))
+	return trip, nil
+}
+
+func (s *Service) CompleteTrip(ctx context.Context, tenantID, tripID, actorUserID string) (transportdomain.Trip, error) {
+	tripID = strings.TrimSpace(tripID)
+	if tripID == "" {
+		return transportdomain.Trip{}, ErrInvalidInput
+	}
+	trip, ok, err := s.repo.GetServiceTrip(ctx, tenantID, tripID)
+	if err != nil {
+		return transportdomain.Trip{}, err
+	}
+	if !ok {
+		return transportdomain.Trip{}, ErrNotFound
+	}
+	if trip.Status != transportdomain.TripActive || strings.TrimSpace(trip.DriverUserID) == "" {
+		return transportdomain.Trip{}, ErrInvalidInput
+	}
+	completed, hadTrip, err := s.repo.StopActiveServiceTrip(ctx, tenantID, trip.DriverUserID, s.clock())
+	if err != nil {
+		return transportdomain.Trip{}, err
+	}
+	if !hadTrip {
+		return transportdomain.Trip{}, ErrNotFound
+	}
+	if completed.ID != trip.ID {
+		return transportdomain.Trip{}, ErrForbidden
+	}
+	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.trip.complete", "service_trip", completed.ID, `{}`)
+	return completed, nil
+}
+
+func (s *Service) routeDriverUserID(ctx context.Context, tenantID, driverID string) (string, error) {
+	driverID = strings.TrimSpace(driverID)
+	if driverID == "" {
+		return "", ErrInvalidInput
+	}
+	staff, err := s.repo.ListServiceStaff(ctx, tenantID)
+	if err != nil {
+		return "", err
+	}
+	for _, item := range staff {
+		if item.ID == driverID && item.Role == transportdomain.StaffDriver && item.Status == transportdomain.StatusActive && strings.TrimSpace(item.UserID) != "" {
+			return item.UserID, nil
+		}
+	}
+	return "", ErrInvalidInput
 }
 
 func (s *Service) DeleteRoute(ctx context.Context, tenantID, routeID, actorUserID string) error {
@@ -430,6 +503,64 @@ func (s *Service) GuardianTripLocations(ctx context.Context, tenantID, guardianU
 	return s.TripLocations(ctx, tenantID, trip.ID, limit)
 }
 
+func (s *Service) GuardianLive(ctx context.Context, tenantID, guardianUserID, studentID string, locationLimit, eventLimit int) (transportdomain.GuardianServiceLive, error) {
+	studentID = strings.TrimSpace(studentID)
+	if studentID == "" || !s.repo.GuardianHasStudent(ctx, tenantID, guardianUserID, studentID) {
+		return transportdomain.GuardianServiceLive{}, ErrForbidden
+	}
+	if locationLimit <= 0 || locationLimit > 200 {
+		locationLimit = 20
+	}
+	if eventLimit <= 0 || eventLimit > 100 {
+		eventLimit = 20
+	}
+
+	result := transportdomain.GuardianServiceLive{
+		StudentID: studentID,
+		LiveStatus: &transportdomain.ServiceLiveStatus{
+			Active:        false,
+			LocationStale: true,
+		},
+		Locations: []transportdomain.TripLocation{},
+		Events:    []transportdomain.TripEvent{},
+		UpdatedAt: s.clock(),
+	}
+
+	trip, ok, err := s.repo.ActiveServiceTripForStudent(ctx, tenantID, studentID)
+	if err != nil {
+		return transportdomain.GuardianServiceLive{}, err
+	}
+	if !ok {
+		return result, nil
+	}
+
+	if summary, summaryOK, err := s.repo.GuardianServiceSummary(ctx, tenantID, studentID); err != nil {
+		return transportdomain.GuardianServiceLive{}, err
+	} else if summaryOK {
+		stopLat, stopLng := guardianStopCoordinates(summary)
+		trip.LiveStatus = buildServiceLiveStatus(&trip, stopLat, stopLng, s.clock())
+	} else {
+		trip.LiveStatus = buildServiceLiveStatus(&trip, nil, nil, s.clock())
+	}
+
+	locations, err := s.repo.ListServiceTripLocations(ctx, tenantID, trip.ID, locationLimit)
+	if err != nil {
+		return transportdomain.GuardianServiceLive{}, err
+	}
+	events, err := s.repo.ListServiceTripEvents(ctx, tenantID, trip.ID, eventLimit)
+	if err != nil {
+		return transportdomain.GuardianServiceLive{}, err
+	}
+
+	result.Active = true
+	result.ActiveTrip = &trip
+	result.LiveStatus = trip.LiveStatus
+	result.Locations = locations
+	result.Events = events
+	result.UpdatedAt = s.clock()
+	return result, nil
+}
+
 func (s *Service) TripEvents(ctx context.Context, tenantID, tripID string, limit int) ([]transportdomain.TripEvent, error) {
 	if strings.TrimSpace(tripID) == "" {
 		return nil, ErrInvalidInput
@@ -443,6 +574,217 @@ func (s *Service) TripEvents(ctx context.Context, tenantID, tripID string, limit
 		return nil, ErrNotFound
 	}
 	return s.repo.ListServiceTripEvents(ctx, tenantID, tripID, limit)
+}
+
+func (s *Service) TripLive(ctx context.Context, tenantID, tripID string, locationLimit, eventLimit int) (transportdomain.ServiceTripLive, error) {
+	tripID = strings.TrimSpace(tripID)
+	if tripID == "" {
+		return transportdomain.ServiceTripLive{}, ErrInvalidInput
+	}
+	if locationLimit <= 0 || locationLimit > 500 {
+		locationLimit = 120
+	}
+	if eventLimit <= 0 || eventLimit > 200 {
+		eventLimit = 50
+	}
+	trip, ok, err := s.repo.GetServiceTrip(ctx, tenantID, tripID)
+	if err != nil {
+		return transportdomain.ServiceTripLive{}, err
+	}
+	if !ok {
+		return transportdomain.ServiceTripLive{}, ErrNotFound
+	}
+	trip.LiveStatus = buildServiceLiveStatus(&trip, nil, nil, s.clock())
+	locations, err := s.repo.ListServiceTripLocations(ctx, tenantID, trip.ID, locationLimit)
+	if err != nil {
+		return transportdomain.ServiceTripLive{}, err
+	}
+	events, err := s.repo.ListServiceTripEvents(ctx, tenantID, trip.ID, eventLimit)
+	if err != nil {
+		return transportdomain.ServiceTripLive{}, err
+	}
+	return transportdomain.ServiceTripLive{
+		Trip:       trip,
+		LiveStatus: trip.LiveStatus,
+		Locations:  locations,
+		Events:     events,
+		UpdatedAt:  s.clock(),
+	}, nil
+}
+
+func (s *Service) TripTimeline(ctx context.Context, tenantID, tripID string, limit int) ([]transportdomain.ServiceTripTimelineItem, error) {
+	tripID = strings.TrimSpace(tripID)
+	if tripID == "" {
+		return nil, ErrInvalidInput
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	if _, ok, err := s.repo.GetServiceTrip(ctx, tenantID, tripID); err != nil {
+		return nil, err
+	} else if !ok {
+		return nil, ErrNotFound
+	}
+	locations, err := s.repo.ListServiceTripLocations(ctx, tenantID, tripID, limit)
+	if err != nil {
+		return nil, err
+	}
+	events, err := s.repo.ListServiceTripEvents(ctx, tenantID, tripID, limit)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]transportdomain.ServiceTripTimelineItem, 0, len(locations)+len(events))
+	for _, location := range locations {
+		copy := location
+		items = append(items, transportdomain.ServiceTripTimelineItem{
+			ID:         location.ID,
+			Type:       "location",
+			Location:   &copy,
+			OccurredAt: location.CapturedAt,
+		})
+	}
+	for _, event := range events {
+		copy := event
+		items = append(items, transportdomain.ServiceTripTimelineItem{
+			ID:         event.ID,
+			Type:       "event",
+			EventType:  event.EventType,
+			Event:      &copy,
+			OccurredAt: event.CreatedAt,
+		})
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		return items[i].OccurredAt.After(items[j].OccurredAt)
+	})
+	if len(items) > limit {
+		items = items[:limit]
+	}
+	return items, nil
+}
+
+func (s *Service) RecordTripEvent(ctx context.Context, tenantID, actorUserID, tripID string, input transportdomain.TripEventInput) (transportdomain.TripEvent, error) {
+	return s.recordTripEvent(ctx, tenantID, actorUserID, tripID, input, false)
+}
+
+func (s *Service) RecordDriverTripEvent(ctx context.Context, tenantID, driverUserID, tripID string, input transportdomain.TripEventInput) (transportdomain.TripEvent, error) {
+	return s.recordTripEvent(ctx, tenantID, driverUserID, tripID, input, true)
+}
+
+func (s *Service) recordTripEvent(ctx context.Context, tenantID, actorUserID, tripID string, input transportdomain.TripEventInput, requireDriverOwner bool) (transportdomain.TripEvent, error) {
+	tripID = strings.TrimSpace(tripID)
+	if tripID == "" {
+		return transportdomain.TripEvent{}, ErrInvalidInput
+	}
+	trip, ok, err := s.repo.GetServiceTrip(ctx, tenantID, tripID)
+	if err != nil {
+		return transportdomain.TripEvent{}, err
+	}
+	if !ok {
+		return transportdomain.TripEvent{}, ErrNotFound
+	}
+	if requireDriverOwner && (trip.DriverUserID != strings.TrimSpace(actorUserID) || trip.Status != transportdomain.TripActive) {
+		return transportdomain.TripEvent{}, ErrForbidden
+	}
+
+	eventType := normalizeTripEventType(input.EventType)
+	if eventType == "" {
+		return transportdomain.TripEvent{}, ErrInvalidInput
+	}
+	payload, err := s.tripEventPayload(ctx, tenantID, trip.RouteID, eventType, input)
+	if err != nil {
+		return transportdomain.TripEvent{}, err
+	}
+	payload["actorUserId"] = actorUserID
+	payload["source"] = "operator"
+	if requireDriverOwner {
+		payload["source"] = "driver"
+	}
+	if err := s.repo.RecordServiceTripEvent(ctx, tenantID, trip.ID, eventType, payload); err != nil {
+		return transportdomain.TripEvent{}, err
+	}
+	s.repo.RecordOperationalAudit(ctx, tenantID, actorUserID, "service.trip.event.create", "service_trip", trip.ID, fmt.Sprintf(`{"eventType":"%s"}`, eventType))
+	events, err := s.repo.ListServiceTripEvents(ctx, tenantID, trip.ID, 1)
+	if err != nil {
+		return transportdomain.TripEvent{}, err
+	}
+	if len(events) == 0 {
+		return transportdomain.TripEvent{TenantID: tenantID, TripID: trip.ID, EventType: eventType, Payload: payload, CreatedAt: s.clock()}, nil
+	}
+	return events[0], nil
+}
+
+func (s *Service) tripEventPayload(ctx context.Context, tenantID, routeID, eventType string, input transportdomain.TripEventInput) (map[string]any, error) {
+	payload := map[string]any{}
+	for key, value := range input.Payload {
+		key = strings.TrimSpace(key)
+		if key == "" || key == "actorUserId" || key == "source" || key == "studentId" || key == "stopId" || key == "note" {
+			continue
+		}
+		payload[key] = value
+	}
+	studentID := strings.TrimSpace(input.StudentID)
+	stopID := strings.TrimSpace(input.StopID)
+	note := strings.TrimSpace(input.Note)
+	if eventType == "student_boarded" || eventType == "student_left" {
+		if studentID == "" {
+			return nil, ErrInvalidInput
+		}
+		if err := s.ensureStudentAssignedToRoute(ctx, tenantID, routeID, studentID); err != nil {
+			return nil, err
+		}
+		payload["studentId"] = studentID
+	}
+	if eventType == "stop_arrived" || eventType == "stop_departed" {
+		if stopID == "" {
+			return nil, ErrInvalidInput
+		}
+		if err := s.ensureStopBelongsToRoute(ctx, tenantID, routeID, stopID); err != nil {
+			return nil, err
+		}
+		payload["stopId"] = stopID
+	}
+	if studentID != "" && payload["studentId"] == nil {
+		if err := s.ensureStudentAssignedToRoute(ctx, tenantID, routeID, studentID); err != nil {
+			return nil, err
+		}
+		payload["studentId"] = studentID
+	}
+	if stopID != "" && payload["stopId"] == nil {
+		if err := s.ensureStopBelongsToRoute(ctx, tenantID, routeID, stopID); err != nil {
+			return nil, err
+		}
+		payload["stopId"] = stopID
+	}
+	if note != "" {
+		payload["note"] = note
+	}
+	return payload, nil
+}
+
+func (s *Service) ensureStudentAssignedToRoute(ctx context.Context, tenantID, routeID, studentID string) error {
+	assignments, err := s.repo.ListAssignmentsForRoute(ctx, tenantID, routeID)
+	if err != nil {
+		return err
+	}
+	for _, assignment := range assignments {
+		if assignment.StudentID == studentID && assignment.Status == transportdomain.StatusActive {
+			return nil
+		}
+	}
+	return ErrForbidden
+}
+
+func (s *Service) ensureStopBelongsToRoute(ctx context.Context, tenantID, routeID, stopID string) error {
+	stops, err := s.repo.ListStopsForRoute(ctx, tenantID, routeID)
+	if err != nil {
+		return err
+	}
+	for _, stop := range stops {
+		if stop.ID == stopID {
+			return nil
+		}
+	}
+	return ErrInvalidInput
 }
 
 func (s *Service) DriverSummary(ctx context.Context, tenantID, driverUserID string) (transportdomain.DriverServiceSummary, error) {
@@ -553,6 +895,24 @@ func normalizeStaffRole(value transportdomain.StaffRole) transportdomain.StaffRo
 		return value
 	default:
 		return transportdomain.StaffDriver
+	}
+}
+
+func normalizeTripEventType(value string) string {
+	normalized := strings.TrimSpace(strings.ToLower(value))
+	switch normalized {
+	case "student_boarded", "student_left", "stop_arrived", "stop_departed", "delay_note", "incident", "manual_note":
+		return normalized
+	case "boarded":
+		return "student_boarded"
+	case "left":
+		return "student_left"
+	case "arrived":
+		return "stop_arrived"
+	case "departed":
+		return "stop_departed"
+	default:
+		return ""
 	}
 }
 

@@ -1,7 +1,7 @@
 # Moduller Gelistirme ve Canli Servis Takip Plani
 
 > Tarih: 2026-06-03  
-> Guncelleme: 2026-06-05  
+> Guncelleme: 2026-06-11
 > Kapsam: Mevcut backend, web ve mobil modullerin gelistirme oncelikleri; servis modulu icin canli takip mimarisi; operasyon, bildirim, audit ve test plani.  
 > Amac: Sistemin bugunku calisan modullerini daha guvenli, daha izlenebilir ve daha kullanisli hale getirecek uygulama plani cikarmak.
 
@@ -17,13 +17,32 @@ Bu dokumanin ana odagi su 3 alan:
 - Servis modulu icin canli takip ve operasyon gorunurlugu.
 - Gozlem, rehberlik, bildirim, audit ve destek katmanlarinin guclendirilmesi.
 
-2026-06-05 durum notu:
+2026-06-11 durum notu:
 
-- Servis modulu icin canli takip altyapisinin ilk backend dilimi uygulandi.
-- `backend/migrations/000027_service_live_tracking.sql` ile `service_trips`, `service_trip_locations` ve `service_trip_events` semasi eklendi.
-- Driver start/stop paylasimi artik aktif trip acip kapatiyor; driver konum yazma, principal aktif trip listesi ve guardian kendi ogrencisinin aktif trip okuma endpoint'leri var.
-- Mobil driver ekranı aktif trip ve son konum bilgisini gosterecek sekilde API'ye baglandi.
-- Gercek native GPS izinleri/periyodik konum toplama, ETA, gecikme bildirimi, harita, timeline/event yazimi ve push otomasyonu halen sonraki faz isidir.
+**Tamamlanan (transport / servis):**
+- `migrations/000024_transport_services.sql`, `000026_service_driver_accounts.sql`, `000027_service_live_tracking.sql`, `000030_service_stop_coordinates.sql` — tüm şema hazır.
+- Route CRUD (list/create/get/update/delete/delay), Vehicle CRUD, Staff CRUD, Student assignment/update — tam uygulandı.
+- Driver sharing start/stop → aktif trip açıp kapatıyor; `RecordDriverLocation` konum yazıyor.
+- `EvaluateApproachingAlerts` trip lokasyon kaydında çağrılıyor; yaklaşma ve gecikme olaylarında guardian'a push gönderiliyor (`NotifyTransportStudentGuardians`, `NotifyTransportRouteGuardians`).
+- Guardian: `/service`, `/service/live`, `/service/trip`, `/service/trip/locations` endpoint'leri rol kontrolüyle çalışıyor.
+- Principal: aktif sefer listesi (`/services/trips/active`), trip konumları ve olayları (`/trips/{id}/locations`, `/trips/{id}/events`) çalışıyor.
+- `RecordServiceTripEvent` repo metodu mevcut; sefer başlangıç/bitiş olayları start/stop akışında yazılıyor.
+- `POST /api/v1/driver/trips/{id}/events` ve `POST /api/v1/services/trips/{id}/events` ile bindi/indi, durak geldi/ayrıldı, olay/not event yazımı tamamlandı; student eventlerinde veli bildirimi tetikleniyor.
+- Principal manuel sefer tetikleme tamamlandı: `POST /api/v1/services/routes/{id}/start`, `POST /api/v1/services/trips/{id}/start` alias'ı ve `POST /api/v1/services/trips/{id}/complete`.
+- Principal canlı sefer detay endpoint'leri tamamlandı: `GET /api/v1/services/trips/{id}/live` ve `GET /api/v1/services/trips/{id}/timeline`.
+
+**Eksik kalan (transport / servis):**
+- Harita entegrasyonu (web/mobil) — guardian/principal ekranlarında canlı statik harita kartları var; principal web ekranında timeline ve manuel olay kaydı eklendi; interaktif harita/replay yok.
+- Durak bazlı gecikme analizi, rota performans raporu, öğrenci biniş/iniş odaklı raporlama — Faz 3 bekliyor.
+- Geofence, harita tekrar oynatma, akıllı gecikme tahmini — Faz 4.
+
+**Tamamlanan (ödev takibi — yeni, bu doküman kapsamına eklendi):**
+- `migrations/000033_homework_tracking.sql` — `homework_assignments`, `homework_submissions` şeması.
+- Domain modelleri, service (CreateAssignment/ListAssignments/GetAssignment/SubmitAssignment), handler (GET+POST /homework/assignments, GET+POST /homework/assignments/{id}/submit).
+- Postgres ve memory repo implementasyonları; main.go wiring.
+- Yetkilendirme: öğretmen yalnızca yönettiği sınıfa ödev oluşturabilir, öğrenci yalnızca kendi sınıf ödevine teslim yapabilir, guardian yalnızca bağlı öğrencisinin ödevlerini listeleyip görüntüleyebilir.
+- 7 birim testi; derleme ve doğrulama geçiyor.
+- Ödev sahiplik kuralları için negatif/pozitif handler testleri yazıldı.
 
 ---
 
@@ -464,22 +483,27 @@ Canli takipte bildirim sayisi kontrolsuz olmamalidir. Aksi halde veli tarafinda 
 1. [x] Trip modeli.
 2. [x] Driver role/session ve paylasim baslat/durdur akisi.
 3. [x] Konum toplama endpoint'i.
-4. [~] Live trip ekranı: mobil driver ozetinde aktif trip/son konum var; principal/guardian harita ve timeline henuz yok.
-5. [ ] Veliye ETA ve gecikme bildirimi.
+4. [x] Yaklaşma algısı (`EvaluateApproachingAlerts`) ve guardian push bildirimi bağlandı.
+5. [x] Gecikme bildirimi (`ReportRouteDelay` + `NotifyTransportRouteGuardians`) uygulandı.
+6. [~] Live trip ekranı: backend hazır, web/mobil statik harita kartları var; principal web timeline ve olay kaydı hazır, mobil timeline ve replay eksik.
+7. [x] `POST /trips/{id}/start` ve `.../complete` — principal tarafından manuel trip tetikleme.
+8. [x] `POST /trips/{id}/events` — driver/operator: bindi/indi, durak geldi olayları.
+9. [x] `GET /trips/{id}/live` ve `.../timeline` endpoint'leri.
+10. [x] `GET /guardian/students/{studentId}/service/live` endpoint'i.
 
 ### Faz 3 - Operasyonel zekâ
 
-1. Durak bazli gecikme analizi.
-2. Rota performans raporu.
-3. Ogrenci biniş/iniş timeline'i.
-4. Super admin izleme ekranı.
+1. [ ] Durak bazlı gecikme analizi.
+2. [ ] Rota performans raporu.
+3. [~] Öğrenci biniş/iniş timeline'i; driver/operator event yazımı ve principal timeline hazır, öğrenci odaklı rapor ekranı eksik.
+4. [ ] Super admin transport izleme ekranı.
 
 ### Faz 4 - Genişletme
 
-1. Harita tekrar oynatma.
-2. Geofence.
-3. Akilli gecikme tahmini.
-4. Servis ile yoklama ve rehberlik korelasyonu.
+1. [ ] Harita tekrar oynatma.
+2. [ ] Geofence.
+3. [ ] Akıllı gecikme tahmini.
+4. [ ] Servis ile yoklama ve rehberlik korelasyonu.
 
 ---
 
@@ -525,12 +549,16 @@ Bu planin basarili oldugu soyle kabul edilir:
 
 ## 14. Kisa Vadeli Uygulama Sirasi
 
-1. [x] Servis veri modelini netlestir.
+1. [x] Servis veri modelini netleştir (migration 000024-000027-000030).
 2. [x] Trip ve location endpoint'lerini ekle.
-3. [~] Mudur ve veli servis ekranlarini canli veriyle bagla; API ve mobil tipleri hazir, harita/timeline eksik.
-4. [ ] Bildirim ve audit zincirini tamamla.
-5. [ ] Rehberlik ve yoklama ile servis olaylarini eslestir.
-6. [~] Test ve smoke senaryolarini yaz; backend transport handler smoke var, frontend/native smoke genislemeli.
+3. [x] Gecikme ve yaklaşma push bildirimi backend'de çalışıyor.
+4. [x] Ödev Takibi (Modül 11) — migration + domain + service + handler + repo + yetki kontrolleri tamamlandı.
+5. [~] Müdür ve veli servis ekranlarını canlı veriyle bağla; statik harita kartları ve müdür timeline/manuel olay kaydı hazır, mobil timeline/replay eksik.
+6. [x] `POST /trips/{id}/start`, `.../complete`, `.../events` handler'larını ekle.
+7. [ ] Bildirim ve audit zincirini tamamla (ETA bildirimi, durak-bazlı push).
+8. [ ] Rehberlik ve yoklama ile servis olaylarını eşleştir.
+9. [x] Ödev sahiplik kuralları için negatif/pozitif güvenlik testleri yaz.
+10. [~] Test ve smoke senaryolarını genişlet; backend transport ve homework handler smoke var, frontend/native smoke genişlemeli.
 
 ---
 

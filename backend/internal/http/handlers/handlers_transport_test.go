@@ -12,6 +12,7 @@ import (
 	attendanceapp "ots/backend/internal/app/attendance"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
+	homeworkapp "ots/backend/internal/app/homework"
 	identityapp "ots/backend/internal/app/identity"
 	observationapp "ots/backend/internal/app/observation"
 	pushapp "ots/backend/internal/app/push"
@@ -34,6 +35,15 @@ func newHandlerTestServer() handlerTestServer {
 		return now
 	}
 	store := memory.NewStore(clock)
+	homeworkStore := memory.NewHomeworkStore(clock)
+	homeworkStore.BindTeacherToClass("00000000-0000-0000-0000-000000010112", "class-5a")
+	homeworkStore.BindTeacherToClass("00000000-0000-0000-0000-000000010112", "class-6b")
+	homeworkStore.BindStudentToClass("student-1", "class-5a")
+	homeworkStore.BindStudentToClass("student-2", "class-5a")
+	homeworkStore.BindStudentToClass("student-3", "class-5a")
+	homeworkStore.BindStudentToClass("student-4", "class-6b")
+	homeworkStore.BindStudentToClass("student-5", "class-6b")
+	homeworkStore.BindStudentToClass("student-6", "class-ana")
 	jwtIssuer := platformauth.NewJWT("handler-test-secret", time.Hour, 24*time.Hour)
 
 	h := New(Dependencies{
@@ -44,6 +54,7 @@ func newHandlerTestServer() handlerTestServer {
 		Observation: observationapp.NewService(store),
 		Guardian:    guardianapp.NewService(store),
 		Guidance:    guidanceapp.NewService(store),
+		Homework:    homeworkapp.NewService(homeworkStore, clock),
 		Push:        pushapp.NewService(store, platformpush.NewNoopSender(nil)),
 		Transport:   transportapp.NewService(store, clock),
 		Clock:       clock,
@@ -174,6 +185,59 @@ func TestTransportHandlersRejectTeacherManagementAccess(t *testing.T) {
 	}
 }
 
+func TestTransportHandlersPrincipalCanStartAndCompleteTrip(t *testing.T) {
+	server := newHandlerTestServer()
+	principalToken := server.login(t, "mudur@atlas.k12.tr", "OtsMudur!2026")
+
+	startRec := server.request(http.MethodPost, "/api/v1/services/routes/service-route-5a-morning/start", principalToken, map[string]any{})
+	if startRec.Code != http.StatusCreated {
+		t.Fatalf("manual start status = %d, body = %s", startRec.Code, startRec.Body.String())
+	}
+	started := decodeData[struct {
+		ID      string `json:"id"`
+		RouteID string `json:"routeId"`
+		Status  string `json:"status"`
+	}](t, startRec)
+	if started.ID == "" || started.RouteID != "service-route-5a-morning" || started.Status != "active" {
+		t.Fatalf("unexpected started trip: %+v", started)
+	}
+
+	activeRec := server.request(http.MethodGet, "/api/v1/services/trips/active", principalToken, nil)
+	if activeRec.Code != http.StatusOK {
+		t.Fatalf("active trips status = %d, body = %s", activeRec.Code, activeRec.Body.String())
+	}
+	active := decodeData[[]struct {
+		ID string `json:"id"`
+	}](t, activeRec)
+	if len(active) != 1 || active[0].ID != started.ID {
+		t.Fatalf("unexpected active trips after manual start: %+v", active)
+	}
+
+	completeRec := server.request(http.MethodPost, "/api/v1/services/trips/"+started.ID+"/complete", principalToken, nil)
+	if completeRec.Code != http.StatusOK {
+		t.Fatalf("manual complete status = %d, body = %s", completeRec.Code, completeRec.Body.String())
+	}
+	completed := decodeData[struct {
+		ID      string `json:"id"`
+		Status  string `json:"status"`
+		EndedAt string `json:"endedAt"`
+	}](t, completeRec)
+	if completed.ID != started.ID || completed.Status != "completed" || completed.EndedAt == "" {
+		t.Fatalf("unexpected completed trip: %+v", completed)
+	}
+
+	eventsRec := server.request(http.MethodGet, "/api/v1/services/trips/"+started.ID+"/events?limit=5", principalToken, nil)
+	if eventsRec.Code != http.StatusOK {
+		t.Fatalf("trip events status = %d, body = %s", eventsRec.Code, eventsRec.Body.String())
+	}
+	events := decodeData[[]struct {
+		EventType string `json:"eventType"`
+	}](t, eventsRec)
+	if len(events) < 2 || events[0].EventType != "trip_completed" {
+		t.Fatalf("unexpected manual trip events: %+v", events)
+	}
+}
+
 func TestTransportHandlersProvisionedDriverCanUseDriverEndpoints(t *testing.T) {
 	server := newHandlerTestServer()
 	principalToken := server.login(t, "mudur@atlas.k12.tr", "OtsMudur!2026")
@@ -279,6 +343,23 @@ func TestTransportHandlersDriverSharingCreatesLiveTrip(t *testing.T) {
 		t.Fatalf("unexpected location payload: %+v", location)
 	}
 
+	eventRec := server.request(http.MethodPost, "/api/v1/driver/trips/"+summary.ActiveTrip.ID+"/events", driverToken, map[string]any{
+		"eventType": "student_boarded",
+		"studentId": "student-2",
+		"note":      "Duraktan alindi.",
+	})
+	if eventRec.Code != http.StatusCreated {
+		t.Fatalf("driver event status = %d, body = %s", eventRec.Code, eventRec.Body.String())
+	}
+	event := decodeData[struct {
+		TripID    string         `json:"tripId"`
+		EventType string         `json:"eventType"`
+		Payload   map[string]any `json:"payload"`
+	}](t, eventRec)
+	if event.TripID != summary.ActiveTrip.ID || event.EventType != "student_boarded" || event.Payload["studentId"] != "student-2" {
+		t.Fatalf("unexpected driver event payload: %+v", event)
+	}
+
 	activeRec := server.request(http.MethodGet, "/api/v1/services/trips/active", principalToken, nil)
 	if activeRec.Code != http.StatusOK {
 		t.Fatalf("active trips status = %d, body = %s", activeRec.Code, activeRec.Body.String())
@@ -293,6 +374,76 @@ func TestTransportHandlersDriverSharingCreatesLiveTrip(t *testing.T) {
 		t.Fatalf("unexpected active trips: %+v", activeTrips)
 	}
 
+	eventsRec := server.request(http.MethodGet, "/api/v1/services/trips/"+summary.ActiveTrip.ID+"/events?limit=5", principalToken, nil)
+	if eventsRec.Code != http.StatusOK {
+		t.Fatalf("principal trip events status = %d, body = %s", eventsRec.Code, eventsRec.Body.String())
+	}
+	events := decodeData[[]struct {
+		EventType string `json:"eventType"`
+	}](t, eventsRec)
+	foundBoarded := false
+	for _, item := range events {
+		if item.EventType == "student_boarded" {
+			foundBoarded = true
+			break
+		}
+	}
+	if !foundBoarded {
+		t.Fatalf("principal events did not include student_boarded: %+v", events)
+	}
+
+	liveRec := server.request(http.MethodGet, "/api/v1/services/trips/"+summary.ActiveTrip.ID+"/live?limit=5&eventLimit=5", principalToken, nil)
+	if liveRec.Code != http.StatusOK {
+		t.Fatalf("principal trip live status = %d, body = %s", liveRec.Code, liveRec.Body.String())
+	}
+	live := decodeData[struct {
+		Trip struct {
+			ID string `json:"id"`
+		} `json:"trip"`
+		LiveStatus *struct {
+			Active         bool   `json:"active"`
+			LastLocationAt string `json:"lastLocationAt"`
+		} `json:"liveStatus"`
+		Locations []struct {
+			TripID string `json:"tripId"`
+		} `json:"locations"`
+		Events []struct {
+			EventType string `json:"eventType"`
+		} `json:"events"`
+	}](t, liveRec)
+	if live.Trip.ID != summary.ActiveTrip.ID || live.LiveStatus == nil || !live.LiveStatus.Active || live.LiveStatus.LastLocationAt == "" {
+		t.Fatalf("unexpected principal live payload: %+v", live)
+	}
+	if len(live.Locations) != 1 || len(live.Events) == 0 {
+		t.Fatalf("principal live missing locations/events: %+v", live)
+	}
+
+	timelineRec := server.request(http.MethodGet, "/api/v1/services/trips/"+summary.ActiveTrip.ID+"/timeline?limit=10", principalToken, nil)
+	if timelineRec.Code != http.StatusOK {
+		t.Fatalf("principal trip timeline status = %d, body = %s", timelineRec.Code, timelineRec.Body.String())
+	}
+	timeline := decodeData[[]struct {
+		Type       string `json:"type"`
+		EventType  string `json:"eventType"`
+		OccurredAt string `json:"occurredAt"`
+	}](t, timelineRec)
+	hasLocation := false
+	hasEvent := false
+	for _, item := range timeline {
+		if item.OccurredAt == "" {
+			t.Fatalf("timeline item missing occurredAt: %+v", item)
+		}
+		if item.Type == "location" {
+			hasLocation = true
+		}
+		if item.Type == "event" && item.EventType == "student_boarded" {
+			hasEvent = true
+		}
+	}
+	if !hasLocation || !hasEvent {
+		t.Fatalf("timeline missing location or student event: %+v", timeline)
+	}
+
 	guardianTripRec := server.request(http.MethodGet, "/api/v1/guardian/students/student-2/service/trip", guardianToken, nil)
 	if guardianTripRec.Code != http.StatusOK {
 		t.Fatalf("guardian trip status = %d, body = %s", guardianTripRec.Code, guardianTripRec.Body.String())
@@ -302,6 +453,45 @@ func TestTransportHandlersDriverSharingCreatesLiveTrip(t *testing.T) {
 	}](t, guardianTripRec)
 	if guardianTrip.ID != summary.ActiveTrip.ID {
 		t.Fatalf("guardian trip id = %q, want %q", guardianTrip.ID, summary.ActiveTrip.ID)
+	}
+
+	guardianLiveRec := server.request(http.MethodGet, "/api/v1/guardian/students/student-2/service/live?limit=5&eventLimit=5", guardianToken, nil)
+	if guardianLiveRec.Code != http.StatusOK {
+		t.Fatalf("guardian live status = %d, body = %s", guardianLiveRec.Code, guardianLiveRec.Body.String())
+	}
+	guardianLive := decodeData[struct {
+		StudentID  string `json:"studentId"`
+		Active     bool   `json:"active"`
+		ActiveTrip *struct {
+			ID string `json:"id"`
+		} `json:"activeTrip"`
+		LiveStatus *struct {
+			Active         bool     `json:"active"`
+			EtaMinutes     *int     `json:"etaMinutes"`
+			DistanceKm     *float64 `json:"distanceKm"`
+			LastLocationAt string   `json:"lastLocationAt"`
+			LocationStale  bool     `json:"locationStale"`
+			StopLatitude   *float64 `json:"stopLatitude"`
+			StopLongitude  *float64 `json:"stopLongitude"`
+		} `json:"liveStatus"`
+		Locations []struct {
+			TripID string `json:"tripId"`
+		} `json:"locations"`
+		Events []struct {
+			EventType string `json:"eventType"`
+		} `json:"events"`
+	}](t, guardianLiveRec)
+	if guardianLive.StudentID != "student-2" || !guardianLive.Active || guardianLive.ActiveTrip == nil || guardianLive.ActiveTrip.ID != summary.ActiveTrip.ID {
+		t.Fatalf("unexpected guardian live payload: %+v", guardianLive)
+	}
+	if guardianLive.LiveStatus == nil || !guardianLive.LiveStatus.Active || guardianLive.LiveStatus.LastLocationAt == "" {
+		t.Fatalf("guardian live status missing active location data: %+v", guardianLive.LiveStatus)
+	}
+	if len(guardianLive.Locations) != 1 || guardianLive.Locations[0].TripID != summary.ActiveTrip.ID {
+		t.Fatalf("unexpected guardian live locations: %+v", guardianLive.Locations)
+	}
+	if len(guardianLive.Events) == 0 {
+		t.Fatalf("expected guardian live events, got none")
 	}
 
 	stopRec := server.request(http.MethodPost, "/api/v1/driver/sharing/stop", driverToken, map[string]any{})
@@ -339,12 +529,38 @@ func TestTransportHandlersGuardianScope(t *testing.T) {
 		t.Fatalf("unexpected guardian summary: %+v", allowed)
 	}
 
+	liveRec := server.request(http.MethodGet, "/api/v1/guardian/students/student-2/service/live", guardianToken, nil)
+	if liveRec.Code != http.StatusOK {
+		t.Fatalf("guardian own student live status = %d, body = %s", liveRec.Code, liveRec.Body.String())
+	}
+	live := decodeData[struct {
+		StudentID  string `json:"studentId"`
+		Active     bool   `json:"active"`
+		LiveStatus struct {
+			Active        bool `json:"active"`
+			LocationStale bool `json:"locationStale"`
+		} `json:"liveStatus"`
+		Locations []struct{} `json:"locations"`
+		Events    []struct{} `json:"events"`
+	}](t, liveRec)
+	if live.StudentID != "student-2" || live.Active || live.LiveStatus.Active || !live.LiveStatus.LocationStale || len(live.Locations) != 0 || len(live.Events) != 0 {
+		t.Fatalf("unexpected inactive guardian live payload: %+v", live)
+	}
+
 	forbiddenRec := server.request(http.MethodGet, "/api/v1/guardian/students/student-1/service", guardianToken, nil)
 	if forbiddenRec.Code != http.StatusForbidden {
 		t.Fatalf("guardian foreign student status = %d, want %d, body = %s", forbiddenRec.Code, http.StatusForbidden, forbiddenRec.Body.String())
 	}
 	if code := decodeErrorCode(t, forbiddenRec); code != "FORBIDDEN" {
 		t.Fatalf("error code = %q, want FORBIDDEN", code)
+	}
+
+	forbiddenLiveRec := server.request(http.MethodGet, "/api/v1/guardian/students/student-1/service/live", guardianToken, nil)
+	if forbiddenLiveRec.Code != http.StatusForbidden {
+		t.Fatalf("guardian foreign student live status = %d, want %d, body = %s", forbiddenLiveRec.Code, http.StatusForbidden, forbiddenLiveRec.Body.String())
+	}
+	if code := decodeErrorCode(t, forbiddenLiveRec); code != "FORBIDDEN" {
+		t.Fatalf("live error code = %q, want FORBIDDEN", code)
 	}
 }
 
