@@ -1,4 +1,4 @@
-import { Bell, Bus, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Hash, MapPinned, Radio, School, UserRound, XCircle } from "lucide-react";
+import { Bell, Bus, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Hash, Radio, School, UserRound, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { GuidanceKpiCard } from "../../guidance/components/GuidanceKpiCard";
 import { GuidanceMetricGrid } from "../../guidance/components/GuidanceMetricGrid";
@@ -7,6 +7,7 @@ import "../../guidance/GuidanceOverview.css";
 import "../../guidance/GuidanceSurface.css";
 import { api } from "../../../lib/api";
 import type { GuardianServiceLive, GuardianServiceSummary, ServiceLiveStatus } from "../../../lib/api";
+import { ServiceLiveMap } from "../../components/ServiceLiveMap";
 import { GuardianAttendanceList } from "../components/GuardianAttendanceList";
 import { GuardianGuidanceUpdatesList } from "../components/GuardianGuidanceUpdatesList";
 import { GuardianLessonList } from "../components/GuardianLessonList";
@@ -26,10 +27,6 @@ function mapNotificationsToNotices(notifications: GuardianData["notifications"])
 }
 
 const LIVE_POLL_MS = 12_000;
-
-function staticMapUrl(latitude: number, longitude: number) {
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=640x260&markers=${latitude},${longitude},red-pushpin`;
-}
 
 function directionLabel(value?: string) {
   if (value === "evening") return "Akşam";
@@ -100,8 +97,6 @@ function GuardianServicePanel({ studentId }: { studentId: string }) {
   const route = summary?.routes?.[0];
   const assignment = summary?.assignments?.[0];
   const liveStatus = live?.liveStatus ?? summary?.liveStatus;
-  const mapLat = live?.activeTrip?.lastLocation?.latitude ?? liveStatus?.stopLatitude;
-  const mapLng = live?.activeTrip?.lastLocation?.longitude ?? liveStatus?.stopLongitude;
   const latestEvent = live?.events?.[0];
 
   return (
@@ -126,16 +121,16 @@ function GuardianServicePanel({ studentId }: { studentId: string }) {
 
       <p className="guardian-service-status">{formatLiveStatus(liveStatus)}</p>
 
-      {typeof mapLat === "number" && typeof mapLng === "number" ? (
-        <a className="guardian-service-map-link" href={`https://www.google.com/maps/search/?api=1&query=${mapLat},${mapLng}`} rel="noreferrer" target="_blank">
-          <img alt="Servis canlı harita" className="guardian-service-map" src={staticMapUrl(mapLat, mapLng)} />
-        </a>
-      ) : (
-        <div className="guardian-service-map-placeholder">
-          <MapPinned size={18} />
-          <span>Canlı konum henüz paylaşılmadı.</span>
-        </div>
-      )}
+      <ServiceLiveMap
+        lastLocation={live?.activeTrip?.lastLocation}
+        locations={live?.locations ?? []}
+        stale={liveStatus?.locationStale}
+        stop={{
+          latitude: liveStatus?.stopLatitude,
+          longitude: liveStatus?.stopLongitude,
+          label: assignment?.stopName ?? "Durak"
+        }}
+      />
 
       <div className="guardian-service-meta-grid">
         <div>

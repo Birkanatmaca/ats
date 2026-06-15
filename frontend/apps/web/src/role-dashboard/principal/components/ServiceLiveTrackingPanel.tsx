@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../../lib/api";
 import type { FormEvent } from "react";
 import type { ServiceTrip, ServiceTripEvent, ServiceTripLive, ServiceTripLocation, ServiceTripTimelineItem } from "../../../lib/api";
+import { ServiceLiveMap } from "../../components/ServiceLiveMap";
 import { ResourceFileManager } from "../../components/ResourceFileManager";
 
 const LIVE_POLL_MS = 12_000;
@@ -21,10 +22,6 @@ const EVENT_LABELS: Record<string, string> = {
   stop_arrived: "Durağa varıldı",
   stop_departed: "Duraktan çıkıldı"
 };
-
-function staticMapUrl(latitude: number, longitude: number) {
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=15&size=640x220&markers=${latitude},${longitude},red-pushpin`;
-}
 
 function directionLabel(value: string) {
   if (value === "evening") return "Akşam";
@@ -106,6 +103,14 @@ function timelineBody(item: ServiceTripTimelineItem) {
     return eventNote(item.event) || eventMetadata(item.event) || "Olay kaydı oluşturuldu.";
   }
   return "Detay yok.";
+}
+
+function stopFromStatus(status?: { stopLatitude?: number; stopLongitude?: number } | null) {
+  return {
+    latitude: status?.stopLatitude,
+    longitude: status?.stopLongitude,
+    label: "Durak"
+  };
 }
 
 async function loadTripDetail(tripId: string) {
@@ -269,8 +274,6 @@ export function ServiceLiveTrackingPanel() {
 
       <div className="service-live-grid">
         {trips.map((trip) => {
-          const lat = trip.lastLocation?.latitude;
-          const lng = trip.lastLocation?.longitude;
           return (
             <div key={trip.id} className="service-live-card">
               <div className="service-live-card-head">
@@ -285,13 +288,13 @@ export function ServiceLiveTrackingPanel() {
                   {selectedTripId === trip.id ? "Seçili" : "Detay"}
                 </button>
               </div>
-              {typeof lat === "number" && typeof lng === "number" ? (
-                <a href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`} rel="noreferrer" target="_blank">
-                  <img alt="Servis canlı harita" className="service-live-map" src={staticMapUrl(lat, lng)} />
-                </a>
-              ) : (
-                <p className="guidance-data-empty">Canlı konum henüz paylaşılmadı.</p>
-              )}
+              <ServiceLiveMap
+                compact
+                lastLocation={trip.lastLocation}
+                locations={trip.lastLocation ? [trip.lastLocation] : []}
+                stale={trip.liveStatus?.locationStale}
+                stop={stopFromStatus(trip.liveStatus)}
+              />
             </div>
           );
         })}
@@ -325,6 +328,13 @@ export function ServiceLiveTrackingPanel() {
               <span>Son konum: {formatDateTime(selectedLiveStatus?.lastLocationAt)}</span>
               <span>{selectedLiveStatus?.locationStale ? "Konum gecikmiş" : "Konum aktif"}</span>
             </div>
+
+            <ServiceLiveMap
+              lastLocation={selectedTrip.lastLocation}
+              locations={selectedLiveDetail?.locations ?? (selectedTrip.lastLocation ? [selectedTrip.lastLocation] : [])}
+              stale={selectedLiveStatus?.locationStale}
+              stop={stopFromStatus(selectedLiveStatus)}
+            />
 
             {timeline.length === 0 ? (
               <p className="guidance-data-empty">Bu sefer için henüz olay veya konum akışı yok.</p>
