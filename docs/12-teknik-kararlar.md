@@ -42,6 +42,19 @@ Gerekçe:
 - Raporlama ve veri bütünlüğü için yeterli.
 - JSONB gibi esnek alanlarla bazı ayar verileri taşınabilir.
 
+## Dosya Depolama
+
+Karar: İlk canlı dilim için lokal disk + PostgreSQL `file_uploads` registry.
+
+Gerekçe:
+
+- Mevcut deploy tek sunucu üzerinde çalıştığı için S3/MinIO bağımlılığı eklemeden hızlı ve kontrollü canlıya alınabilir.
+- Dosyanın binary içeriği `FILE_STORAGE_PATH` altında, metadata ve kaynak bağlantısı PostgreSQL `file_uploads` tablosunda tutulur.
+- `FILE_STORAGE_BASE_URL` ve `FILE_UPLOAD_MAX_MB` ile ortam bazlı ayar yapılabilir.
+- Profil görselleri kontrollü public endpoint ile, rehberlik/duyuru/öğrenci belgeleri Bearer token ve kaynak bazlı yetki kontrolüyle servis edilir.
+
+Sonraki faz: Birden fazla API instance'ı, CDN ihtiyacı veya yedekleme/retention politikası büyüdüğünde aynı storage interface arkasına MinIO/S3 adaptörü eklenmelidir.
+
 ## API
 
 Karar: REST API ile başlamak.
@@ -53,6 +66,16 @@ Gerekçe:
 - Yetki ve audit middleware yapısı net kurulur.
 
 GraphQL ancak çok karmaşık client veri ihtiyaçları ortaya çıkarsa değerlendirilmelidir.
+
+## PDF ve Rapor Üretimi
+
+Karar: İlk canlı dilim için PDF raporlar backend içinde üretilir ve dosya servisine `report` kategorisiyle kaydedilir.
+
+Gerekçe:
+
+- Devamsızlık, tahsilat makbuzu, rehberlik vaka özeti, öğrenci gelişim ve servis raporu aynı yetki modeliyle indirilebilir.
+- PDF binary içeriği mevcut `FILE_STORAGE_PATH` altında tutulur; metadata PostgreSQL `file_uploads` registry üzerinden ilgili öğrenci, vaka, tahsilat hesabı veya servis seferine bağlanır.
+- Web ve mobil client'lar rapor üretiminde aynı REST endpointlerini kullanır; web paneli üretilen PDF'leri ilgili kaynak ekranında listeler.
 
 ## Ders Programı Motoru
 
@@ -120,4 +143,3 @@ Yeni özellik eklenirken şu sorular cevaplanmadan geliştirme başlamamalıdır
 - Audit log gerekli mi?
 - MVP için zorunlu mu, sonraki faza bırakılabilir mi?
 - Web mi mobil mi, yoksa ikisi de mi etkilenecek?
-

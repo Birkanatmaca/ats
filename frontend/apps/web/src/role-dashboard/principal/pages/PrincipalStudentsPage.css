@@ -130,6 +130,32 @@
   width: min(100%, 760px);
 }
 
+.principal-student-documents-modal {
+  width: min(100%, 620px);
+}
+
+.principal-student-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.principal-student-report-actions .ghost-action:not(.navbar-logout) {
+  min-height: 34px;
+  padding: 0 12px;
+  gap: 7px;
+}
+
+.principal-modal-success {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  color: #047857;
+  background: #ecfdf5;
+  font-size: 12px;
+}
+
 .principal-student-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -1,8 +1,9 @@
-import { ArrowLeft, Plus, RotateCcw, ShieldAlert } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Plus, RotateCcw, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { GuidanceCase, GuidanceCaseTimelineItem } from "../../../lib/api";
 import { api } from "../../../lib/api";
+import { ResourceFileManager } from "../../components/ResourceFileManager";
 import {
   caseEventTypeLabel,
   casePriorityBadgeClass,
@@ -45,6 +46,9 @@ export function GuidanceCaseDetailPage({
   const [eventOpen, setEventOpen] = useState(false);
   const [eventForm, setEventForm] = useState(emptyEventForm);
   const [eventLoading, setEventLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [reportRefresh, setReportRefresh] = useState(0);
 
   const load = useCallback(async () => {
     if (!caseId) return;
@@ -117,6 +121,22 @@ export function GuidanceCaseDetailPage({
     }
   };
 
+  const onGenerateCaseReport = async () => {
+    if (!caseId) return;
+    setReportLoading(true);
+    setReportMessage(null);
+    setActionError(null);
+    try {
+      const report = await api.generateGuidanceCaseSummaryReport({ caseId });
+      setReportMessage(`${report.title} oluşturuldu.`);
+      setReportRefresh((value) => value + 1);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Vaka özeti PDF oluşturulamadı.");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   if (loading) {
     return <p className="loading-line">Vaka detayı yükleniyor…</p>;
   }
@@ -158,8 +178,13 @@ export function GuidanceCaseDetailPage({
         <small>Sorumlu: {item.ownerName}</small>
       </article>
 
-      {!readOnly ? (
-        <div className="guidance-case-detail-actions">
+      <div className="guidance-case-detail-actions">
+        <button className="ghost-action small-action" onClick={() => void onGenerateCaseReport()} type="button" disabled={reportLoading}>
+          {reportLoading ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+          Vaka özeti PDF
+        </button>
+        {!readOnly ? (
+          <>
           {!isClosed ? (
             <>
               <button className="primary-action small-action" onClick={() => setEventOpen(true)} type="button">
@@ -176,10 +201,33 @@ export function GuidanceCaseDetailPage({
               Yeniden aç
             </button>
           )}
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </div>
 
       {actionError ? <div className="form-error sa-alert">{actionError}</div> : null}
+      {reportMessage ? <div className="form-success sa-alert">{reportMessage}</div> : null}
+
+      <ResourceFileManager
+        title="Üretilen raporlar"
+        category="report"
+        resourceType="guidance_case"
+        resourceId={caseId}
+        canUpload={false}
+        emptyText="Bu vaka için henüz PDF rapor üretilmedi."
+        refreshSignal={reportRefresh}
+      />
+
+      {!readOnly ? (
+        <ResourceFileManager
+          title="Vaka ekleri"
+          category="guidance"
+          resourceType="guidance_case"
+          resourceId={caseId}
+          canUpload={!isClosed}
+          emptyText="Bu vaka için henüz ek dosya yok."
+        />
+      ) : null}
 
       <article className="guidance-data-card">
         <header className="guidance-data-card-head">

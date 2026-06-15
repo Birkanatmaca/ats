@@ -46,7 +46,7 @@ func isPublicPath(path string) bool {
 		"/api/v1/auth/password/forgot", "/api/v1/auth/password/reset":
 		return true
 	default:
-		return false
+		return strings.HasPrefix(path, "/api/v1/files/public/")
 	}
 }
 

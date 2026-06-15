@@ -34,6 +34,24 @@ export type AuthSession = {
   refreshExpiresAt?: string;
 };
 
+export type FileUploadMeta = {
+  key: string;
+  url: string;
+  sizeBytes: number;
+  contentType: string;
+  category?: string;
+  originalName?: string;
+  resourceType?: string;
+  resourceId?: string;
+  uploadedBy?: string;
+  uploadedAt: string;
+};
+
+export type GeneratedReportFile = FileUploadMeta & {
+  reportType: string;
+  title: string;
+};
+
 export type Tenant = {
   id: string;
   name: string;

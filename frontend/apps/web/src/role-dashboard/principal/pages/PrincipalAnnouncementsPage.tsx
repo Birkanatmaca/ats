@@ -1,7 +1,8 @@
-import { CheckCircle2, Clock3, Loader2, Plus, Send, Users } from "lucide-react";
+import { CheckCircle2, Clock3, FileText, Loader2, Plus, Send, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api } from "../../../lib/api";
-import type { AnnouncementAudienceTarget, AnnouncementTemplate } from "../../../lib/api";
+import type { Announcement, AnnouncementAudienceTarget, AnnouncementTemplate } from "../../../lib/api";
+import { ResourceFileManager } from "../../components/ResourceFileManager";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, SchoolClass } from "../types";
 
 const audienceOptions = [
@@ -18,6 +19,8 @@ const statusLabels: Record<string, string> = {
   published: "Yayında",
   archived: "Arşiv"
 };
+
+const MAX_ANNOUNCEMENT_ATTACHMENT_SIZE = 8 * 1024 * 1024;
 
 function targetLabel(target: AnnouncementAudienceTarget, labels: { classById: Map<string, string>; sectionById: Map<string, string>; studentById: Map<string, string> }) {
   if (target.type === "all") return "Tüm kurum";
@@ -60,6 +63,8 @@ export function PrincipalAnnouncementsPage({
   const [sectionTargets, setSectionTargets] = useState<string[]>([]);
   const [studentTargets, setStudentTargets] = useState<string[]>([]);
   const [templates, setTemplates] = useState<AnnouncementTemplate[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [fileModalAnnouncement, setFileModalAnnouncement] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -127,6 +132,19 @@ export function PrincipalAnnouncementsPage({
     setClassTargets([]);
     setSectionTargets([]);
     setStudentTargets([]);
+    setPendingFiles([]);
+  }
+
+  function handlePendingFiles(files: FileList | null) {
+    const selected = Array.from(files ?? []);
+    if (selected.length === 0) return;
+    const tooLarge = selected.find((file) => file.size > MAX_ANNOUNCEMENT_ATTACHMENT_SIZE);
+    if (tooLarge) {
+      setError(`${tooLarge.name} en fazla 8 MB olabilir.`);
+      return;
+    }
+    setError(null);
+    setPendingFiles((current) => [...current, ...selected]);
   }
 
   async function submitAnnouncement(mode: "draft" | "schedule" | "publish") {
@@ -152,10 +170,27 @@ export function PrincipalAnnouncementsPage({
       return;
     }
     try {
-      await api.createAnnouncement(payload);
+      const created = await api.createAnnouncement(payload);
+      let attachmentWarning: string | null = null;
+      if (pendingFiles.length > 0) {
+        try {
+          for (const file of pendingFiles) {
+            await api.uploadFile({ file, category: "announcement", resourceType: "announcement", resourceId: created.id });
+          }
+        } catch (uploadError) {
+          attachmentWarning = uploadError instanceof Error ? uploadError.message : "Ek dosyalardan biri yüklenemedi.";
+        }
+      }
       resetForm();
       setShowForm(false);
-      setSuccess(mode === "draft" ? "Taslak kaydedildi." : mode === "schedule" ? "Duyuru planlandı." : "Duyuru yayınlandı.");
+      setSuccess(
+        `${mode === "draft" ? "Taslak kaydedildi." : mode === "schedule" ? "Duyuru planlandı." : "Duyuru yayınlandı."}${
+          pendingFiles.length > 0 && !attachmentWarning ? ` ${pendingFiles.length} ek yüklendi.` : ""
+        }`
+      );
+      if (attachmentWarning) {
+        setError(`Duyuru kaydedildi fakat ek yüklenemedi: ${attachmentWarning}`);
+      }
       onAnnouncementCreated?.();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Duyuru kaydedilemedi.");
@@ -180,6 +215,9 @@ export function PrincipalAnnouncementsPage({
           {showForm ? "Formu kapat" : "Yeni duyuru"}
         </button>
       </header>
+
+      {!showForm && success ? <div className="form-success">{success}</div> : null}
+      {!showForm && error ? <div className="form-error">{error}</div> : null}
 
       {showForm ? (
         <article className="principal-surface-card">
@@ -307,6 +345,38 @@ export function PrincipalAnnouncementsPage({
               <input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
             </label>
 
+            <label className="field principal-announcement-attachment-field">
+              <span>Ek dosyalar</span>
+              <input
+                accept=".pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp"
+                multiple
+                onChange={(event) => {
+                  handlePendingFiles(event.target.files);
+                  event.target.value = "";
+                }}
+                type="file"
+              />
+              <small>PDF, görsel veya Office belgesi · dosya başına 8 MB</small>
+            </label>
+
+            {pendingFiles.length > 0 ? (
+              <div className="principal-announcement-pending-files">
+                {pendingFiles.map((file, index) => (
+                  <button
+                    className="principal-announcement-pending-file"
+                    key={`${file.name}-${file.size}-${index}`}
+                    onClick={() => setPendingFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
+                    type="button"
+                    title="Eki kaldır"
+                  >
+                    <FileText size={14} />
+                    <span>{file.name}</span>
+                    <X size={13} />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
             <div className="principal-announcement-actions">
               <button className="secondary-action" disabled={loading} onClick={() => void submitAnnouncement("draft")} type="button">
                 Taslak kaydet
@@ -379,6 +449,10 @@ export function PrincipalAnnouncementsPage({
                   </span>
                 </div>
                 <em>{item.body}</em>
+                <button className="secondary-action small-action" onClick={() => setFileModalAnnouncement(item)} type="button">
+                  <FileText size={15} />
+                  Ekler
+                </button>
                 {item.status === "draft" || item.status === "scheduled" ? (
                   <button className="secondary-action small-action" onClick={() => void api.publishAnnouncement(item.id).then(() => onAnnouncementCreated?.())} type="button">
                     Şimdi yayınla
@@ -389,6 +463,31 @@ export function PrincipalAnnouncementsPage({
           </div>
         )}
       </article>
+
+      {fileModalAnnouncement ? (
+        <div className="principal-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setFileModalAnnouncement(null)}>
+          <div className="principal-modal principal-announcement-files-modal" role="dialog" aria-modal="true" aria-labelledby="announcement-files-title">
+            <header className="principal-modal-head">
+              <div>
+                <h2 id="announcement-files-title">{fileModalAnnouncement.title}</h2>
+                <p>Duyuru ekleri</p>
+              </div>
+              <button className="principal-modal-close" type="button" onClick={() => setFileModalAnnouncement(null)} aria-label="Kapat">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="principal-modal-body">
+              <ResourceFileManager
+                title="Duyuru ekleri"
+                category="announcement"
+                resourceType="announcement"
+                resourceId={fileModalAnnouncement.id}
+                emptyText="Bu duyuru için henüz ek dosya yok."
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

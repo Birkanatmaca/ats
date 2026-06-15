@@ -636,6 +636,16 @@
   gap: 8px;
 }
 
+.guidance-case-detail-page .form-success {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  color: #047857;
+  background: #ecfdf5;
+  font-size: 13px;
+}
+
 .guidance-case-timeline {
   display: flex;
   flex-direction: column;

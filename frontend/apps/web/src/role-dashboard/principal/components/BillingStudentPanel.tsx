@@ -1,6 +1,7 @@
-import { Loader2, ReceiptText } from "lucide-react";
+import { FileText, Loader2, ReceiptText } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, type BillingAccount, type PaymentInstallment, type PaymentMethod } from "../../../lib/api";
+import { ResourceFileManager } from "../../components/ResourceFileManager";
 import type { ClassStudent } from "../types";
 import "./BillingStudentPanel.css";
 
@@ -39,6 +40,9 @@ export function BillingStudentPanel({
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [reportBusy, setReportBusy] = useState<string | null>(null);
+  const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [reportRefresh, setReportRefresh] = useState(0);
 
   const [planName, setPlanName] = useState("Eğitim ücreti");
   const [planAmount, setPlanAmount] = useState("30000");
@@ -86,6 +90,7 @@ export function BillingStudentPanel({
   const overdueAmount = openInstallments
     .filter((item) => item.status === "overdue")
     .reduce((total, item) => total + item.remainingAmount, 0);
+  const hasReceiptPayment = installments.some((item) => (item.payments ?? []).some((payment) => !payment.void));
 
   async function createPlan(event: React.FormEvent) {
     event.preventDefault();
@@ -161,6 +166,21 @@ export function BillingStudentPanel({
     }
   }
 
+  async function generateReceipt(paymentId?: string) {
+    setReportBusy(paymentId ?? "latest");
+    setReportMessage(null);
+    setError(null);
+    try {
+      const report = await api.generateBillingReceiptReport({ studentId: student.id, paymentId });
+      setReportMessage(`${report.title} oluşturuldu.`);
+      setReportRefresh((value) => value + 1);
+    } catch (reportError) {
+      setError(reportError instanceof Error ? reportError.message : "Makbuz oluşturulamadı.");
+    } finally {
+      setReportBusy(null);
+    }
+  }
+
   return (
     <article className="billing-student-panel">
       <header className="billing-student-panel-head">
@@ -172,7 +192,18 @@ export function BillingStudentPanel({
             {student.schoolNumber} · {account?.className ?? "—"}
           </p>
         </div>
-        <strong className="billing-student-panel-total">{loading ? "…" : money(outstanding)}</strong>
+        <div className="billing-student-panel-head-actions">
+          <button
+            className="ghost-action small-action"
+            type="button"
+            onClick={() => void generateReceipt()}
+            disabled={loading || !account || !hasReceiptPayment || reportBusy !== null}
+          >
+            {reportBusy === "latest" ? <Loader2 className="spin" size={15} /> : <FileText size={15} />}
+            Son makbuz PDF
+          </button>
+          <strong className="billing-student-panel-total">{loading ? "…" : money(outstanding)}</strong>
+        </div>
       </header>
 
       {loading ? (
@@ -182,6 +213,7 @@ export function BillingStudentPanel({
         </p>
       ) : null}
       {error ? <p className="form-error">{error}</p> : null}
+      {reportMessage ? <p className="form-success">{reportMessage}</p> : null}
 
       {!loading ? (
         <>
@@ -272,15 +304,34 @@ export function BillingStudentPanel({
                         </span>
                       </div>
                       {!payment.void ? (
-                        <button className="ghost-action danger" type="button" onClick={() => void voidPayment(payment.id)} disabled={busy}>
-                          İptal
-                        </button>
+                        <div className="billing-payment-history-actions">
+                          <button className="ghost-action" type="button" onClick={() => void generateReceipt(payment.id)} disabled={reportBusy !== null}>
+                            {reportBusy === payment.id ? <Loader2 className="spin" size={14} /> : <FileText size={14} />}
+                            Makbuz PDF
+                          </button>
+                          <button className="ghost-action danger" type="button" onClick={() => void voidPayment(payment.id)} disabled={busy}>
+                            İptal
+                          </button>
+                        </div>
                       ) : null}
                     </div>
                   ))
                 )
               )}
             </div>
+          ) : null}
+
+          {account ? (
+            <ResourceFileManager
+              title="Makbuzlar"
+              category="report"
+              resourceType="billing_account"
+              resourceId={account.id}
+              canUpload={false}
+              compact
+              emptyText="Bu hesap için henüz makbuz üretilmedi."
+              refreshSignal={reportRefresh}
+            />
           ) : null}
 
           <form className="billing-plan-form" onSubmit={createPlan}>

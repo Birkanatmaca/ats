@@ -36,8 +36,8 @@ Asıl eksikler artık "modül yok" seviyesinde değil; **platform yetenekleri (d
 
 | # | Eksik | Etki | Açıklama |
 |---|---|---|---|
-| B1 | **Dosya yükleme / belge yönetimi** | Yüksek | Multipart upload, S3/MinIO entegrasyonu yok. Rehberlik vakası eki, öğrenci belgesi, duyuru eki, gözlem fotoğrafı gibi akışların tamamı bloke. |
-| B2 | **PDF / rapor üretimi** | Yüksek | Karne, devamsızlık raporu, tahsilat makbuzu, vaka raporu export edilemiyor. Okul yönetimi için kritik. |
+| B1 | **Dosya yükleme / belge yönetimi** | Orta | Lokal disk + PostgreSQL registry MVP tamamlandı; S3/MinIO adaptörü, retention/yedekleme ve gözlem fotoğrafı gibi ek tüketiciler sonraki fazda. |
+| B2 | **PDF / rapor üretimi** | Orta | Devamsızlık raporu, tahsilat makbuzu, rehberlik vaka özeti, öğrenci gelişim raporu ve servis raporu üretimi tamamlandı; karne ve BI/trend raporları sonraki fazda. |
 | B3 | **Test kapsamı boşlukları** | Yüksek | billing, life, observation, dashboard, school, superadmin service'lerinde hiç test yok. Özellikle billing (para akışı) riskli. |
 | B4 | **Distributed queue / job persistence** | Orta | Hatırlatıcılar goroutine tabanlı; instance restart'ında kaybolur. Multi-instance deploy'da çift bildirim riski. |
 | B5 | **Cache katmanı** | Orta | Redis yok. Dashboard sorguları, canlı konum okumaları her seferinde DB'ye gidiyor. |
@@ -232,7 +232,8 @@ Her yeni modül için `modul-onerileri/` klasörüne mevcut şablonla (kapsam �
 
 - [ ] Faz 1 maddeleri için issue/iş kaydı açıldı.
 - [ ] Veli mobil tab seti tasarımı `18-mobile-dashboard-analizi-ve-ui-plani.md` ile uyumlu güncellendi.
-- [ ] Dosya servisi teknik kararı (S3 vs MinIO vs lokal) `12-teknik-kararlar.md`'ye işlendi.
+- [x] Dosya servisi teknik kararı (S3 vs MinIO vs lokal) `12-teknik-kararlar.md`'ye işlendi.
+- [x] PDF/rapor üretimi için ilk operasyonel çıktılar web paneline ve API client'lara bağlandı.
 - [ ] Yeni modüller için `modul-onerileri/11..` dosyaları oluşturuldu.
 - [ ] Billing service test kapsamı ≥ %70.
 
@@ -240,6 +241,14 @@ Her yeni modül için `modul-onerileri/` klasörüne mevcut şablonla (kapsam �
 
 ## 10. Uygulama Günlüğü
 
+- 2026-06-13: PDF/rapor üretimi genişletildi; `POST /api/v1/reports/attendance`, `/billing-receipt`, `/guidance-case-summary`, `/student-development`, `/service-trip` endpoint'leri eklendi ve dosya servisine `report` kategorisiyle kaydediliyor: **yapıldı**.
+- 2026-06-13: Web panelinde öğrenci belgeleri modalına devamsızlık/gelişim PDF aksiyonları, rehberlik vaka detayına vaka özeti PDF'i, tahsilat paneline makbuz PDF'i ve servis canlı takip paneline sefer raporu PDF'i bağlandı: **yapıldı**.
+- 2026-06-13: Web ve mobil API client'larına typed rapor üretim metodları eklendi; backend `go test ./...`, web `npm run build` ve mobil `npm run typecheck` doğrulaması geçti: **yapıldı**.
+- 2026-06-13: Dosya depolama kararı `docs/12-teknik-kararlar.md` içinde lokal disk + PostgreSQL `file_uploads` registry olarak netleştirildi; S3/MinIO sonraki ölçek fazına bırakıldı: **yapıldı**.
+- 2026-06-13: `backend/internal/platform/storage/local.go` Office belge kabulüyle genişletildi (`doc/docx/xls/xlsx/ppt/pptx`); OOXML/OLE imza kontrolleri ve renamed zip reddi testleri eklendi: **yapıldı**.
+- 2026-06-13: `backend/internal/http/handlers/handlers_files.go` içinde profil public endpointi, upload category/resourceType genişletmesi ve kaynak bazlı upload/list/download/meta yetki kontrolleri eklendi: **yapıldı**.
+- 2026-06-13: Web panelinde profil görseli gerçek upload servisine bağlandı; rehberlik vaka eki, duyuru eki ve öğrenci belgesi için ortak `ResourceFileManager` bileşeni eklendi: **yapıldı**.
+- 2026-06-13: Web API client FormData upload/list/blob-download helperları ve mobil API client FormData header düzeltmesi eklendi: **yapıldı**.
 - 2026-06-11: `backend/internal/http/handlers/handlers_files.go` dosyasında dosya listeleme ve metadata endpointleri eklendi, upload akışına resource link alanları bağlandı: **yapıldı**.
 - 2026-06-11: `backend/internal/platform/storage/local.go` dosyasında dosya metadata kayıt/okuma/listeleme fonksiyonları eklendi: **yapıldı**.
 - 2026-06-11: `backend/internal/platform/storage/local_test.go` dosyasında metadata ve resource filtre testleri eklendi: **yapıldı**.

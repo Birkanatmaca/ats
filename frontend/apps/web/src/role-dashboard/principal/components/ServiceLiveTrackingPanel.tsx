@@ -1,7 +1,9 @@
+import { FileText, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../../lib/api";
 import type { FormEvent } from "react";
 import type { ServiceTrip, ServiceTripEvent, ServiceTripLive, ServiceTripLocation, ServiceTripTimelineItem } from "../../../lib/api";
+import { ResourceFileManager } from "../../components/ResourceFileManager";
 
 const LIVE_POLL_MS = 12_000;
 const EVENT_OPTIONS = [
@@ -122,6 +124,9 @@ export function ServiceLiveTrackingPanel() {
   const [eventNoteValue, setEventNoteValue] = useState("");
   const [eventBusy, setEventBusy] = useState(false);
   const [eventMessage, setEventMessage] = useState<string | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [reportRefresh, setReportRefresh] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -229,6 +234,22 @@ export function ServiceLiveTrackingPanel() {
     }
   }
 
+  async function generateTripReport() {
+    if (!selectedTripId) return;
+    setReportLoading(true);
+    setReportMessage(null);
+    setError(null);
+    try {
+      const report = await api.generateServiceTripReport({ tripId: selectedTripId });
+      setReportMessage(`${report.title} oluşturuldu.`);
+      setReportRefresh((value) => value + 1);
+    } catch (reportError) {
+      setError(reportError instanceof Error ? reportError.message : "Servis raporu oluşturulamadı.");
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   const selectedLiveDetail = liveDetail?.trip.id === selectedTripId ? liveDetail : null;
   const selectedTrip = selectedLiveDetail?.trip ?? trips.find((trip) => trip.id === selectedTripId) ?? null;
   const selectedLiveStatus = selectedLiveDetail?.liveStatus ?? selectedTrip?.liveStatus;
@@ -286,10 +307,18 @@ export function ServiceLiveTrackingPanel() {
                   {selectedTrip.driverName ?? "Şoför"} · {directionLabel(selectedTrip.direction)}
                 </span>
               </div>
-              <button className="ghost-action small-action" disabled={detailLoading} onClick={() => void refreshSelectedTrip()} type="button">
-                Yenile
-              </button>
+              <div className="service-live-detail-actions">
+                <button className="ghost-action small-action" disabled={reportLoading} onClick={() => void generateTripReport()} type="button">
+                  {reportLoading ? <Loader2 className="spin" size={15} /> : <FileText size={15} />}
+                  PDF rapor
+                </button>
+                <button className="ghost-action small-action" disabled={detailLoading} onClick={() => void refreshSelectedTrip()} type="button">
+                  Yenile
+                </button>
+              </div>
             </div>
+
+            {reportMessage ? <p className="form-success">{reportMessage}</p> : null}
 
             <div className="service-live-detail-metrics">
               <span>Başlangıç: {formatDateTime(selectedTrip.startedAt)}</span>
@@ -312,6 +341,17 @@ export function ServiceLiveTrackingPanel() {
                 ))}
               </div>
             )}
+
+            <ResourceFileManager
+              title="Sefer raporları"
+              category="report"
+              resourceType="service_trip"
+              resourceId={selectedTrip.id}
+              canUpload={false}
+              compact
+              emptyText="Bu sefer için henüz PDF rapor üretilmedi."
+              refreshSignal={reportRefresh}
+            />
           </div>
 
           <form className="service-live-event-form" onSubmit={submitEvent}>

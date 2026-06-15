@@ -24,6 +24,39 @@ export type UserProfile = {
   createdAt: string;
 };
 
+export type UploadCategory = "profile" | "guidance" | "announcement" | "support" | "studentimport" | "homework" | "student" | "report";
+
+export type UploadResourceType =
+  | "profile"
+  | "guidance_case"
+  | "announcement"
+  | "support_ticket"
+  | "student_import_job"
+  | "homework_assignment"
+  | "homework_submission"
+  | "student"
+  | "student_report"
+  | "billing_account"
+  | "service_trip";
+
+export type FileUploadMeta = {
+  key: string;
+  url: string;
+  sizeBytes: number;
+  contentType: string;
+  category?: string;
+  originalName?: string;
+  resourceType?: string;
+  resourceId?: string;
+  uploadedBy?: string;
+  uploadedAt: string;
+};
+
+export type GeneratedReportFile = FileUploadMeta & {
+  reportType: string;
+  title: string;
+};
+
 export type AuthSession = {
   accessToken: string;
   refreshToken: string;
@@ -1684,6 +1717,10 @@ export function clearAuthSession() {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
+function filePublicURL(key: string) {
+  return `${API_BASE_URL}/api/v1/files/public/${key.replace(/^\/+/, "")}`;
+}
+
 function authHeaders(): Record<string, string> {
   const session = readAuthSession();
   if (!session?.accessToken) {
@@ -1734,9 +1771,13 @@ async function refreshSession(): Promise<AuthSession | null> {
   return refreshInFlight;
 }
 
+function isFormDataBody(body: BodyInit | null | undefined): body is FormData {
+  return typeof FormData !== "undefined" && body instanceof FormData;
+}
+
 async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
   const headers = new Headers(init?.headers);
-  if (!headers.has("Content-Type") && init?.body) {
+  if (!headers.has("Content-Type") && init?.body && !isFormDataBody(init.body)) {
     headers.set("Content-Type", "application/json");
   }
   for (const [key, value] of Object.entries(authHeaders())) {
@@ -1767,6 +1808,32 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
 
   const envelope = (await response.json()) as Envelope<T>;
   return (envelope.data ?? null) as T;
+}
+
+async function requestBlob(path: string, init?: RequestInit, retried = false): Promise<Blob> {
+  const headers = new Headers(init?.headers);
+  for (const [key, value] of Object.entries(authHeaders())) {
+    headers.set(key, value);
+  }
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers
+  });
+
+  if (response.status === 401 && !retried && path !== "/api/v1/auth/refresh") {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      return requestBlob(path, init, true);
+    }
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const message = payload?.error?.message ?? `API request failed: ${response.status}`;
+    throw new Error(message);
+  }
+
+  return response.blob();
 }
 
 function asArray<T>(value: T[] | null | undefined): T[] {
@@ -1884,6 +1951,58 @@ export const api = {
   supportTickets: () => request<SupportTicket[] | null>("/api/v1/support/tickets").then(asArray),
   createSupportTicket: (payload: { type: string; subject: string; message: string }) =>
     request<SupportTicket>("/api/v1/support/tickets", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  uploadFile: (payload: {
+    file: File;
+    category: UploadCategory;
+    resourceType: UploadResourceType;
+    resourceId: string;
+  }) => {
+    const formData = new FormData();
+    formData.set("file", payload.file);
+    formData.set("category", payload.category);
+    formData.set("resourceType", payload.resourceType);
+    formData.set("resourceId", payload.resourceId);
+    return request<FileUploadMeta>("/api/v1/files/upload", {
+      method: "POST",
+      body: formData
+    });
+  },
+  files: (query: { resourceType: UploadResourceType; resourceId: string; category?: UploadCategory; offset?: number; limit?: number }) => {
+    const params = new URLSearchParams();
+    params.set("resourceType", query.resourceType);
+    params.set("resourceId", query.resourceId);
+    if (query.category) params.set("category", query.category);
+    if (typeof query.offset === "number") params.set("offset", String(query.offset));
+    if (typeof query.limit === "number") params.set("limit", String(query.limit));
+    return request<FileUploadMeta[] | null>(`/api/v1/files?${params.toString()}`).then(asArray);
+  },
+  downloadFile: (key: string) => requestBlob(`/api/v1/files/${key.replace(/^\/+/, "")}`),
+  filePublicURL,
+  generateAttendanceReport: (payload: { studentId: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/attendance", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  generateBillingReceiptReport: (payload: { studentId: string; paymentId?: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/billing-receipt", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  generateGuidanceCaseSummaryReport: (payload: { caseId: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/guidance-case-summary", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  generateStudentDevelopmentReport: (payload: { studentId: string; teacherNote?: string; counselorNote?: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/student-development", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  generateServiceTripReport: (payload: { tripId: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/service-trip", {
       method: "POST",
       body: JSON.stringify(payload)
     }),

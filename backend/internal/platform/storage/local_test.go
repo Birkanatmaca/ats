@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -57,6 +59,41 @@ func TestSaveAssignsExtensionFromDetectedType(t *testing.T) {
 	}
 	if len(items) != 1 {
 		t.Fatalf("expected one metadata item, got %d", len(items))
+	}
+}
+
+func TestSaveAcceptsOfficeOpenXMLDocument(t *testing.T) {
+	store := NewLocal(LocalConfig{BaseDir: t.TempDir(), MaxUploadBytes: 1 << 20})
+	meta, err := store.Save(context.Background(), SaveInput{
+		TenantID:     "tenant_1",
+		Category:     "student",
+		FileName:     "transkript.docx",
+		ResourceType: "student",
+		ResourceID:   "student-1",
+		UploadedBy:   "user-1",
+		Content:      docxFixture(t),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasSuffix(meta.Key, ".docx") {
+		t.Fatalf("expected generated key to end with .docx, got %s", meta.Key)
+	}
+	if meta.ContentType != "application/vnd.openxmlformats-officedocument.wordprocessingml.document" {
+		t.Fatalf("unexpected content type: %s", meta.ContentType)
+	}
+}
+
+func TestSaveRejectsRenamedZipAsOfficeDocument(t *testing.T) {
+	store := NewLocal(LocalConfig{BaseDir: t.TempDir(), MaxUploadBytes: 1 << 20})
+	_, err := store.Save(context.Background(), SaveInput{
+		TenantID: "tenant_1",
+		Category: "student",
+		FileName: "fake.docx",
+		Content:  zipFixture(t, map[string]string{"payload.txt": "not office"}),
+	})
+	if !errors.Is(err, ErrUnsupportedContentType) {
+		t.Fatalf("expected ErrUnsupportedContentType, got %v", err)
 	}
 }
 
@@ -206,4 +243,31 @@ func pdfFixture() []byte {
 
 func pngFixture() []byte {
 	return []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+}
+
+func docxFixture(t *testing.T) []byte {
+	t.Helper()
+	return zipFixture(t, map[string]string{
+		"[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>`,
+		"word/document.xml":   `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:document>`,
+	})
+}
+
+func zipFixture(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := zip.NewWriter(&buf)
+	for name, content := range files {
+		fileWriter, err := writer.Create(name)
+		if err != nil {
+			t.Fatalf("create zip entry: %v", err)
+		}
+		if _, err := fileWriter.Write([]byte(content)); err != nil {
+			t.Fatalf("write zip entry: %v", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip: %v", err)
+	}
+	return buf.Bytes()
 }

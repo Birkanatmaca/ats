@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -72,19 +74,31 @@ var (
 )
 
 var allowedContentTypes = map[string]struct{}{
-	"image/jpeg":      {},
-	"image/png":       {},
-	"image/webp":      {},
-	"application/pdf": {},
-	"text/plain":      {},
+	"image/jpeg":                    {},
+	"image/png":                     {},
+	"image/webp":                    {},
+	"application/pdf":               {},
+	"text/plain":                    {},
+	"application/msword":            {},
+	"application/vnd.ms-excel":      {},
+	"application/vnd.ms-powerpoint": {},
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document":   {},
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":         {},
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation": {},
 }
 
 var contentTypeExtensions = map[string][]string{
-	"image/jpeg":      {".jpg", ".jpeg"},
-	"image/png":       {".png"},
-	"image/webp":      {".webp"},
-	"application/pdf": {".pdf"},
-	"text/plain":      {".txt"},
+	"image/jpeg":                    {".jpg", ".jpeg"},
+	"image/png":                     {".png"},
+	"image/webp":                    {".webp"},
+	"application/pdf":               {".pdf"},
+	"text/plain":                    {".txt", ".csv"},
+	"application/msword":            {".doc"},
+	"application/vnd.ms-excel":      {".xls"},
+	"application/vnd.ms-powerpoint": {".ppt"},
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document":   {".docx"},
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":         {".xlsx"},
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation": {".pptx"},
 }
 
 func NewLocal(config LocalConfig) *LocalStore {
@@ -115,7 +129,10 @@ func (s *LocalStore) Save(ctx context.Context, input SaveInput) (FileMeta, error
 	if int64(len(input.Content)) > s.maxUploadBytes {
 		return FileMeta{}, ErrFileTooLarge
 	}
-	contentType := normalizeContentType(http.DetectContentType(input.Content))
+	contentType, err := resolveContentType(input.FileName, input.Content)
+	if err != nil {
+		return FileMeta{}, err
+	}
 	if !isAllowedContentType(contentType) {
 		return FileMeta{}, ErrUnsupportedContentType
 	}
@@ -370,6 +387,18 @@ func normalizeExt(fileName, contentType string, content []byte) string {
 		return ".pdf"
 	case "text/plain; charset=utf-8":
 		return ".txt"
+	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return ".docx"
+	case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+		return ".xlsx"
+	case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+		return ".pptx"
+	case "application/msword":
+		return ".doc"
+	case "application/vnd.ms-excel":
+		return ".xls"
+	case "application/vnd.ms-powerpoint":
+		return ".ppt"
 	default:
 		return ".bin"
 	}
@@ -396,6 +425,70 @@ func normalizeContentType(contentType string) string {
 		contentType = strings.TrimSpace(contentType[:semi])
 	}
 	return contentType
+}
+
+func resolveContentType(fileName string, content []byte) (string, error) {
+	detected := normalizeContentType(http.DetectContentType(content))
+	ext := strings.ToLower(strings.TrimSpace(path.Ext(fileName)))
+	if ext == "" {
+		return detected, nil
+	}
+	switch ext {
+	case ".docx":
+		if isOOXMLDocument(content, "word/") {
+			return "application/vnd.openxmlformats-officedocument.wordprocessingml.document", nil
+		}
+	case ".xlsx":
+		if isOOXMLDocument(content, "xl/") {
+			return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nil
+		}
+	case ".pptx":
+		if isOOXMLDocument(content, "ppt/") {
+			return "application/vnd.openxmlformats-officedocument.presentationml.presentation", nil
+		}
+	case ".doc":
+		if isOLEDocument(content) {
+			return "application/msword", nil
+		}
+	case ".xls":
+		if isOLEDocument(content) {
+			return "application/vnd.ms-excel", nil
+		}
+	case ".ppt":
+		if isOLEDocument(content) {
+			return "application/vnd.ms-powerpoint", nil
+		}
+	}
+	return detected, nil
+}
+
+func isOOXMLDocument(content []byte, requiredPrefix string) bool {
+	if len(content) < 4 || !bytes.Equal(content[:4], []byte{'P', 'K', 0x03, 0x04}) {
+		return false
+	}
+	reader, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
+	if err != nil {
+		return false
+	}
+	hasContentTypes := false
+	hasDocumentPart := false
+	for _, file := range reader.File {
+		name := strings.TrimLeft(file.Name, "/")
+		if name == "[Content_Types].xml" {
+			hasContentTypes = true
+		}
+		if strings.HasPrefix(name, requiredPrefix) {
+			hasDocumentPart = true
+		}
+		if hasContentTypes && hasDocumentPart {
+			return true
+		}
+	}
+	return false
+}
+
+func isOLEDocument(content []byte) bool {
+	return len(content) >= 8 && bytes.Equal(content[:8], []byte{0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1})
 }
 
 func resolveExtension(fileName, contentType string) (string, error) {

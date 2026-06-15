@@ -30,6 +30,21 @@
 	color: var(--sa-accent, #2563eb);
 }
 
+.billing-student-panel-head-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.billing-student-panel-head-actions .ghost-action:not(.navbar-logout) {
+	min-height: 32px;
+	padding: 0 10px;
+	gap: 6px;
+	font-size: 0.78rem;
+}
+
 .billing-student-panel-loading {
 	display: inline-flex;
 	align-items: center;
@@ -168,4 +183,42 @@
 	display: block;
 	font-size: 0.8rem;
 	color: var(--text-muted, #64748b);
+}
+
+.billing-payment-history-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.billing-payment-history-actions .ghost-action:not(.navbar-logout) {
+	min-height: 30px;
+	padding: 0 9px;
+	gap: 5px;
+	font-size: 0.76rem;
+}
+
+.billing-student-panel .form-success {
+	margin: 0;
+	padding: 8px 10px;
+	border: 1px solid #bbf7d0;
+	border-radius: 10px;
+	color: #047857;
+	background: #ecfdf5;
+	font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+	.billing-student-panel-head,
+	.billing-payment-history-row {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.billing-student-panel-head-actions,
+	.billing-payment-history-actions {
+		justify-content: flex-start;
+	}
 }

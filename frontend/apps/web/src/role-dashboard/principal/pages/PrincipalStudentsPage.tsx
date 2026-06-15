@@ -1,9 +1,10 @@
-import { CheckCircle2, ClipboardCheck, FileSpreadsheet, Loader2, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound, X } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, FileSpreadsheet, FileText, Loader2, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { StudentFormModal, type StudentFormPayload } from "../components/StudentFormModal";
 import { TablePagination } from "../../components/TablePagination";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { api, type StudentAttendanceSummary } from "../../../lib/api";
+import { ResourceFileManager } from "../../components/ResourceFileManager";
 import { StudentImportModal } from "../components/StudentImportModal";
 import type { ClassSection, ClassStudent, SchoolClass } from "../types";
 import "../../guidance/GuidanceDataPage.css";
@@ -37,6 +38,11 @@ export function PrincipalStudentsPage({
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [attendanceSummary, setAttendanceSummary] = useState<StudentAttendanceSummary | null>(null);
+  const [documentStudent, setDocumentStudent] = useState<ClassStudent | null>(null);
+  const [reportBusy, setReportBusy] = useState<"attendance" | "development" | null>(null);
+  const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportRefresh, setReportRefresh] = useState(0);
 
   const classNameById = useMemo(() => new Map(classes.map((c) => [c.id, c.name])), [classes]);
   const sectionLabelById = useMemo(() => {
@@ -141,6 +147,33 @@ export function PrincipalStudentsPage({
     setSummaryStudent(null);
     setAttendanceSummary(null);
     setSummaryError(null);
+  }
+
+  function openStudentDocuments(row: ClassStudent) {
+    setDocumentStudent(row);
+    setReportBusy(null);
+    setReportMessage(null);
+    setReportError(null);
+    setReportRefresh((value) => value + 1);
+  }
+
+  async function generateStudentReport(type: "attendance" | "development") {
+    if (!documentStudent) return;
+    setReportBusy(type);
+    setReportError(null);
+    setReportMessage(null);
+    try {
+      const report =
+        type === "attendance"
+          ? await api.generateAttendanceReport({ studentId: documentStudent.id })
+          : await api.generateStudentDevelopmentReport({ studentId: documentStudent.id });
+      setReportMessage(`${report.title} oluşturuldu.`);
+      setReportRefresh((value) => value + 1);
+    } catch (generateError) {
+      setReportError(generateError instanceof Error ? generateError.message : "Rapor oluşturulamadı.");
+    } finally {
+      setReportBusy(null);
+    }
   }
 
   return (
@@ -287,6 +320,9 @@ export function PrincipalStudentsPage({
                           <button className="ghost-action" type="button" onClick={() => openEdit(item)} title="Düzenle" aria-label="Düzenle">
                             <Pencil size={15} />
                           </button>
+                          <button className="ghost-action" type="button" onClick={() => openStudentDocuments(item)} title="Belgeler" aria-label="Belgeler">
+                            <FileText size={15} />
+                          </button>
                           <button className="ghost-action danger" type="button" onClick={() => handleDelete(item)} title="Sil" aria-label="Sil">
                             <Trash2 size={15} />
                           </button>
@@ -319,6 +355,54 @@ export function PrincipalStudentsPage({
         onClose={() => setImportOpen(false)}
         onComplete={onImportComplete}
       />
+
+      {documentStudent ? (
+        <div className="principal-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDocumentStudent(null)}>
+          <div className="principal-modal principal-student-documents-modal" role="dialog" aria-modal="true" aria-labelledby="student-documents-title">
+            <header className="principal-modal-head">
+              <div>
+                <h2 id="student-documents-title">
+                  {documentStudent.firstName} {documentStudent.lastName}
+                </h2>
+                <p className="principal-students-summary-subtitle">Öğrenci belgeleri · {documentStudent.schoolNumber}</p>
+              </div>
+              <button className="principal-modal-close" type="button" onClick={() => setDocumentStudent(null)} aria-label="Kapat">
+                <X size={18} />
+              </button>
+            </header>
+            <div className="principal-modal-body">
+              <div className="principal-student-report-actions">
+                <button className="ghost-action small-action" type="button" onClick={() => void generateStudentReport("attendance")} disabled={reportBusy !== null}>
+                  {reportBusy === "attendance" ? <Loader2 className="spin" size={15} /> : <FileText size={15} />}
+                  Devamsızlık PDF
+                </button>
+                <button className="ghost-action small-action" type="button" onClick={() => void generateStudentReport("development")} disabled={reportBusy !== null}>
+                  {reportBusy === "development" ? <Loader2 className="spin" size={15} /> : <FileText size={15} />}
+                  Gelişim PDF
+                </button>
+              </div>
+              {reportError ? <p className="principal-modal-error">{reportError}</p> : null}
+              {reportMessage ? <p className="principal-modal-success">{reportMessage}</p> : null}
+              <ResourceFileManager
+                title="Üretilen raporlar"
+                category="report"
+                resourceType="student_report"
+                resourceId={documentStudent.id}
+                canUpload={false}
+                emptyText="Bu öğrenci için henüz PDF rapor üretilmedi."
+                refreshSignal={reportRefresh}
+              />
+              <ResourceFileManager
+                title="Öğrenci belgeleri"
+                category="student"
+                resourceType="student"
+                resourceId={documentStudent.id}
+                emptyText="Bu öğrenci için henüz belge yüklenmedi."
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {summaryStudent ? (
         <div className="principal-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeAttendanceSummary()}>

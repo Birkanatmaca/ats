@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"ots/backend/internal/domain/identity"
 	"ots/backend/internal/platform/httpx"
 	"ots/backend/internal/platform/pdf"
 	"ots/backend/internal/platform/storage"
@@ -19,23 +21,38 @@ var allowedUploadCategories = map[string]struct{}{
 	"announcement":  {},
 	"support":       {},
 	"studentimport": {},
+	"homework":      {},
+	"student":       {},
+	"report":        {},
 }
 
 var allowedResourceTypes = map[string]struct{}{
-	"profile":            {},
-	"guidance_case":      {},
-	"announcement":       {},
-	"support_ticket":     {},
-	"student_import_job": {},
+	"profile":             {},
+	"guidance_case":       {},
+	"announcement":        {},
+	"support_ticket":      {},
+	"student_import_job":  {},
+	"homework_assignment": {},
+	"homework_submission": {},
+	"student":             {},
+	"student_report":      {},
+	"billing_account":     {},
+	"service_trip":        {},
 }
 
 func (h *Handler) registerFileRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/files", h.listFiles)
 	mux.HandleFunc("POST /api/v1/files/upload", h.uploadFile)
+	mux.HandleFunc("GET /api/v1/files/public/{key...}", h.getPublicFile)
 	mux.HandleFunc("GET /api/v1/files/meta/{key...}", h.getFileMeta)
 	mux.HandleFunc("GET /api/v1/files/{key...}", h.getFile)
 	mux.HandleFunc("POST /api/v1/reports/guidance-note-pdf", h.generateGuidanceNotePDF)
 	mux.HandleFunc("POST /api/v1/reports/progress-report-pdf", h.generateProgressReportPDF)
+	mux.HandleFunc("POST /api/v1/reports/attendance", h.generateAttendanceReportPDF)
+	mux.HandleFunc("POST /api/v1/reports/billing-receipt", h.generateBillingReceiptPDF)
+	mux.HandleFunc("POST /api/v1/reports/guidance-case-summary", h.generateGuidanceCaseSummaryPDF)
+	mux.HandleFunc("POST /api/v1/reports/student-development", h.generateStudentDevelopmentReportPDF)
+	mux.HandleFunc("POST /api/v1/reports/service-trip", h.generateServiceTripReportPDF)
 }
 
 func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +84,14 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 	resourceID := strings.TrimSpace(r.FormValue("resourceId"))
 	if resourceID == "" {
 		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "resourceId zorunludur.", nil)
+		return
+	}
+	if resourceType == "profile" && resourceID != principal.UserID && principal.Role != identity.RolePrincipal && principal.Role != identity.RoleSystemAdmin {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Profil görseli için yetkiniz yok.", nil)
+		return
+	}
+	if !h.canUploadFileResource(r.Context(), principal, resourceType, resourceID) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu kaynak için dosya yükleme yetkiniz yok.", nil)
 		return
 	}
 
@@ -136,6 +161,19 @@ func (h *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Dosyaya erişim yetkiniz yok.", nil)
 		return
 	}
+	meta, found, err := h.fileStorage.Metadata(r.Context(), key)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "FILE_METADATA_FAILED", "Dosya metadata alınamadı.", nil)
+		return
+	}
+	if !found {
+		httpx.WriteError(w, http.StatusNotFound, "FILE_NOT_FOUND", "Dosya bulunamadı.", nil)
+		return
+	}
+	if !h.canReadFileResource(r.Context(), principal, meta) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu dosyayı görüntüleme yetkiniz yok.", nil)
+		return
+	}
 
 	filePath, err := h.fileStorage.ResolvePath(key)
 	if err != nil {
@@ -152,6 +190,43 @@ func (h *Handler) getFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	http.ServeFile(w, r, filePath)
+}
+
+func (h *Handler) getPublicFile(w http.ResponseWriter, r *http.Request) {
+	if h.fileStorage == nil {
+		httpx.WriteError(w, http.StatusServiceUnavailable, "FILE_STORAGE_DISABLED", "Dosya servisi aktif değil.", nil)
+		return
+	}
+
+	key := strings.TrimSpace(r.PathValue("key"))
+	if key == "" {
+		httpx.WriteError(w, http.StatusNotFound, "FILE_NOT_FOUND", "Dosya bulunamadı.", nil)
+		return
+	}
+	meta, found, err := h.fileStorage.Metadata(r.Context(), key)
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "FILE_METADATA_FAILED", "Dosya metadata alınamadı.", nil)
+		return
+	}
+	if !found || meta.Category != "profile" || meta.ResourceType != "profile" || !strings.HasPrefix(meta.ContentType, "image/") {
+		httpx.WriteError(w, http.StatusNotFound, "FILE_NOT_FOUND", "Dosya bulunamadı.", nil)
+		return
+	}
+
+	filePath, err := h.fileStorage.ResolvePath(key)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, "INVALID_FILE_KEY", "Dosya anahtarı geçersiz.", nil)
+		return
+	}
+	if _, statErr := os.Stat(filePath); statErr != nil {
+		if errors.Is(statErr, os.ErrNotExist) {
+			httpx.WriteError(w, http.StatusNotFound, "FILE_NOT_FOUND", "Dosya bulunamadı.", nil)
+			return
+		}
+		httpx.WriteError(w, http.StatusInternalServerError, "FILE_READ_FAILED", "Dosya okunamadı.", nil)
+		return
+	}
 	http.ServeFile(w, r, filePath)
 }
 
@@ -184,6 +259,10 @@ func (h *Handler) getFileMeta(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusNotFound, "FILE_NOT_FOUND", "Dosya bulunamadı.", nil)
 		return
 	}
+	if !h.canReadFileResource(r.Context(), principal, meta) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu dosyayı görüntüleme yetkiniz yok.", nil)
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, meta, nil)
 }
 
@@ -209,6 +288,14 @@ func (h *Handler) listFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	category := strings.TrimSpace(r.URL.Query().Get("category"))
+	if !h.canReadFileResource(r.Context(), principal, storage.FileMeta{
+		Category:     normalizeUploadCategory(category),
+		ResourceType: resourceType,
+		ResourceID:   resourceID,
+	}) {
+		httpx.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Bu kaynağın dosyalarını görüntüleme yetkiniz yok.", nil)
+		return
+	}
 	offset := parseIntParam(r.URL.Query().Get("offset"), 0, 0, 100000)
 	limit := parseIntParam(r.URL.Query().Get("limit"), 50, 1, 1000)
 
@@ -258,6 +345,88 @@ func parseIntParam(param string, defaultVal, min, max int) int {
 		return max
 	}
 	return val
+}
+
+func (h *Handler) canUploadFileResource(ctx context.Context, principal identity.Principal, resourceType, resourceID string) bool {
+	resourceType = strings.TrimSpace(resourceType)
+	resourceID = strings.TrimSpace(resourceID)
+	switch resourceType {
+	case "profile":
+		return resourceID == principal.UserID || principal.Role == identity.RolePrincipal || principal.Role == identity.RoleSystemAdmin
+	case "announcement":
+		return principal.Role == identity.RolePrincipal || principal.Role == identity.RoleSystemAdmin
+	case "guidance_case":
+		return principal.Role == identity.RoleGuidance && h.canReadGuidanceCaseFile(ctx, principal, resourceID)
+	case "student", "student_import_job":
+		return principal.Role == identity.RolePrincipal || principal.Role == identity.RoleSystemAdmin
+	case "student_report":
+		return h.canViewStudentAttendanceSummary(ctx, principal, resourceID)
+	case "billing_account", "service_trip":
+		return principal.Role == identity.RolePrincipal || principal.Role == identity.RoleSystemAdmin
+	case "homework_assignment":
+		if principal.Role == identity.RolePrincipal || principal.Role == identity.RoleSystemAdmin {
+			return true
+		}
+		return principal.Role == identity.RoleTeacher && h.canReadHomeworkAssignmentFile(ctx, principal, resourceID)
+	case "homework_submission":
+		return principal.Role == identity.RoleGuardian || principal.Role == identity.RolePrincipal || principal.Role == identity.RoleSystemAdmin || hasStudentScope(ctx, resourceID)
+	case "support_ticket":
+		return true
+	default:
+		return principal.Role == identity.RolePrincipal || principal.Role == identity.RoleSystemAdmin
+	}
+}
+
+func (h *Handler) canReadFileResource(ctx context.Context, principal identity.Principal, meta storage.FileMeta) bool {
+	if principal.Role == identity.RolePrincipal || principal.Role == identity.RoleSystemAdmin {
+		return true
+	}
+	switch strings.TrimSpace(meta.ResourceType) {
+	case "profile":
+		return meta.ResourceID == principal.UserID
+	case "announcement":
+		return h.canReadAnnouncementFile(ctx, principal, meta.ResourceID)
+	case "guidance_case":
+		return principal.Role == identity.RoleGuidance && h.canReadGuidanceCaseFile(ctx, principal, meta.ResourceID)
+	case "student", "student_import_job":
+		return false
+	case "student_report":
+		return h.canViewStudentAttendanceSummary(ctx, principal, meta.ResourceID)
+	case "billing_account", "service_trip":
+		return false
+	case "homework_assignment":
+		return principal.Role == identity.RoleTeacher && h.canReadHomeworkAssignmentFile(ctx, principal, meta.ResourceID)
+	case "homework_submission":
+		return meta.UploadedBy == principal.UserID || hasStudentScope(ctx, meta.ResourceID)
+	case "support_ticket":
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *Handler) canReadAnnouncementFile(ctx context.Context, principal identity.Principal, announcementID string) bool {
+	if h.announcements == nil || strings.TrimSpace(announcementID) == "" {
+		return false
+	}
+	_, err := h.announcements.Get(ctx, principal.TenantID, principal.UserID, announcementID, false)
+	return err == nil
+}
+
+func (h *Handler) canReadGuidanceCaseFile(ctx context.Context, principal identity.Principal, caseID string) bool {
+	if h.guidance == nil || strings.TrimSpace(caseID) == "" {
+		return false
+	}
+	_, err := h.guidance.GetCase(ctx, principal.TenantID, principal.UserID, string(principal.Role), caseID)
+	return err == nil
+}
+
+func (h *Handler) canReadHomeworkAssignmentFile(ctx context.Context, principal identity.Principal, assignmentID string) bool {
+	if h.homework == nil || strings.TrimSpace(assignmentID) == "" {
+		return false
+	}
+	item, err := h.homework.GetAssignment(ctx, principal.TenantID, assignmentID)
+	return err == nil && item.CreatedBy == principal.UserID
 }
 
 func (h *Handler) generateGuidanceNotePDF(w http.ResponseWriter, r *http.Request) {

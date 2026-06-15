@@ -77,6 +77,7 @@ export function ProfilePage({
   }));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,8 +154,9 @@ export function ProfilePage({
     }
   }
 
-  function handleAvatarFile(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAvatarFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) {
       return;
     }
@@ -162,23 +164,35 @@ export function ProfilePage({
       setError("Lütfen bir görsel dosyası seçin.");
       return;
     }
-    if (file.size > 900_000) {
-      setError("Görsel en fazla 900 KB olabilir.");
+    if (file.size > 2_000_000) {
+      setError("Görsel en fazla 2 MB olabilir.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") {
-        setForm((current) => ({ ...current, avatarUrl: result }));
-        setError(null);
-      }
-    };
-    reader.readAsDataURL(file);
+    setAvatarUploading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const uploaded = await api.uploadFile({
+        file,
+        category: "profile",
+        resourceType: "profile",
+        resourceId: selectedUserId
+      });
+      setForm((current) => ({ ...current, avatarUrl: api.filePublicURL(uploaded.key) }));
+      setMessage("Profil görseli yüklendi. Kalıcı olması için profili kaydedin.");
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Görsel yüklenemedi.");
+    } finally {
+      setAvatarUploading(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (avatarUploading) {
+      setError("Profil görseli yüklenirken kaydetmeyin.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setMessage(null);
@@ -287,9 +301,10 @@ export function ProfilePage({
                       className="profile-avatar-upload-btn"
                       type="button"
                       aria-label="Profil görseli yükle"
+                      disabled={avatarUploading}
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <Camera size={16} />
+                      {avatarUploading ? <Loader2 className="spin" size={16} /> : <Camera size={16} />}
                     </button>
                   ) : null}
                 </div>
@@ -299,15 +314,15 @@ export function ProfilePage({
                 <p className="profile-visual-lead">Profil görseli ve tema rengi navbar’da görünür.</p>
 
                 <div className="profile-visual-actions">
-                  <button className="ghost-action" type="button" onClick={() => fileInputRef.current?.click()} disabled={!canEditVisual}>
-                    <Camera size={16} />
-                    Görsel yükle
+                  <button className="ghost-action" type="button" onClick={() => fileInputRef.current?.click()} disabled={!canEditVisual || avatarUploading}>
+                    {avatarUploading ? <Loader2 className="spin" size={16} /> : <Camera size={16} />}
+                    {avatarUploading ? "Yükleniyor" : "Görsel yükle"}
                   </button>
                   <button
                     className="ghost-action"
                     type="button"
                     onClick={() => setForm((current) => ({ ...current, avatarUrl: "" }))}
-                    disabled={!canEditVisual || !form.avatarUrl}
+                    disabled={!canEditVisual || !form.avatarUrl || avatarUploading}
                   >
                     Görseli kaldır
                   </button>
@@ -402,7 +417,7 @@ export function ProfilePage({
                   </select>
                 </label>
               </div>
-              <button className="primary-action profile-save-btn" type="submit" disabled={saving}>
+              <button className="primary-action profile-save-btn" type="submit" disabled={saving || avatarUploading}>
                 {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
                 {isManager && !editingSelf ? "Kullanıcıyı kaydet" : isManager ? "Profili kaydet" : "Görünümü kaydet"}
               </button>

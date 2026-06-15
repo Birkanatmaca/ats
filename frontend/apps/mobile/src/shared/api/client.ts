@@ -31,6 +31,7 @@ import type {
   GuidanceRiskTracking,
   GuidanceSupportPlan,
   GuidanceStudent,
+  GeneratedReportFile,
   GuardianAttendanceRecord,
   GuardianBillingSummary,
   GuardianNotification,
@@ -181,9 +182,13 @@ export class ApiError extends Error {
   }
 }
 
+function isFormDataBody(body: BodyInit | null | undefined): body is FormData {
+  return typeof FormData !== "undefined" && body instanceof FormData;
+}
+
 export async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
   const headers = new Headers(init?.headers);
-  if (!headers.has("Content-Type") && init?.body) {
+  if (!headers.has("Content-Type") && init?.body && !isFormDataBody(init.body)) {
     headers.set("Content-Type", "application/json");
   }
   for (const [key, value] of Object.entries(await authHeaders())) {
@@ -454,6 +459,31 @@ export const api = {
       students: students.map(normalizeRosterStudent)
     };
   },
+  generateAttendanceReport: (payload: { studentId: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/attendance", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  generateBillingReceiptReport: (payload: { studentId: string; paymentId?: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/billing-receipt", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  generateGuidanceCaseSummaryReport: (payload: { caseId: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/guidance-case-summary", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  generateStudentDevelopmentReport: (payload: { studentId: string; teacherNote?: string; counselorNote?: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/student-development", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  generateServiceTripReport: (payload: { tripId: string }) =>
+    request<GeneratedReportFile>("/api/v1/reports/service-trip", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   createStudent: (payload: StudentFormPayload) =>
     request<PrincipalRosterStudent>("/api/v1/students", {
       method: "POST",

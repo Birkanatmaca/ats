@@ -1336,6 +1336,55 @@
   color: var(--sa-muted);
 }
 
+.principal-announcement-attachment-field input[type="file"] {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--sa-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--sa-ink);
+  font-size: 0.82rem;
+}
+
+.principal-announcement-attachment-field small {
+  color: var(--sa-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.principal-announcement-pending-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.principal-announcement-pending-file {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 30px;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.principal-announcement-pending-file span {
+  overflow: hidden;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.principal-announcement-files-modal {
+  width: min(100%, 620px);
+}
+
 @media (max-width: 520px) {
   .principal-teacher-form-grid {
     grid-template-columns: 1fr;
@@ -1426,6 +1475,16 @@
   min-width: 0;
 }
 
+.service-live-detail-main .form-success {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  color: #047857;
+  background: #ecfdf5;
+  font-size: 12px;
+}
+
 .service-live-detail-head,
 .service-live-event-form-head {
   display: flex;
@@ -1451,6 +1510,20 @@
   margin-top: 2px;
   color: var(--sa-muted);
   font-size: 12px;
+}
+
+.service-live-detail-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.service-live-detail-actions .ghost-action:not(.navbar-logout) {
+  min-height: 32px;
+  padding: 0 10px;
+  gap: 6px;
 }
 
 .service-live-detail-metrics {
@@ -1564,6 +1637,7 @@
 
   .service-live-card-actions,
   .service-live-detail-head,
+  .service-live-detail-actions,
   .service-live-event-form-head {
     align-items: stretch;
     flex-direction: column;
