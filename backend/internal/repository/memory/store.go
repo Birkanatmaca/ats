@@ -29,77 +29,77 @@ import (
 )
 
 type Store struct {
-	mu                    sync.RWMutex
-	clock                 func() time.Time
-	tenant                school.Tenant
-	institutions          []superadmindomain.Institution
-	users                 []systemUser
-	auditLogs             []superadmindomain.AuditEntry
-	supportTickets        []superadmindomain.SupportTicket
-	maintenance           superadmindomain.MaintenanceMode
-	credentials           map[string]memoryCredential
-	classes               []school.Class
-	students              []school.Student
-	teachers              []school.Teacher
-	subjects              []school.Subject
-	academicYears         []school.AcademicYear
-	terms                 []school.Term
-	studentMeta           map[string]memoryStudentMeta
-	schedule              scheduling.Schedule
-	schedules             map[string]scheduling.Schedule
-	scheduleChangeLogs    map[string][]scheduling.ScheduleChangeLog
-	requirements          []scheduling.ClassSubjectRequirement
-	availabilities        []scheduling.TeacherAvailability
-	academicAssessments   []academicdomain.Assessment
-	academicResults       []academicdomain.Result
-	learningOutcomes      []academicdomain.LearningOutcome
-	outcomeProgress       []academicdomain.StudentOutcomeProgress
-	sessions              map[string]attendance.Session
-	observations          []observation.Observation
-	guidanceNotes         map[string]*guidanceNoteRecord
-	supportPlans          map[string]*supportPlanRecord
-	guidanceRiskTrackings map[string]*riskTrackingRecord
-	guidanceCases         map[string]*guidanceCaseRecord
-	guidanceCaseEvents    map[string]*guidanceCaseEventRecord
-	deviceTokens          []memoryDeviceToken
-	notificationPrefs     map[string]pushdomain.Preferences
-	pushDeliveryLogs      []memoryDeliveryLog
-	announcements         []school.Announcement
-	targetedAnnouncements map[string]memoryTargetedAnnouncement
-	announcementReads     map[string]time.Time
-	announcementTemplates map[string]announcementdomain.Template
-	studentImportJobs     map[string]memoryImportJob
-	notifications         []memoryNotification
-	studentGuardians      []memoryStudentGuardian
-	guardianProfiles      []memoryGuardianProfile
-	resetTokens           map[string]memoryResetToken
-	aiConversations       []memoryAIConversation
-	aiMessages            []memoryAIMessage
-	aiPendingActions      []memoryAIPendingAction
-	aiToolCalls           []memoryAIToolCall
-	aiSeq                 int
-	aiCostSettings        aidomain.CostSettings
-	aiProviderSettings    aidomain.ProviderSettings
-	tenantAIQuotas        map[string]aidomain.TenantQuota
-	billingSettings       billingdomain.Settings
-	billingAccounts       []billingdomain.BillingAccount
-	paymentPlans          []billingdomain.PaymentPlan
-	paymentInstallments   []billingdomain.PaymentInstallment
-	payments              []billingdomain.Payment
-	serviceVehicles       []transportdomain.Vehicle
-	serviceStaff          []transportdomain.Staff
-	serviceRoutes         []transportdomain.Route
-	serviceRouteStops     []transportdomain.RouteStop
-	serviceAssignments    []transportdomain.Assignment
+	mu                        sync.RWMutex
+	clock                     func() time.Time
+	tenant                    school.Tenant
+	institutions              []superadmindomain.Institution
+	users                     []systemUser
+	auditLogs                 []superadmindomain.AuditEntry
+	supportTickets            []superadmindomain.SupportTicket
+	maintenance               superadmindomain.MaintenanceMode
+	credentials               map[string]memoryCredential
+	classes                   []school.Class
+	students                  []school.Student
+	teachers                  []school.Teacher
+	subjects                  []school.Subject
+	academicYears             []school.AcademicYear
+	terms                     []school.Term
+	studentMeta               map[string]memoryStudentMeta
+	schedule                  scheduling.Schedule
+	schedules                 map[string]scheduling.Schedule
+	scheduleChangeLogs        map[string][]scheduling.ScheduleChangeLog
+	requirements              []scheduling.ClassSubjectRequirement
+	availabilities            []scheduling.TeacherAvailability
+	academicAssessments       []academicdomain.Assessment
+	academicResults           []academicdomain.Result
+	learningOutcomes          []academicdomain.LearningOutcome
+	outcomeProgress           []academicdomain.StudentOutcomeProgress
+	sessions                  map[string]attendance.Session
+	observations              []observation.Observation
+	guidanceNotes             map[string]*guidanceNoteRecord
+	supportPlans              map[string]*supportPlanRecord
+	guidanceRiskTrackings     map[string]*riskTrackingRecord
+	guidanceCases             map[string]*guidanceCaseRecord
+	guidanceCaseEvents        map[string]*guidanceCaseEventRecord
+	deviceTokens              []memoryDeviceToken
+	notificationPrefs         map[string]pushdomain.Preferences
+	pushDeliveryLogs          []memoryDeliveryLog
+	announcements             []school.Announcement
+	targetedAnnouncements     map[string]memoryTargetedAnnouncement
+	announcementReads         map[string]time.Time
+	announcementTemplates     map[string]announcementdomain.Template
+	studentImportJobs         map[string]memoryImportJob
+	notifications             []memoryNotification
+	studentGuardians          []memoryStudentGuardian
+	guardianProfiles          []memoryGuardianProfile
+	resetTokens               map[string]memoryResetToken
+	aiConversations           []memoryAIConversation
+	aiMessages                []memoryAIMessage
+	aiPendingActions          []memoryAIPendingAction
+	aiToolCalls               []memoryAIToolCall
+	aiSeq                     int
+	aiCostSettings            aidomain.CostSettings
+	aiProviderSettings        aidomain.ProviderSettings
+	tenantAIQuotas            map[string]aidomain.TenantQuota
+	billingSettings           billingdomain.Settings
+	billingAccounts           []billingdomain.BillingAccount
+	paymentPlans              []billingdomain.PaymentPlan
+	paymentInstallments       []billingdomain.PaymentInstallment
+	payments                  []billingdomain.Payment
+	serviceVehicles           []transportdomain.Vehicle
+	serviceStaff              []transportdomain.Staff
+	serviceRoutes             []transportdomain.Route
+	serviceRouteStops         []transportdomain.RouteStop
+	serviceAssignments        []transportdomain.Assignment
 	serviceTrips              []transportdomain.Trip
 	serviceTripLocations      []transportdomain.TripLocation
 	serviceTripEvents         []transportdomain.TripEvent
 	serviceTripApproachAlerts map[string]struct{}
-	lifeMeals             []lifedomain.MealMenu
-	studySessions         []lifedomain.StudySession
-	studyAttendance       []lifedomain.StudyAttendance
-	clubs                 []lifedomain.Club
-	clubMemberships       []lifedomain.ClubMembership
+	lifeMeals                 []lifedomain.MealMenu
+	studySessions             []lifedomain.StudySession
+	studyAttendance           []lifedomain.StudyAttendance
+	clubs                     []lifedomain.Club
+	clubMemberships           []lifedomain.ClubMembership
 }
 
 type memoryResetToken struct {
@@ -607,24 +607,24 @@ func NewStore(clock func() time.Time) *Store {
 			CompanyName:       "OGTA Platform",
 			CompanyEmail:      "billing@ogta.ai",
 		},
-		billingAccounts:      billingAccounts,
-		paymentPlans:         paymentPlans,
-		paymentInstallments:  paymentInstallments,
-		payments:             payments,
-		serviceVehicles:      serviceVehicles,
-		serviceStaff:         serviceStaff,
-		serviceRoutes:        serviceRoutes,
-		serviceRouteStops:    serviceRouteStops,
-		serviceAssignments:   serviceAssignments,
-		serviceTrips:         []transportdomain.Trip{},
+		billingAccounts:           billingAccounts,
+		paymentPlans:              paymentPlans,
+		paymentInstallments:       paymentInstallments,
+		payments:                  payments,
+		serviceVehicles:           serviceVehicles,
+		serviceStaff:              serviceStaff,
+		serviceRoutes:             serviceRoutes,
+		serviceRouteStops:         serviceRouteStops,
+		serviceAssignments:        serviceAssignments,
+		serviceTrips:              []transportdomain.Trip{},
 		serviceTripLocations:      []transportdomain.TripLocation{},
-		serviceTripEvents:           []transportdomain.TripEvent{},
+		serviceTripEvents:         []transportdomain.TripEvent{},
 		serviceTripApproachAlerts: map[string]struct{}{},
-		lifeMeals:            lifeMeals,
-		studySessions:        studySessions,
-		studyAttendance:      studyAttendance,
-		clubs:                clubs,
-		clubMemberships:      clubMemberships,
+		lifeMeals:                 lifeMeals,
+		studySessions:             studySessions,
+		studyAttendance:           studyAttendance,
+		clubs:                     clubs,
+		clubMemberships:           clubMemberships,
 	}
 }
 
@@ -1624,6 +1624,168 @@ func (s *Store) PrincipalSummary(_ context.Context, tenantID string) dashboard.P
 	}
 }
 
+func (s *Store) PrincipalReportOverview(_ context.Context, tenantID string, from time.Time, to time.Time) dashboard.PrincipalReportOverview {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	fromDay := reportDayStartMemory(from)
+	toDay := reportDayStartMemory(to)
+	if toDay.Before(fromDay) {
+		fromDay, toDay = toDay, fromDay
+	}
+	toExclusive := toDay.AddDate(0, 0, 1)
+	asOf := reportDayStartMemory(s.clock())
+
+	report := dashboard.PrincipalReportOverview{
+		From:        fromDay.Format("2006-01-02"),
+		To:          toDay.Format("2006-01-02"),
+		GeneratedAt: s.clock(),
+		Attendance:  dashboard.ReportAttendanceOverview{Daily: []dashboard.ReportAttendanceDaily{}},
+		Billing:     dashboard.ReportBillingOverview{Currency: "TRY"},
+	}
+	if tenantID != s.tenant.ID {
+		return report
+	}
+
+	daily := map[string]*dashboard.ReportAttendanceDaily{}
+	for _, session := range s.sessions {
+		if session.StartedAt.Before(fromDay) || !session.StartedAt.Before(toExclusive) {
+			continue
+		}
+		report.Attendance.Sessions++
+		dayKey := reportDayStartMemory(session.StartedAt).Format("2006-01-02")
+		item, ok := daily[dayKey]
+		if !ok {
+			item = &dashboard.ReportAttendanceDaily{Date: dayKey}
+			daily[dayKey] = item
+		}
+		item.Sessions++
+		if session.FinalizedAt == nil {
+			continue
+		}
+		report.Attendance.FinalizedSessions++
+		item.FinalizedSessions++
+		for _, record := range session.Records {
+			switch record.Status {
+			case "present":
+				report.Attendance.Present++
+			case "absent":
+				report.Attendance.Absent++
+				item.Absent++
+			case "late":
+				report.Attendance.Late++
+				item.Late++
+			case "excused":
+				report.Attendance.Excused++
+			}
+		}
+	}
+	if report.Attendance.Sessions > 0 {
+		report.Attendance.CompletionPct = report.Attendance.FinalizedSessions * 100 / report.Attendance.Sessions
+	}
+	dailyKeys := make([]string, 0, len(daily))
+	for key := range daily {
+		dailyKeys = append(dailyKeys, key)
+	}
+	sort.Strings(dailyKeys)
+	for _, key := range dailyKeys {
+		report.Attendance.Daily = append(report.Attendance.Daily, *daily[key])
+	}
+
+	for _, plan := range s.paymentPlans {
+		if plan.TenantID == tenantID && strings.TrimSpace(plan.Currency) != "" {
+			report.Billing.Currency = strings.TrimSpace(plan.Currency)
+			break
+		}
+	}
+	for _, payment := range s.payments {
+		if payment.TenantID != tenantID || payment.Void || payment.PaidAt.Before(fromDay) || !payment.PaidAt.Before(toExclusive) {
+			continue
+		}
+		report.Billing.CollectedAmount += payment.Amount
+		report.Billing.PaymentCount++
+	}
+	for _, raw := range s.paymentInstallments {
+		if raw.TenantID != tenantID {
+			continue
+		}
+		item := s.paymentInstallmentSnapshotLocked(raw)
+		if item.Status == billingdomain.InstallmentPaid || item.Status == billingdomain.InstallmentCancelled || item.RemainingAmount <= 0 {
+			continue
+		}
+		dueDate, err := time.Parse("2006-01-02", item.DueDate)
+		if err != nil {
+			continue
+		}
+		if dueDate.Before(asOf) {
+			report.Billing.OverdueAmount += item.RemainingAmount
+			report.Billing.OverdueCount++
+			continue
+		}
+		if dueDate.Before(toExclusive) {
+			report.Billing.UpcomingAmount += item.RemainingAmount
+			report.Billing.UpcomingCount++
+		}
+	}
+	report.Billing.CollectedAmount = memoryRoundMoney(report.Billing.CollectedAmount)
+	report.Billing.OverdueAmount = memoryRoundMoney(report.Billing.OverdueAmount)
+	report.Billing.UpcomingAmount = memoryRoundMoney(report.Billing.UpcomingAmount)
+
+	for _, rec := range s.guidanceCases {
+		if rec == nil || rec.Deleted || rec.TenantID != tenantID {
+			continue
+		}
+		switch rec.Status {
+		case "open":
+			report.Guidance.OpenCases++
+		case "monitoring":
+			report.Guidance.MonitoringCases++
+		case "closed":
+			report.Guidance.ClosedCases++
+		}
+		if (rec.Status == "open" || rec.Status == "monitoring") && (rec.Priority == "high" || rec.Priority == "critical") {
+			report.Guidance.HighPriorityOpen++
+		}
+		if !rec.CreatedAt.Before(fromDay) && rec.CreatedAt.Before(toExclusive) {
+			report.Guidance.NewCases++
+		}
+	}
+	for _, rec := range s.guidanceCaseEvents {
+		if rec == nil || rec.Deleted || rec.TenantID != tenantID {
+			continue
+		}
+		if !rec.OccurredAt.Before(fromDay) && rec.OccurredAt.Before(toExclusive) {
+			report.Guidance.Events++
+		}
+	}
+
+	for _, trip := range s.serviceTrips {
+		if trip.TenantID != tenantID || trip.StartedAt.Before(fromDay) || !trip.StartedAt.Before(toExclusive) {
+			continue
+		}
+		report.Transport.Trips++
+		switch trip.Status {
+		case transportdomain.TripCompleted:
+			report.Transport.CompletedTrips++
+		case transportdomain.TripActive:
+			report.Transport.ActiveTrips++
+		}
+	}
+	for _, event := range s.serviceTripEvents {
+		if event.TenantID != tenantID || event.CreatedAt.Before(fromDay) || !event.CreatedAt.Before(toExclusive) {
+			continue
+		}
+		report.Transport.Events++
+		switch event.EventType {
+		case "delay_note":
+			report.Transport.DelayEvents++
+		case "incident":
+			report.Transport.IncidentEvents++
+		}
+	}
+
+	return report
+}
+
 func buildMemoryPrincipalOperations(todayLessons, finalizedToday int, scheduleStatus string, classAttendance []dashboard.ClassAttendance) []dashboard.OperationItem {
 	operations := []dashboard.OperationItem{}
 	if scheduleStatus != "published" {
@@ -1650,6 +1812,10 @@ func buildMemoryPrincipalOperations(todayLessons, finalizedToday int, scheduleSt
 		operations = append(operations, dashboard.OperationItem{ID: "op-all-clear", Title: "Bugün için bekleyen kritik operasyon yok", Status: "operational", Priority: "normal", Kind: "info", TargetPath: "/dashboard/operations"})
 	}
 	return operations
+}
+
+func reportDayStartMemory(value time.Time) time.Time {
+	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
 }
 
 func maxInt(a, b int) int {

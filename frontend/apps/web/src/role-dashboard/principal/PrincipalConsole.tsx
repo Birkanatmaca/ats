@@ -18,6 +18,7 @@ import { PrincipalClassesPage } from "./pages/PrincipalClassesPage";
 import { PrincipalGuardiansPage } from "./pages/PrincipalGuardiansPage";
 import { PrincipalOperationsPage } from "./pages/PrincipalOperationsPage";
 import { PrincipalOverviewPage } from "./pages/PrincipalOverviewPage";
+import { PrincipalReportsPage } from "./pages/PrincipalReportsPage";
 import { PrincipalServiceDriversPage } from "./pages/PrincipalServiceDriversPage";
 import { PrincipalScheduleInputsPage } from "./pages/PrincipalScheduleInputsPage";
 import { PrincipalSchedulePage } from "./pages/PrincipalSchedulePage";
@@ -455,6 +456,7 @@ export function PrincipalConsole({
           <Routes>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<PrincipalOverviewPage data={data} />} />
+            <Route path="reports" element={<PrincipalReportsPage />} />
             <Route
               path="teachers"
               element={

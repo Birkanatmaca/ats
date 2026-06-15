@@ -2,12 +2,17 @@ import type { Role } from "../lib/api";
 
 const principalSegments = new Set([
   "overview",
+  "reports",
   "teachers",
   "students",
+  "guardians",
   "classes",
   "attendance",
+  "billing",
   "schedule",
+  "services",
   "operations",
+  "guidance-cases",
   "announcements",
   "profile"
 ]);

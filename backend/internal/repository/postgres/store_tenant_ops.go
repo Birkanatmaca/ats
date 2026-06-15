@@ -246,6 +246,170 @@ SELECT COUNT(*) FROM schedules WHERE tenant_id = $1 AND status = 'published'`, t
 	}
 }
 
+func (s *Store) PrincipalReportOverview(ctx context.Context, tenantID string, from time.Time, to time.Time) dashboarddomain.PrincipalReportOverview {
+	fromDay := reportDayStart(from)
+	toDay := reportDayStart(to)
+	if toDay.Before(fromDay) {
+		fromDay, toDay = toDay, fromDay
+	}
+	toExclusive := toDay.AddDate(0, 0, 1)
+	asOf := reportDayStart(s.clock())
+
+	report := dashboarddomain.PrincipalReportOverview{
+		From:        fromDay.Format("2006-01-02"),
+		To:          toDay.Format("2006-01-02"),
+		GeneratedAt: s.clock(),
+		Attendance:  dashboarddomain.ReportAttendanceOverview{Daily: []dashboarddomain.ReportAttendanceDaily{}},
+		Billing:     dashboarddomain.ReportBillingOverview{Currency: "TRY"},
+	}
+
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(*),
+       COUNT(*) FILTER (WHERE finalized_at IS NOT NULL)
+FROM attendance_sessions
+WHERE tenant_id = $1
+  AND started_at >= $2
+  AND started_at < $3`, tenantID, fromDay, toExclusive).Scan(&report.Attendance.Sessions, &report.Attendance.FinalizedSessions)
+
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(*) FILTER (WHERE ar.status = 'present'),
+       COUNT(*) FILTER (WHERE ar.status = 'absent'),
+       COUNT(*) FILTER (WHERE ar.status = 'late'),
+       COUNT(*) FILTER (WHERE ar.status = 'excused')
+FROM attendance_records ar
+JOIN attendance_sessions sess ON sess.id = ar.attendance_session_id
+WHERE ar.tenant_id = $1
+  AND sess.finalized_at IS NOT NULL
+  AND sess.started_at >= $2
+  AND sess.started_at < $3`, tenantID, fromDay, toExclusive).Scan(
+		&report.Attendance.Present,
+		&report.Attendance.Absent,
+		&report.Attendance.Late,
+		&report.Attendance.Excused,
+	)
+	if report.Attendance.Sessions > 0 {
+		report.Attendance.CompletionPct = report.Attendance.FinalizedSessions * 100 / report.Attendance.Sessions
+	}
+
+	dailyRows, err := s.db.QueryContext(ctx, `
+SELECT date_trunc('day', sess.started_at)::date AS report_day,
+       COUNT(DISTINCT sess.id) AS sessions,
+       COUNT(DISTINCT sess.id) FILTER (WHERE sess.finalized_at IS NOT NULL) AS finalized_sessions,
+       COUNT(ar.id) FILTER (WHERE ar.status = 'absent' AND sess.finalized_at IS NOT NULL) AS absent_count,
+       COUNT(ar.id) FILTER (WHERE ar.status = 'late' AND sess.finalized_at IS NOT NULL) AS late_count
+FROM attendance_sessions sess
+LEFT JOIN attendance_records ar ON ar.attendance_session_id = sess.id AND ar.tenant_id = sess.tenant_id
+WHERE sess.tenant_id = $1
+  AND sess.started_at >= $2
+  AND sess.started_at < $3
+GROUP BY report_day
+ORDER BY report_day`, tenantID, fromDay, toExclusive)
+	if err == nil {
+		defer dailyRows.Close()
+		for dailyRows.Next() {
+			var day time.Time
+			var item dashboarddomain.ReportAttendanceDaily
+			if err := dailyRows.Scan(&day, &item.Sessions, &item.FinalizedSessions, &item.Absent, &item.Late); err != nil {
+				continue
+			}
+			item.Date = day.Format("2006-01-02")
+			report.Attendance.Daily = append(report.Attendance.Daily, item)
+		}
+	}
+
+	var currency string
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COALESCE(MAX(currency), 'TRY')
+FROM payment_plans
+WHERE tenant_id = $1`, tenantID).Scan(&currency)
+	if strings.TrimSpace(currency) != "" {
+		report.Billing.Currency = strings.TrimSpace(currency)
+	}
+
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COALESCE(SUM(amount), 0)::float8,
+       COUNT(*)
+FROM payments
+WHERE tenant_id = $1
+  AND void = false
+  AND paid_at >= $2
+  AND paid_at < $3`, tenantID, fromDay, toExclusive).Scan(&report.Billing.CollectedAmount, &report.Billing.PaymentCount)
+
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COALESCE(SUM(GREATEST(pi.amount - pi.paid_amount, 0)), 0)::float8,
+       COUNT(*)
+FROM payment_installments pi
+JOIN payment_plans pp ON pp.id = pi.payment_plan_id
+WHERE pi.tenant_id = $1
+  AND pp.status <> 'cancelled'
+  AND pi.status NOT IN ('paid', 'cancelled')
+  AND pi.due_date < $2::date`, tenantID, asOf.Format("2006-01-02")).Scan(&report.Billing.OverdueAmount, &report.Billing.OverdueCount)
+
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COALESCE(SUM(GREATEST(pi.amount - pi.paid_amount, 0)), 0)::float8,
+       COUNT(*)
+FROM payment_installments pi
+JOIN payment_plans pp ON pp.id = pi.payment_plan_id
+WHERE pi.tenant_id = $1
+  AND pp.status <> 'cancelled'
+  AND pi.status NOT IN ('paid', 'cancelled')
+  AND pi.due_date >= $2::date
+  AND pi.due_date < $3::date`, tenantID, asOf.Format("2006-01-02"), toExclusive.Format("2006-01-02")).Scan(
+		&report.Billing.UpcomingAmount,
+		&report.Billing.UpcomingCount,
+	)
+
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(*) FILTER (WHERE status = 'open'),
+       COUNT(*) FILTER (WHERE status = 'monitoring'),
+       COUNT(*) FILTER (WHERE status = 'closed'),
+       COUNT(*) FILTER (WHERE status IN ('open', 'monitoring') AND priority IN ('high', 'critical')),
+       COUNT(*) FILTER (WHERE created_at >= $2 AND created_at < $3)
+FROM guidance_cases
+WHERE tenant_id = $1
+  AND deleted_at IS NULL`, tenantID, fromDay, toExclusive).Scan(
+		&report.Guidance.OpenCases,
+		&report.Guidance.MonitoringCases,
+		&report.Guidance.ClosedCases,
+		&report.Guidance.HighPriorityOpen,
+		&report.Guidance.NewCases,
+	)
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM guidance_case_events
+WHERE tenant_id = $1
+  AND deleted_at IS NULL
+  AND occurred_at >= $2
+  AND occurred_at < $3`, tenantID, fromDay, toExclusive).Scan(&report.Guidance.Events)
+
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(*),
+       COUNT(*) FILTER (WHERE status = 'completed'),
+       COUNT(*) FILTER (WHERE status = 'active')
+FROM service_trips
+WHERE tenant_id = $1
+  AND started_at >= $2
+  AND started_at < $3`, tenantID, fromDay, toExclusive).Scan(
+		&report.Transport.Trips,
+		&report.Transport.CompletedTrips,
+		&report.Transport.ActiveTrips,
+	)
+	_ = s.db.QueryRowContext(ctx, `
+SELECT COUNT(*),
+       COUNT(*) FILTER (WHERE event_type = 'delay_note'),
+       COUNT(*) FILTER (WHERE event_type = 'incident')
+FROM service_trip_events
+WHERE tenant_id = $1
+  AND created_at >= $2
+  AND created_at < $3`, tenantID, fromDay, toExclusive).Scan(
+		&report.Transport.Events,
+		&report.Transport.DelayEvents,
+		&report.Transport.IncidentEvents,
+	)
+
+	return report
+}
+
 func buildPrincipalOperations(todayLessons, finalizedToday, publishedSchedules int, classAttendance []dashboarddomain.ClassAttendance) []dashboarddomain.OperationItem {
 	operations := []dashboarddomain.OperationItem{}
 	if publishedSchedules == 0 {
@@ -361,6 +525,10 @@ func isoWeekday(value time.Time) int {
 		return 7
 	}
 	return weekday
+}
+
+func reportDayStart(value time.Time) time.Time {
+	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
 }
 
 func (s *Store) scanObservation(row interface {

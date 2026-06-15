@@ -427,6 +427,53 @@ export type PrincipalSummary = {
   operations: OperationItem[];
 };
 
+export type PrincipalReportOverview = {
+  from: string;
+  to: string;
+  generatedAt: string;
+  attendance: {
+    sessions: number;
+    finalizedSessions: number;
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+    completionPct: number;
+    daily: Array<{
+      date: string;
+      sessions: number;
+      finalizedSessions: number;
+      absent: number;
+      late: number;
+    }>;
+  };
+  billing: {
+    collectedAmount: number;
+    paymentCount: number;
+    overdueAmount: number;
+    overdueCount: number;
+    upcomingAmount: number;
+    upcomingCount: number;
+    currency: string;
+  };
+  guidance: {
+    openCases: number;
+    monitoringCases: number;
+    closedCases: number;
+    highPriorityOpen: number;
+    newCases: number;
+    events: number;
+  };
+  transport: {
+    trips: number;
+    completedTrips: number;
+    activeTrips: number;
+    events: number;
+    delayEvents: number;
+    incidentEvents: number;
+  };
+};
+
 export type ClassAttendance = {
   className: string;
   completed: number;
@@ -2207,6 +2254,13 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   dashboard: () => request<PrincipalSummary>("/api/v1/dashboard/principal/summary"),
+  principalReports: (params?: { from?: string; to?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.from) search.set("from", params.from);
+    if (params?.to) search.set("to", params.to);
+    const suffix = search.toString() ? `?${search.toString()}` : "";
+    return request<PrincipalReportOverview>(`/api/v1/dashboard/principal/reports${suffix}`);
+  },
   schedule: () => request<Schedule>("/api/v1/schedules/current"),
   teacherCalendar: () => request<Lesson[] | null>("/api/v1/teachers/me/calendar").then(asArray),
   teacherStudents: () => request<SchoolStudentRecord[] | null>("/api/v1/teachers/me/students").then(asArray),

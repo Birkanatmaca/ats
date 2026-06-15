@@ -42,7 +42,7 @@ Asıl eksikler artık "modül yok" seviyesinde değil; **platform yetenekleri (d
 | B4 | **Distributed queue / job persistence** | Orta | Hatırlatıcılar goroutine tabanlı; instance restart'ında kaybolur. Multi-instance deploy'da çift bildirim riski. |
 | B5 | **Cache katmanı** | Orta | Redis yok. Dashboard sorguları, canlı konum okumaları her seferinde DB'ye gidiyor. |
 | B6 | **WebSocket / gerçek zamanlı kanal** | Orta | Canlı servis takibi polling ile çalışıyor. SSE sadece AI'da var. Harita izleme ve bildirim deneyimi için WS/SSE genelleştirilmeli. |
-| B7 | **Raporlama API'si** | Orta | Trend/agregasyon endpoint'leri dağınık; yoklama-servis-rehberlik kesişim raporları yok (doküman 21'de hedeflenmişti). |
+| B7 | **Raporlama API'si** | Orta | Müdür için tarih aralıklı yoklama, tahsilat, rehberlik ve servis agregasyon endpoint'i eklendi; akademik BI, snapshot ve derin trend raporları sonraki fazda. |
 | B8 | **Online ödeme (sanal POS)** | Düşük* | Billing taksit takibi var ama veli online ödeme yapamıyor. (*ticari olarak yüksek değer) |
 
 ### 2.3 Hızlı Teknik Borç Notları
@@ -67,7 +67,7 @@ Asıl eksikler artık "modül yok" seviyesinde değil; **platform yetenekleri (d
 |---|---|---|---|
 | W1 | **Canlı servis takip haritası (principal/veli)** | Yüksek | Mobilde var, web'de yok. Okul yönetimi gün içinde web'i kullanıyor; harita + aktif sefer listesi web'e taşınmalı. |
 | W2 | **Web push / gerçek zamanlı bildirim** | Orta | Bildirimler sadece sayfa listesi; web push veya en azından in-app realtime rozet yok. |
-| W3 | **Raporlama ekranları** | Orta | Yoklama trendi, akademik gelişim grafikleri, tahsilat yaşlandırma raporu gibi yönetici raporları eksik (B2/B7'ye bağımlı). |
+| W3 | **Raporlama ekranları** | Orta | Müdür web panelinde rapor özeti ekranı eklendi; akademik gelişim grafikleri ve gelişmiş yaşlandırma/drill-down ekranları sonraki fazda. |
 | W4 | **Life modülü (yemek/etüt/kulüp) yönetim ekranları** | Orta | Backend 11 endpoint sunuyor; web'de principal için tam yönetim ekranı görünmüyor. |
 | W5 | **Akademik gelişim ekranları (veli/öğretmen)** | Orta | Assessment import var; sonuç grafikleri ve veli görünümü sınırlı. |
 | W6 | **Erişilebilirlik & i18n altyapısı** | Düşük | Metinler hardcoded TR; ileride çok dillilik istenirse maliyet büyüyecek. |
@@ -234,6 +234,7 @@ Her yeni modül için `modul-onerileri/` klasörüne mevcut şablonla (kapsam �
 - [ ] Veli mobil tab seti tasarımı `18-mobile-dashboard-analizi-ve-ui-plani.md` ile uyumlu güncellendi.
 - [x] Dosya servisi teknik kararı (S3 vs MinIO vs lokal) `12-teknik-kararlar.md`'ye işlendi.
 - [x] PDF/rapor üretimi için ilk operasyonel çıktılar web paneline ve API client'lara bağlandı.
+- [x] Müdür raporlama API'si ve web rapor özeti ekranı ilk faz olarak bağlandı.
 - [ ] Yeni modüller için `modul-onerileri/11..` dosyaları oluşturuldu.
 - [ ] Billing service test kapsamı ≥ %70.
 
@@ -241,6 +242,7 @@ Her yeni modül için `modul-onerileri/` klasörüne mevcut şablonla (kapsam �
 
 ## 10. Uygulama Günlüğü
 
+- 2026-06-15: Müdür raporlama özeti eklendi; `GET /api/v1/dashboard/principal/reports` tarih aralıklı yoklama, tahsilat, rehberlik ve servis agregasyonlarını döndürüyor; web paneline `/dashboard/reports` sekmesi bağlandı: **yapıldı**.
 - 2026-06-13: PDF/rapor üretimi genişletildi; `POST /api/v1/reports/attendance`, `/billing-receipt`, `/guidance-case-summary`, `/student-development`, `/service-trip` endpoint'leri eklendi ve dosya servisine `report` kategorisiyle kaydediliyor: **yapıldı**.
 - 2026-06-13: Web panelinde öğrenci belgeleri modalına devamsızlık/gelişim PDF aksiyonları, rehberlik vaka detayına vaka özeti PDF'i, tahsilat paneline makbuz PDF'i ve servis canlı takip paneline sefer raporu PDF'i bağlandı: **yapıldı**.
 - 2026-06-13: Web ve mobil API client'larına typed rapor üretim metodları eklendi; backend `go test ./...`, web `npm run build` ve mobil `npm run typecheck` doğrulaması geçti: **yapıldı**.

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	attendanceapp "ots/backend/internal/app/attendance"
+	dashboardapp "ots/backend/internal/app/dashboard"
 	guardianapp "ots/backend/internal/app/guardian"
 	guidanceapp "ots/backend/internal/app/guidance"
 	homeworkapp "ots/backend/internal/app/homework"
@@ -54,6 +55,7 @@ func newHandlerTestServer() handlerTestServer {
 		Observation: observationapp.NewService(store),
 		Guardian:    guardianapp.NewService(store),
 		Guidance:    guidanceapp.NewService(store),
+		Dashboard:   dashboardapp.NewService(store),
 		Homework:    homeworkapp.NewService(homeworkStore, clock),
 		Push:        pushapp.NewService(store, platformpush.NewNoopSender(nil)),
 		Transport:   transportapp.NewService(store, clock),

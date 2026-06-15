@@ -54,6 +54,40 @@ func TestAttendanceTodayReportIsPrincipalOnly(t *testing.T) {
 	}
 }
 
+func TestPrincipalReportOverviewIsPrincipalOnly(t *testing.T) {
+	server := newHandlerTestServer()
+	teacherToken := server.login(t, "ogretmen@atlas.k12.tr", "OtsOgretmen!2026")
+	principalToken := server.login(t, "mudur@atlas.k12.tr", "OtsMudur!2026")
+
+	teacherRec := server.request(http.MethodGet, "/api/v1/dashboard/principal/reports", teacherToken, nil)
+	if teacherRec.Code != http.StatusForbidden {
+		t.Fatalf("teacher principal reports status = %d, body = %s", teacherRec.Code, teacherRec.Body.String())
+	}
+
+	principalRec := server.request(http.MethodGet, "/api/v1/dashboard/principal/reports?from=2026-01-01&to=2026-06-15", principalToken, nil)
+	if principalRec.Code != http.StatusOK {
+		t.Fatalf("principal reports status = %d, body = %s", principalRec.Code, principalRec.Body.String())
+	}
+	report := decodeData[struct {
+		From       string `json:"from"`
+		To         string `json:"to"`
+		Attendance struct {
+			CompletionPct int `json:"completionPct"`
+		} `json:"attendance"`
+		Billing struct {
+			Currency string `json:"currency"`
+		} `json:"billing"`
+	}](t, principalRec)
+	if report.From != "2026-01-01" || report.To != "2026-06-15" || report.Billing.Currency == "" {
+		t.Fatalf("unexpected principal report: %+v", report)
+	}
+
+	invalidRec := server.request(http.MethodGet, "/api/v1/dashboard/principal/reports?from=2026-06-15&to=2026-01-01", principalToken, nil)
+	if invalidRec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid date range status = %d, body = %s", invalidRec.Code, invalidRec.Body.String())
+	}
+}
+
 func TestObservationDeleteEnforcesModifyPolicy(t *testing.T) {
 	server := newHandlerTestServer()
 	teacherToken := server.login(t, "ogretmen@atlas.k12.tr", "OtsOgretmen!2026")

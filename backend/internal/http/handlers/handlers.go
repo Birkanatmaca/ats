@@ -138,6 +138,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/support/tickets", h.mySupportTickets)
 	mux.HandleFunc("POST /api/v1/support/tickets", h.createSupportTicket)
 	mux.HandleFunc("GET /api/v1/dashboard/principal/summary", h.principalSummary)
+	mux.HandleFunc("GET /api/v1/dashboard/principal/reports", h.principalReportOverview)
 	mux.HandleFunc("GET /api/v1/dashboard/classes/{classId}/summary", h.classSummary)
 	mux.HandleFunc("GET /api/v1/principal/teachers", h.principalTeachers)
 	mux.HandleFunc("POST /api/v1/principal/teachers", h.provisionPrincipalTeacher)
@@ -442,6 +443,46 @@ func (h *Handler) principalSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, h.dashboard.PrincipalSummary(r.Context(), principal.TenantID), nil)
+}
+
+func (h *Handler) principalReportOverview(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin, identity.RoleSuperAdmin)
+	if !ok {
+		return
+	}
+	now := time.Now()
+	if h.clock != nil {
+		now = h.clock()
+	}
+	to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	from := to.AddDate(0, 0, -29)
+
+	if raw := strings.TrimSpace(r.URL.Query().Get("from")); raw != "" {
+		parsed, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli bir from parametresi gönderilmelidir (YYYY-MM-DD).", nil)
+			return
+		}
+		from = parsed
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("to")); raw != "" {
+		parsed, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli bir to parametresi gönderilmelidir (YYYY-MM-DD).", nil)
+			return
+		}
+		to = parsed
+	}
+	if from.After(to) {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "from tarihi to tarihinden sonra olamaz.", nil)
+		return
+	}
+	if to.Sub(from) > 180*24*time.Hour {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Rapor aralığı en fazla 180 gün olabilir.", nil)
+		return
+	}
+
+	httpx.WriteJSON(w, http.StatusOK, h.dashboard.PrincipalReportOverview(r.Context(), principal.TenantID, from, to), nil)
 }
 
 func (h *Handler) classSummary(w http.ResponseWriter, r *http.Request) {
