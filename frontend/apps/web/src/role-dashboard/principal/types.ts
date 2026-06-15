@@ -42,6 +42,7 @@ export type ClassStudent = {
 /** Müdür panelinde yönetilen öğretmen kaydı (yerel taslak; API ile eşlenebilir). */
 export type PrincipalManagedTeacher = {
   id: string;
+  userId?: string;
   firstName: string;
   lastName: string;
   branch: string;

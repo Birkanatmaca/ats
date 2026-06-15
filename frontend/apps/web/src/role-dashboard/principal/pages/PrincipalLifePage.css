@@ -1,0 +1,278 @@
+.principal-life-page {
+  min-width: 0;
+}
+
+.principal-life-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--sa-border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: var(--sa-surface);
+  box-shadow: var(--sa-shadow);
+}
+
+.principal-life-hero h1 {
+  margin: 4px 0;
+  color: var(--sa-ink);
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.principal-life-hero p {
+  margin: 0;
+  max-width: 680px;
+  color: var(--sa-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.principal-life-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.principal-life-stat {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--sa-border);
+  border-radius: 14px;
+  padding: 13px 14px;
+  background: var(--sa-surface);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.principal-life-stat::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--life-accent);
+}
+
+.principal-life-stat > div {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--life-accent);
+  background: var(--life-soft);
+}
+
+.principal-life-stat--amber {
+  --life-accent: #d97706;
+  --life-soft: rgba(217, 119, 6, 0.14);
+}
+
+.principal-life-stat--green {
+  --life-accent: #059669;
+  --life-soft: rgba(5, 150, 105, 0.13);
+}
+
+.principal-life-stat--blue {
+  --life-accent: #2563eb;
+  --life-soft: rgba(37, 99, 235, 0.12);
+}
+
+.principal-life-stat--rose {
+  --life-accent: #e11d48;
+  --life-soft: rgba(225, 29, 72, 0.12);
+}
+
+.principal-life-stat small {
+  display: block;
+  margin-top: 11px;
+  color: var(--sa-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.principal-life-stat strong {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: var(--sa-ink);
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.principal-life-stat em {
+  display: block;
+  margin-top: 6px;
+  color: var(--sa-muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.principal-life-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.principal-life-column,
+.principal-life-forms {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.principal-life-panel {
+  min-width: 0;
+}
+
+.principal-life-list {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.principal-life-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: #fff;
+}
+
+.principal-life-row-main {
+  min-width: 0;
+}
+
+.principal-life-row-main strong,
+.principal-life-row-main span,
+.principal-life-row-main p,
+.principal-life-row-main em {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.principal-life-row-main strong {
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.principal-life-row-main span {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.principal-life-row-main p {
+  margin: 7px 0 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.principal-life-row-main em {
+  margin-top: 7px;
+  color: #b45309;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.principal-life-icon-btn {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #fecdd3;
+  border-radius: 10px;
+  color: #be123c;
+  background: #fff1f2;
+  cursor: pointer;
+}
+
+.principal-life-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.principal-life-form {
+  padding: 12px;
+}
+
+.principal-life-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.principal-life-form .guidance-data-field {
+  display: grid;
+  gap: 6px;
+}
+
+.principal-life-form .guidance-data-field span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.principal-life-form input,
+.principal-life-form select,
+.principal-life-form textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 9px 10px;
+  color: #0f172a;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+
+.principal-life-form textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.principal-life-form input:focus,
+.principal-life-form select:focus,
+.principal-life-form textarea:focus {
+  border-color: #0891b2;
+  box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.15);
+  outline: none;
+}
+
+@media (max-width: 1180px) {
+  .principal-life-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .principal-life-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .principal-life-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .principal-life-stats,
+  .principal-life-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

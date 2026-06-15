@@ -10,6 +10,7 @@ const principalSegments = new Set([
   "attendance",
   "billing",
   "schedule",
+  "life",
   "services",
   "operations",
   "guidance-cases",
