@@ -7,6 +7,7 @@ const principalSegments = new Set([
   "students",
   "guardians",
   "classes",
+  "academic",
   "attendance",
   "billing",
   "schedule",

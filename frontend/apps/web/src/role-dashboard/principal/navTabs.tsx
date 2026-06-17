@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Bus, CalendarDays, CircleDollarSign, ClipboardCheck, FolderOpen, HeartHandshake, LayoutDashboard, ListChecks, School, Soup, UserCircle, UserRound, UsersRound } from "lucide-react";
+import { BarChart3, Bell, BookOpenCheck, Bus, CalendarDays, CircleDollarSign, ClipboardCheck, FolderOpen, HeartHandshake, LayoutDashboard, ListChecks, School, Soup, UserCircle, UserRound, UsersRound } from "lucide-react";
 
 export const principalTabs = [
   { id: "overview", label: "Genel", icon: <LayoutDashboard size={18} /> },
@@ -7,6 +7,7 @@ export const principalTabs = [
   { id: "students", label: "Öğrenciler", icon: <UsersRound size={18} /> },
   { id: "guardians", label: "Veliler", icon: <HeartHandshake size={18} /> },
   { id: "classes", label: "Sınıflar", icon: <School size={18} /> },
+  { id: "academic", label: "Akademik", icon: <BookOpenCheck size={18} /> },
   { id: "attendance", label: "Yoklama", icon: <ClipboardCheck size={18} /> },
   { id: "billing", label: "Tahsilat", icon: <CircleDollarSign size={18} /> },
   { id: "schedule", label: "Program", icon: <CalendarDays size={18} /> },

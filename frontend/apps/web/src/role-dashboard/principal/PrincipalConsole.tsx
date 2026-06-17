@@ -10,6 +10,7 @@ import { principalTabs } from "./navTabs";
 import { GuidanceCaseDetailPage } from "../guidance/pages/GuidanceCaseDetailPage";
 import { GuidanceCasesPage } from "../guidance/pages/GuidanceCasesPage";
 import { PrincipalAnnouncementsPage } from "./pages/PrincipalAnnouncementsPage";
+import { PrincipalAcademicPage } from "./pages/PrincipalAcademicPage";
 import { PrincipalAttendancePage } from "./pages/PrincipalAttendancePage";
 import { PrincipalBillingPage } from "./pages/PrincipalBillingPage";
 import { PrincipalClassDetailPage } from "./pages/PrincipalClassDetailPage";
@@ -537,6 +538,7 @@ export function PrincipalConsole({
               }
             />
             <Route path="attendance" element={<PrincipalAttendancePage data={data} classes={classes} sections={sections} students={students} />} />
+            <Route path="academic" element={<PrincipalAcademicPage classes={classes} students={students} />} />
             <Route path="billing" element={<PrincipalBillingPage students={students} classes={classes} />} />
             <Route path="life" element={<PrincipalLifePage classes={classes} students={students} teachers={sectionTeacherOptions} />} />
             <Route

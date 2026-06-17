@@ -69,7 +69,7 @@ Asıl eksikler artık "modül yok" seviyesinde değil; **platform yetenekleri (d
 | W2 | **Web push / gerçek zamanlı bildirim** | Orta | Bildirimler sadece sayfa listesi; web push veya en azından in-app realtime rozet yok. |
 | W3 | **Raporlama ekranları** | Orta | Müdür web panelinde rapor özeti ekranı eklendi; akademik gelişim grafikleri ve gelişmiş yaşlandırma/drill-down ekranları sonraki fazda. |
 | W4 | **Life modülü (yemek/etüt/kulüp) yönetim ekranları** | Orta | Principal web paneline okul yaşamı ekranı eklendi; yemek menüsü, etüt, etüt katılımı, kulüp ve kulüp üyeliği API'lere bağlı yönetiliyor. |
-| W5 | **Akademik gelişim ekranları (veli/öğretmen)** | Orta | Assessment import var; sonuç grafikleri ve veli görünümü sınırlı. |
+| W5 | **Akademik gelişim ekranları (müdür/veli/öğretmen)** | Orta | Müdür web panelinde sınıf/öğrenci akademik takip, değerlendirme oluşturma ve hızlı sonuç girişi eklendi; öğretmen/veli derin grafik paritesi sonraki fazda. |
 | W6 | **Erişilebilirlik & i18n altyapısı** | Düşük | Metinler hardcoded TR; ileride çok dillilik istenirse maliyet büyüyecek. |
 
 ---
@@ -101,7 +101,7 @@ Asıl eksikler artık "modül yok" seviyesinde değil; **platform yetenekleri (d
 | Veli ders programı | ✓ | ✓ | ✗ (M1) |
 | Billing / taksit görünümü | ✓ | ✓ (principal) | ✗ |
 | Life (yemek/etüt/kulüp) | ✓ | Kısmi (W4) | Kısmi (teacher/principal) |
-| Akademik gelişim | ✓ | Kısmi (W5) | ✗ |
+| Akademik gelişim | ✓ | Kısmi (W5; müdür paneli eklendi) | Kısmi |
 | Schedule builder | ✓ | ✓ | — (bilinçli) |
 
 ---
@@ -242,6 +242,7 @@ Her yeni modül için `modul-onerileri/` klasörüne mevcut şablonla (kapsam �
 
 ## 10. Uygulama Günlüğü
 
+- 2026-06-17: Müdür web paneline `/dashboard/academic` akademik gelişim ekranı eklendi; sınıf/öğrenci/değerlendirme seçimi, KPI kartları, ders kırılımı, destek listesi, öğrenci gelişim özeti, değerlendirme oluşturma ve hızlı sonuç girişi mevcut academic API'lerine bağlandı: **yapıldı**.
 - 2026-06-15: Müdür raporlama özeti eklendi; `GET /api/v1/dashboard/principal/reports` tarih aralıklı yoklama, tahsilat, rehberlik ve servis agregasyonlarını döndürüyor; web paneline `/dashboard/reports` sekmesi bağlandı: **yapıldı**.
 - 2026-06-15: Web canlı servis haritası dış static map bağımlılığından çıkarıldı; principal ve veli servis ekranlarında son konum, konum izi ve durak hedefini çizen ortak in-app `ServiceLiveMap` bileşeni eklendi: **yapıldı**.
 - 2026-06-15: Web principal okul yaşamı yönetim ekranı eklendi; `/dashboard/life` altında yemek menüsü yayınlama/silme, etüt oluşturma/katılım işleme, kulüp oluşturma ve kulüp üyeliği kaydetme akışları mevcut life API'lerine bağlandı: **yapıldı**.
