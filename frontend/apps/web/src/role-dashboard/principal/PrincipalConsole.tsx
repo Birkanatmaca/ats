@@ -27,6 +27,7 @@ import { PrincipalSchedulePage } from "./pages/PrincipalSchedulePage";
 import { PrincipalStudentsPage } from "./pages/PrincipalStudentsPage";
 import { PrincipalTeachersPage } from "./pages/PrincipalTeachersPage";
 import { ProfilePage } from "../pages/ProfilePage";
+import { RoleNotificationsPage } from "../pages/RoleNotificationsPage";
 import type { StudentFormPayload } from "./components/StudentFormModal";
 import type { TeacherFormPayload } from "./components/TeacherFormModal";
 import type { ClassSection, ClassStudent, PrincipalConsoleData, PrincipalManagedTeacher, SchoolClass } from "./types";
@@ -606,6 +607,7 @@ export function PrincipalConsole({
                 />
               }
             />
+            <Route path="notifications" element={<RoleNotificationsPage />} />
             <Route path="profile" element={<ProfilePage session={session} onSessionUpdate={onSessionUpdate} />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Routes>

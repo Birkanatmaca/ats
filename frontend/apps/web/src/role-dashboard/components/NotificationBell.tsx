@@ -7,6 +7,7 @@ import { NoticeList, type NoticeItem } from "./NoticeList";
 import "./NotificationBell.css";
 
 type NotificationRecord = UserNotification | GuardianNotification;
+const NOTIFICATION_POLL_INTERVAL_MS = 30000;
 
 function mapNotifications(items: NotificationRecord[]): NoticeItem[] {
   return items.map((item) => ({
@@ -30,27 +31,57 @@ export function NotificationBell({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((item) => !item.readAt).length;
 
-  const loadNotifications = useCallback(async () => {
-    setLoading(true);
+  const loadNotifications = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     try {
       const items = mode === "guardian" ? await api.guardianNotifications() : await api.notifications();
       const list = items ?? [];
       setNotifications(list);
+      setLastSyncedAt(new Date());
       onUnreadChange?.(list.filter((item) => !item.readAt).length);
     } catch {
-      setNotifications([]);
-      onUnreadChange?.(0);
+      if (!options?.silent) {
+        setNotifications([]);
+        onUnreadChange?.(0);
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [mode, onUnreadChange]);
 
   useEffect(() => {
     void loadNotifications();
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void loadNotifications({ silent: true });
+      }
+    }, NOTIFICATION_POLL_INTERVAL_MS);
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") {
+        void loadNotifications({ silent: true });
+      }
+    }
+
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, [loadNotifications]);
 
   useEffect(() => {
@@ -88,6 +119,7 @@ export function NotificationBell({
         aria-expanded={open}
         aria-label={`Bildirimler${unreadCount > 0 ? `, ${unreadCount} okunmamış` : ""}`}
         className="notification-bell-trigger"
+        title={lastSyncedAt ? `Son kontrol ${lastSyncedAt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}` : "Bildirimler"}
         type="button"
         onClick={() => {
           setOpen((current) => !current);
@@ -104,7 +136,14 @@ export function NotificationBell({
         <div className="notification-bell-panel">
           <header>
             <strong>Bildirimler</strong>
-            {loading ? <small>Yükleniyor…</small> : <small>{unreadCount} okunmamış</small>}
+            {loading ? (
+              <small>Yükleniyor…</small>
+            ) : (
+              <small>
+                <span className="notification-bell-live-dot" aria-hidden />
+                {unreadCount} okunmamış
+              </small>
+            )}
           </header>
           <NoticeList notices={mapNotifications(notifications.slice(0, 6))} onNoticeClick={(id) => void markRead(id)} emptyText="Bildirim bulunmuyor." />
           <footer className="notification-bell-footer">

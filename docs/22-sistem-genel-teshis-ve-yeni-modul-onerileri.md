@@ -66,7 +66,7 @@ Asıl eksikler artık "modül yok" seviyesinde değil; **platform yetenekleri (d
 | # | Eksik | Etki | Açıklama |
 |---|---|---|---|
 | W1 | **Canlı servis takip haritası (principal/veli)** | Yüksek | Web principal ve veli ekranlarında in-app canlı mini harita, son konum, durak ve konum izi MVP olarak bağlandı; tam ekran harita ve realtime kanal sonraki fazda. |
-| W2 | **Web push / gerçek zamanlı bildirim** | Orta | Bildirimler sadece sayfa listesi; web push veya en azından in-app realtime rozet yok. |
+| W2 | **Web push / gerçek zamanlı bildirim** | Orta | Web bildirim zili 30 sn aralıkla ve focus/visibility dönüşlerinde sessiz yenileniyor; müdür bildirim merkezi route'u eklendi. Tarayıcı push ve WS/SSE sonraki fazda. |
 | W3 | **Raporlama ekranları** | Orta | Müdür web panelinde rapor özeti ekranı eklendi; akademik gelişim grafikleri ve gelişmiş yaşlandırma/drill-down ekranları sonraki fazda. |
 | W4 | **Life modülü (yemek/etüt/kulüp) yönetim ekranları** | Orta | Principal web paneline okul yaşamı ekranı eklendi; yemek menüsü, etüt, etüt katılımı, kulüp ve kulüp üyeliği API'lere bağlı yönetiliyor. |
 | W5 | **Akademik gelişim ekranları (müdür/veli/öğretmen)** | Orta | Müdür web panelinde sınıf/öğrenci akademik takip, değerlendirme oluşturma ve hızlı sonuç girişi eklendi; öğretmen/veli derin grafik paritesi sonraki fazda. |
@@ -243,6 +243,7 @@ Her yeni modül için `modul-onerileri/` klasörüne mevcut şablonla (kapsam �
 ## 10. Uygulama Günlüğü
 
 - 2026-06-17: Müdür web paneline `/dashboard/academic` akademik gelişim ekranı eklendi; sınıf/öğrenci/değerlendirme seçimi, KPI kartları, ders kırılımı, destek listesi, öğrenci gelişim özeti, değerlendirme oluşturma ve hızlı sonuç girişi mevcut academic API'lerine bağlandı: **yapıldı**.
+- 2026-06-17: Web bildirim deneyimi güçlendirildi; ortak bildirim zili sessiz polling + focus/visibility yenilemesiyle okunmamış rozetini güncelliyor, müdür paneline `/dashboard/notifications` bildirim merkezi route'u ve menü girişi eklendi: **yapıldı**.
 - 2026-06-15: Müdür raporlama özeti eklendi; `GET /api/v1/dashboard/principal/reports` tarih aralıklı yoklama, tahsilat, rehberlik ve servis agregasyonlarını döndürüyor; web paneline `/dashboard/reports` sekmesi bağlandı: **yapıldı**.
 - 2026-06-15: Web canlı servis haritası dış static map bağımlılığından çıkarıldı; principal ve veli servis ekranlarında son konum, konum izi ve durak hedefini çizen ortak in-app `ServiceLiveMap` bileşeni eklendi: **yapıldı**.
 - 2026-06-15: Web principal okul yaşamı yönetim ekranı eklendi; `/dashboard/life` altında yemek menüsü yayınlama/silme, etüt oluşturma/katılım işleme, kulüp oluşturma ve kulüp üyeliği kaydetme akışları mevcut life API'lerine bağlandı: **yapıldı**.

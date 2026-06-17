@@ -127,7 +127,18 @@
 }
 
 .notification-bell-panel header small {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   color: #64748b;
+}
+
+.notification-bell-live-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
 }
 
 .notification-bell-footer {

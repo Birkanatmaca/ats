@@ -16,6 +16,7 @@ const principalSegments = new Set([
   "operations",
   "guidance-cases",
   "announcements",
+  "notifications",
   "profile"
 ]);
 
