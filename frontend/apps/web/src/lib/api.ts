@@ -500,6 +500,33 @@ export type UserNotification = {
   createdAt: string;
 };
 
+export type HomeworkAssignment = {
+  id: string;
+  tenantId: string;
+  classId: string;
+  course: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  attachmentKeys?: string[];
+  submissionCount: number;
+};
+
+export type HomeworkSubmission = {
+  id: string;
+  tenantId: string;
+  assignmentId: string;
+  studentId: string;
+  content: string;
+  fileKey?: string;
+  submittedAt: string;
+  feedback?: string;
+  score?: number;
+};
+
 export type Lesson = {
   id: string;
   scheduleId: string;
@@ -2553,6 +2580,34 @@ export const api = {
     }),
   notificationDelete: (notificationId: string) =>
     request<void>(`/api/v1/notifications/${notificationId}`, { method: "DELETE" }),
+  homeworkAssignments: (params?: { classId?: string; studentId?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.classId) search.set("classId", params.classId);
+    if (params?.studentId) search.set("studentId", params.studentId);
+    const suffix = search.toString() ? `?${search.toString()}` : "";
+    return request<HomeworkAssignment[] | null>(`/api/v1/homework/assignments${suffix}`).then(asArray);
+  },
+  createHomeworkAssignment: (payload: {
+    classId: string;
+    course: string;
+    title: string;
+    description: string;
+    dueDate: string;
+    attachmentKeys?: string[];
+  }) =>
+    request<HomeworkAssignment>("/api/v1/homework/assignments", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  homeworkAssignment: (assignmentId: string, params?: { studentId?: string }) => {
+    const suffix = params?.studentId ? `?studentId=${encodeURIComponent(params.studentId)}` : "";
+    return request<HomeworkAssignment>(`/api/v1/homework/assignments/${assignmentId}${suffix}`);
+  },
+  submitHomeworkAssignment: (assignmentId: string, payload: { studentId: string; content: string; fileKey?: string }) =>
+    request<HomeworkSubmission>(`/api/v1/homework/assignments/${assignmentId}/submit`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   passwordForgot: (payload: { email: string }) =>
     request<{ message: string; resetToken?: string }>("/api/v1/auth/password/forgot", {
       method: "POST",

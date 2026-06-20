@@ -146,8 +146,8 @@ Mevcut 10 modül önerisi (`modul-onerileri/01..10`) uygulandığı için sırad
 
 ### 7.1 Modül 11 — Ödev ve Etkinlik Takibi (Growth)
 
-- Öğretmen ödev/etkinlik tanımlar (sınıf veya öğrenci hedefli), teslim tarihi + açıklama + ek dosya (B1'e bağımlı).
-- Veli mobilde çocuğunun ödevlerini ve teslim durumunu görür; teslim hatırlatma push'u.
+- Öğretmen ödev/etkinlik tanımlar (sınıf veya öğrenci hedefli), teslim tarihi + açıklama + ek dosya (B1'e bağımlı). Web öğretmen ekranında sınıf bazlı ödev yayınlama ve teslim sayısı izleme ilk faz olarak eklendi.
+- Veli mobil/web tarafında çocuğunun ödevlerini ve teslim durumunu görür; web veli ekranında seçili öğrenci için ödev listesi ve metin teslimi ilk faz olarak eklendi. Teslim hatırlatma push'u sonraki fazda.
 - Yoklama + ödev verisi rehberlik erken uyarı skoruna girdi olur.
 - **Şema:** `assignments`, `assignment_targets`, `assignment_submissions`.
 - **Bağımlılık:** Dosya servisi (Faz 1).
@@ -244,6 +244,7 @@ Her yeni modül için `modul-onerileri/` klasörüne mevcut şablonla (kapsam �
 
 - 2026-06-17: Müdür web paneline `/dashboard/academic` akademik gelişim ekranı eklendi; sınıf/öğrenci/değerlendirme seçimi, KPI kartları, ders kırılımı, destek listesi, öğrenci gelişim özeti, değerlendirme oluşturma ve hızlı sonuç girişi mevcut academic API'lerine bağlandı: **yapıldı**.
 - 2026-06-17: Web bildirim deneyimi güçlendirildi; ortak bildirim zili sessiz polling + focus/visibility yenilemesiyle okunmamış rozetini güncelliyor, müdür paneline `/dashboard/notifications` bildirim merkezi route'u ve menü girişi eklendi: **yapıldı**.
+- 2026-06-20: Ödev modülü web yüzeyi eklendi; öğretmen panelinde `/dashboard/homework` ile sınıf/ders bazlı ödev yayınlama ve teslim sayısı izleme, veli panelinde seçili öğrenci için ödev listesi ve metin teslimi mevcut homework API'lerine bağlandı: **yapıldı**.
 - 2026-06-15: Müdür raporlama özeti eklendi; `GET /api/v1/dashboard/principal/reports` tarih aralıklı yoklama, tahsilat, rehberlik ve servis agregasyonlarını döndürüyor; web paneline `/dashboard/reports` sekmesi bağlandı: **yapıldı**.
 - 2026-06-15: Web canlı servis haritası dış static map bağımlılığından çıkarıldı; principal ve veli servis ekranlarında son konum, konum izi ve durak hedefini çizen ortak in-app `ServiceLiveMap` bileşeni eklendi: **yapıldı**.
 - 2026-06-15: Web principal okul yaşamı yönetim ekranı eklendi; `/dashboard/life` altında yemek menüsü yayınlama/silme, etüt oluşturma/katılım işleme, kulüp oluşturma ve kulüp üyeliği kaydetme akışları mevcut life API'lerine bağlandı: **yapıldı**.

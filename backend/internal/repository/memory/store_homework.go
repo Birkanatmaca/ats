@@ -26,6 +26,46 @@ func NewHomeworkStore(clock func() time.Time) *HomeworkStore {
 	return &HomeworkStore{clock: clock, studentClass: make(map[string]string), teacherClasses: make(map[string]map[string]struct{})}
 }
 
+func NewSeededHomeworkStore(source *Store, clock func() time.Time) *HomeworkStore {
+	store := NewHomeworkStore(clock)
+	if source == nil {
+		return store
+	}
+
+	source.mu.RLock()
+	studentClasses := make(map[string]string, len(source.students))
+	for _, student := range source.students {
+		if student.ID != "" && student.ClassID != "" {
+			studentClasses[student.ID] = student.ClassID
+		}
+	}
+	teacherClasses := make(map[string]map[string]struct{})
+	collectLesson := func(teacherID, classID string) {
+		if teacherID == "" || classID == "" {
+			return
+		}
+		if teacherClasses[teacherID] == nil {
+			teacherClasses[teacherID] = map[string]struct{}{}
+		}
+		teacherClasses[teacherID][classID] = struct{}{}
+	}
+	for _, lesson := range source.schedule.Lessons {
+		collectLesson(lesson.TeacherID, lesson.ClassID)
+	}
+	for _, schedule := range source.schedules {
+		for _, lesson := range schedule.Lessons {
+			collectLesson(lesson.TeacherID, lesson.ClassID)
+		}
+	}
+	source.mu.RUnlock()
+
+	store.mu.Lock()
+	store.studentClass = studentClasses
+	store.teacherClasses = teacherClasses
+	store.mu.Unlock()
+	return store
+}
+
 func (h *HomeworkStore) BindStudentToClass(studentID, classID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

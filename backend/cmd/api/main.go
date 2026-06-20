@@ -62,7 +62,7 @@ func main() {
 	var announcementRepo announcementapp.Repository = memoryStore
 	var studentImportRepo studentimportapp.Repository = memoryStore
 	var auditWriter middleware.AuditWriter = memoryStore.RecordOperationalAudit
-	var homeworkRepo homeworkapp.Repository = memory.NewHomeworkStore(time.Now)
+	var homeworkRepo homeworkapp.Repository = memory.NewSeededHomeworkStore(memoryStore, time.Now)
 
 	postgresStore, err := postgres.NewStore(context.Background(), cfg.DatabaseURL, time.Now)
 	if err != nil {

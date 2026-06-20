@@ -1,4 +1,4 @@
-import { Bell, CalendarDays, ClipboardCheck, Home, LifeBuoy, Loader2, Megaphone, UserCircle, UserRound } from "lucide-react";
+import { Bell, BookOpenCheck, CalendarDays, ClipboardCheck, Home, LifeBuoy, Loader2, Megaphone, UserCircle, UserRound } from "lucide-react";
 import { AppBrand } from "../../components/AppBrand";
 import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -12,6 +12,7 @@ import { RoleNotificationsPage } from "../pages/RoleNotificationsPage";
 import { RoleSupportPage } from "../pages/RoleSupportPage";
 import { GuardianAttendancePage } from "./pages/GuardianAttendancePage";
 import { GuardianChildPage } from "./pages/GuardianChildPage";
+import { GuardianHomeworkPage } from "./pages/GuardianHomeworkPage";
 import { GuardianOverviewPage } from "./pages/GuardianOverviewPage";
 import { GuardianSchedulePage } from "./pages/GuardianSchedulePage";
 import { NavbarStudentSelector } from "./components/NavbarStudentSelector";
@@ -23,6 +24,7 @@ import "./GuardianConsole.css";
 const guardianTabs = [
   { id: "overview", label: "Genel", icon: <Home size={18} /> },
   { id: "child", label: "Öğrencim", icon: <UserRound size={18} /> },
+  { id: "homework", label: "Ödevler", icon: <BookOpenCheck size={18} /> },
   { id: "schedule", label: "Program", icon: <CalendarDays size={18} /> },
   { id: "attendance", label: "Devamsızlık", icon: <ClipboardCheck size={18} /> },
   { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
@@ -247,6 +249,7 @@ export function GuardianConsole({
                   />
                 }
               />
+              <Route path="homework" element={<GuardianHomeworkPage child={selectedChild} />} />
               <Route path="schedule" element={<GuardianSchedulePage child={selectedChild} lessons={childLessons} />} />
               <Route path="attendance" element={<GuardianAttendancePage child={selectedChild} records={data.attendanceRecords} />} />
               <Route path="announcements" element={<RoleAnnouncementsPage announcements={data.announcements} />} />

@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Bell,
+  BookOpenCheck,
   Megaphone,
   CalendarDays,
   CheckCircle2,
@@ -46,6 +47,7 @@ import "../guidance/GuidanceOverview.css";
 import "../guidance/GuidanceSurface.css";
 import { TeacherAttendanceRing } from "./components/TeacherAttendanceRing";
 import { TeacherAttendancePage } from "./pages/TeacherAttendancePage";
+import { TeacherHomeworkPage } from "./pages/TeacherHomeworkPage";
 import { TeacherLessonsPage } from "./pages/TeacherLessonsPage";
 import { isLessonInAttendanceWindow } from "./utils/lessonSchedule";
 import { OgtaAiDock } from "../ai/OgtaAiDock";
@@ -60,6 +62,7 @@ type AttendanceStatus = AttendanceRecord["status"];
 const teacherTabs = [
   { id: "overview", label: "Genel", icon: <Home size={18} /> },
   { id: "lessons", label: "Derslerim", icon: <CalendarDays size={18} /> },
+  { id: "homework", label: "Ödevler", icon: <BookOpenCheck size={18} /> },
   { id: "attendance", label: "Yoklama", icon: <ClipboardCheck size={18} /> },
   { id: "observations", label: "Gözlemler", icon: <NotebookPen size={18} /> },
   { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
@@ -379,6 +382,7 @@ export function TeacherConsole({
               }
             />
             <Route path="lessons" element={<TeacherLessonsPage lessons={data.teacherLessons} activeLessonId={activeLesson?.id} />} />
+            <Route path="homework" element={<TeacherHomeworkPage lessons={data.teacherLessons} />} />
             <Route
               path="attendance"
               element={
