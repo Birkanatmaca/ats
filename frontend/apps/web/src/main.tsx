@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
+import { ToastProvider } from "./components/toast/ToastProvider";
 import "./styles/app.css";
 import "./styles/super-admin.css";
 import "./styles/super-admin-app.css";
@@ -10,7 +11,9 @@ import "./styles/admin-shell.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

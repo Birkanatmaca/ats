@@ -132,7 +132,7 @@ func (c *HTTPClient) StreamCompleteChat(ctx context.Context, messages []ChatMess
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		raw, _ := io.ReadAll(resp.Body)
-		return CompletionResult{}, fmt.Errorf("openai request failed: %s", strings.TrimSpace(string(raw)))
+		return CompletionResult{}, &RequestError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(raw))}
 	}
 
 	result := CompletionResult{}
@@ -283,7 +283,7 @@ func (c *HTTPClient) doCompletion(ctx context.Context, body []byte) (CompletionR
 		return CompletionResult{}, err
 	}
 	if resp.StatusCode >= 400 {
-		return CompletionResult{}, fmt.Errorf("openai request failed: %s", strings.TrimSpace(string(raw)))
+		return CompletionResult{}, &RequestError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(raw))}
 	}
 
 	var parsed struct {

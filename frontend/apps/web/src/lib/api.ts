@@ -474,6 +474,84 @@ export type PrincipalReportOverview = {
   };
 };
 
+export type PrincipalTeacherOverview = {
+  from: string;
+  to: string;
+  generatedAt: string;
+  teacher: {
+    id: string;
+    userId: string;
+    fullName: string;
+    email: string;
+    phone?: string;
+    title: string;
+    status: string;
+    mustChangePassword: boolean;
+    createdAt: string;
+  };
+  workload: {
+    weeklyLessons: number;
+    weeklyMinutes: number;
+    classCount: number;
+    subjectCount: number;
+    subjects: string[];
+  };
+  attendance: {
+    todayLessons: number;
+    todayFinalized: number;
+    todayCompletionPct: number;
+    sessions: number;
+    finalizedSessions: number;
+    completionPct: number;
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+    presencePct: number;
+    daily: Array<{
+      date: string;
+      sessions: number;
+      finalizedSessions: number;
+      absent: number;
+      late: number;
+    }>;
+  };
+  classes: Array<{
+    classId: string;
+    className: string;
+    weeklyLessons: number;
+    sessions: number;
+    finalized: number;
+    present: number;
+    absent: number;
+    late: number;
+    presencePct: number;
+  }>;
+  lessons: Array<{
+    id: string;
+    classId: string;
+    className: string;
+    subjectName: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    room: string;
+  }>;
+  recentSessions: Array<{
+    id: string;
+    lessonId: string;
+    className: string;
+    subjectName: string;
+    startedAt: string;
+    finalizedAt?: string;
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+    studentCount: number;
+  }>;
+};
+
 export type ClassAttendance = {
   className: string;
   completed: number;
@@ -914,20 +992,39 @@ export type AIRoleUsageRow = {
   tokenOutput: number;
 };
 
+export type AIProviderKey = {
+  id: string;
+  label: string;
+  keyHint: string;
+  enabled: boolean;
+  priority: number;
+  status: "active" | "exhausted" | "error" | "disabled" | string;
+  source: "platform" | "env" | string;
+  lastError?: string;
+  lastUsedAt?: string;
+  exhaustedAt?: string;
+};
+
 export type AIProviderStatus = {
   keySource: "env" | "platform" | "none" | string;
   keyConfigured: boolean;
   keyHint?: string;
+  activeKeyId?: string;
+  readyKeyCount?: number;
+  envInPool?: boolean;
   envOverridesKey: boolean;
   model: string;
   useLlm: boolean;
   llmReady: boolean;
   fallbackRuleEngine: boolean;
+  keys?: AIProviderKey[];
 };
 
 export type AIProviderSettings = {
   model: string;
   useLlm: boolean;
+  apiKey?: string;
+  clearKey?: boolean;
 };
 
 export type AIProviderTestResult = {
@@ -936,6 +1033,8 @@ export type AIProviderTestResult = {
   latencyMs: number;
   responseHint?: string;
   error?: string;
+  keyId?: string;
+  keyHint?: string;
 };
 
 export type AiUsageSummary = {
@@ -987,6 +1086,16 @@ export type BillingSettings = {
   quoteValidityDays: number;
   companyName: string;
   companyEmail: string;
+  packages?: BillingLicensePackage[];
+};
+
+export type TCMBRate = {
+  currency: string;
+  usdTryRate: number;
+  forexBuying: number;
+  forexSelling: number;
+  bulletinDate: string;
+  source: string;
 };
 
 export type BillingLicensePackage = {
@@ -1018,6 +1127,7 @@ export type BillingOverview = {
   totalAnnualTry: number;
   institutions: BillingInstitutionRow[];
   updatedAt: string;
+  tcmb?: TCMBRate | null;
 };
 
 export type BillingQuoteLineItem = {
@@ -1577,8 +1687,39 @@ export type ServiceMetric = {
   description: string;
 };
 
+export type MailSettings = {
+  enabled: boolean;
+  provider: string;
+  host: string;
+  port: number;
+  username: string;
+  fromName: string;
+  fromEmail: string;
+  useTls: boolean;
+  passwordSet: boolean;
+  passwordHint?: string;
+};
+
+export type SMSSettings = {
+  enabled: boolean;
+  provider: string;
+  username: string;
+  sender: string;
+  baseUrl: string;
+  apiKeySet: boolean;
+  apiKeyHint?: string;
+};
+
+export type ConnectionTestResult = {
+  ok: boolean;
+  message: string;
+  latencyMs: number;
+};
+
 export type PlatformSettings = {
   maintenance: MaintenanceMode;
+  mail: MailSettings;
+  sms: SMSSettings;
   credentials: IntegrationCredential[];
 };
 
@@ -2081,8 +2222,13 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   profile: () => request<UserProfile>("/api/v1/profile"),
-  updateProfile: (payload: { avatarUrl?: string | null; profileAccent?: string }) =>
-    request<UserProfile>("/api/v1/profile", { method: "PATCH", body: JSON.stringify(payload) }),
+  updateProfile: (payload: {
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    avatarUrl?: string | null;
+    profileAccent?: string;
+  }) => request<UserProfile>("/api/v1/profile", { method: "PATCH", body: JSON.stringify(payload) }),
   principalUsers: () => request<UserAccount[] | null>("/api/v1/principal/users").then(asArray),
   updatePrincipalUser: (
     userId: string,
@@ -2101,6 +2247,15 @@ export const api = {
       body: JSON.stringify({ ...payload, tenantId: "" })
     }),
   principalTeachers: () => request<UserAccount[] | null>("/api/v1/principal/teachers").then(asArray),
+  principalTeacherOverview: (teacherId: string, params?: { from?: string; to?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.from) search.set("from", params.from);
+    if (params?.to) search.set("to", params.to);
+    const suffix = search.toString() ? `?${search.toString()}` : "";
+    return request<PrincipalTeacherOverview>(
+      `/api/v1/principal/teachers/${encodeURIComponent(teacherId)}/overview${suffix}`
+    );
+  },
   principalRoster: () =>
     request<PrincipalSchoolRoster>("/api/v1/principal/school/roster").then((roster) => ({
       classes: roster?.classes ?? [],
@@ -2108,13 +2263,19 @@ export const api = {
       students: roster?.students ?? []
     })),
   updateSuperAdminSettings: (payload: {
-    maintenance: { enabled: boolean; message: string };
-    credentials: Array<{ key: string; value: string; clear?: boolean }>;
+    maintenance?: { enabled: boolean; message: string };
+    mail?: Partial<MailSettings> & { password?: string; clearPassword?: boolean };
+    sms?: Partial<SMSSettings> & { apiKey?: string; clearApiKey?: boolean };
+    credentials?: Array<{ key: string; value: string; clear?: boolean }>;
   }) =>
     request<PlatformSettings>("/api/v1/super-admin/settings", {
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
+  testSuperAdminMail: () =>
+    request<ConnectionTestResult>("/api/v1/super-admin/settings/mail/test", { method: "POST" }),
+  testSuperAdminSMS: () =>
+    request<ConnectionTestResult>("/api/v1/super-admin/settings/sms/test", { method: "POST" }),
   superAdminAIOverview: (days = 30) =>
     request<AIPlatformAnalytics>(`/api/v1/super-admin/ai/overview?days=${encodeURIComponent(String(days))}`),
   superAdminAIProvider: () =>
@@ -2126,6 +2287,31 @@ export const api = {
     }),
   testSuperAdminAIProvider: () =>
     request<AIProviderTestResult>("/api/v1/super-admin/ai/provider/test", { method: "POST" }),
+  addSuperAdminAIProviderKey: (payload: { label?: string; apiKey: string }) =>
+    request<{ key: AIProviderKey; status: AIProviderStatus }>("/api/v1/super-admin/ai/provider/keys", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  updateSuperAdminAIProviderKey: (id: string, payload: { label?: string; apiKey?: string; enabled?: boolean; resetStatus?: boolean }) =>
+    request<{ key: AIProviderKey; status: AIProviderStatus }>(`/api/v1/super-admin/ai/provider/keys/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    }),
+  deleteSuperAdminAIProviderKey: (id: string) =>
+    request<{ status: AIProviderStatus }>(`/api/v1/super-admin/ai/provider/keys/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    }),
+  reorderSuperAdminAIProviderKeys: (orderedIds: string[]) =>
+    request<{ keys: AIProviderKey[]; status: AIProviderStatus }>("/api/v1/super-admin/ai/provider/keys/reorder", {
+      method: "POST",
+      body: JSON.stringify({ orderedIds })
+    }),
+  testSuperAdminAIProviderKey: (id: string) =>
+    request<AIProviderTestResult>(`/api/v1/super-admin/ai/provider/keys/${encodeURIComponent(id)}/test`, { method: "POST" }),
+  resetSuperAdminAIProviderKey: (id: string) =>
+    request<{ key: AIProviderKey; status: AIProviderStatus }>(`/api/v1/super-admin/ai/provider/keys/${encodeURIComponent(id)}/reset`, {
+      method: "POST"
+    }),
   updateSuperAdminAICostSettings: (payload: AICostSettings) =>
     request<AICostSettings>("/api/v1/super-admin/ai/cost-settings", {
       method: "PATCH",
@@ -2145,6 +2331,7 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload)
     }),
+  superAdminBillingTcmbRate: () => request<TCMBRate>("/api/v1/super-admin/billing/fx/tcmb"),
   previewSuperAdminBillingQuote: (payload: BillingQuotePreviewInput) =>
     request<BillingQuotePreview>("/api/v1/super-admin/billing/quotes/preview", {
       method: "POST",

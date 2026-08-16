@@ -274,6 +274,61 @@ func (s *Store) GetAIProviderKey(_ context.Context) (string, error) {
 	return "", nil
 }
 
+func (s *Store) UpdateAIProviderKey(_ context.Context, key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	s.credentials["ai_provider_key"] = memoryCredential{Value: strings.TrimSpace(key), UpdatedAt: &now}
+	return nil
+}
+
+func (s *Store) ListAIProviderKeys(_ context.Context) ([]aidomain.ProviderKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if cred, ok := s.credentials["ai_provider_keys"]; ok && strings.TrimSpace(cred.Value) != "" && strings.TrimSpace(cred.Value) != "[]" {
+		var keys []aidomain.ProviderKey
+		if err := json.Unmarshal([]byte(cred.Value), &keys); err != nil {
+			return nil, err
+		}
+		if keys == nil {
+			return []aidomain.ProviderKey{}, nil
+		}
+		return keys, nil
+	}
+	if cred, ok := s.credentials["ai_provider_key"]; ok && strings.TrimSpace(cred.Value) != "" {
+		return []aidomain.ProviderKey{{
+			ID:       "legacy",
+			Label:    "Varsayılan",
+			Key:      strings.TrimSpace(cred.Value),
+			Enabled:  true,
+			Priority: 1,
+			Status:   aidomain.ProviderKeyStatusActive,
+			Source:   aidomain.ProviderKeySourcePlatform,
+		}}, nil
+	}
+	return []aidomain.ProviderKey{}, nil
+}
+
+func (s *Store) SaveAIProviderKeys(_ context.Context, keys []aidomain.ProviderKey) error {
+	payload, err := json.Marshal(keys)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	s.credentials["ai_provider_keys"] = memoryCredential{Value: string(payload), UpdatedAt: &now}
+	legacy := ""
+	for _, key := range keys {
+		if key.Enabled && strings.TrimSpace(key.Key) != "" {
+			legacy = strings.TrimSpace(key.Key)
+			break
+		}
+	}
+	s.credentials["ai_provider_key"] = memoryCredential{Value: legacy, UpdatedAt: &now}
+	return nil
+}
+
 func (s *Store) CountUserMessagesSince(_ context.Context, tenantID, userID string, since time.Time) (int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

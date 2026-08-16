@@ -98,3 +98,87 @@ type ReportTransportOverview struct {
 	DelayEvents    int `json:"delayEvents"`
 	IncidentEvents int `json:"incidentEvents"`
 }
+
+type TeacherOverview struct {
+	From           string                    `json:"from"`
+	To             string                    `json:"to"`
+	GeneratedAt    time.Time                 `json:"generatedAt"`
+	Teacher        TeacherOverviewProfile    `json:"teacher"`
+	Workload       TeacherWorkload           `json:"workload"`
+	Attendance     TeacherAttendanceOverview `json:"attendance"`
+	Classes        []TeacherClassBreakdown   `json:"classes"`
+	Lessons        []TeacherLessonSlot       `json:"lessons"`
+	RecentSessions []TeacherRecentSession    `json:"recentSessions"`
+}
+
+type TeacherOverviewProfile struct {
+	ID                 string    `json:"id"`
+	UserID             string    `json:"userId"`
+	FullName           string    `json:"fullName"`
+	Email              string    `json:"email"`
+	Phone              string    `json:"phone,omitempty"`
+	Title              string    `json:"title"`
+	Status             string    `json:"status"`
+	MustChangePassword bool      `json:"mustChangePassword"`
+	CreatedAt          time.Time `json:"createdAt"`
+}
+
+type TeacherWorkload struct {
+	WeeklyLessons int      `json:"weeklyLessons"`
+	WeeklyMinutes int      `json:"weeklyMinutes"`
+	ClassCount    int      `json:"classCount"`
+	SubjectCount  int      `json:"subjectCount"`
+	Subjects      []string `json:"subjects"`
+}
+
+type TeacherAttendanceOverview struct {
+	TodayLessons       int                     `json:"todayLessons"`
+	TodayFinalized     int                     `json:"todayFinalized"`
+	TodayCompletionPct int                     `json:"todayCompletionPct"`
+	Sessions           int                     `json:"sessions"`
+	FinalizedSessions  int                     `json:"finalizedSessions"`
+	CompletionPct      int                     `json:"completionPct"`
+	Present            int                     `json:"present"`
+	Absent             int                     `json:"absent"`
+	Late               int                     `json:"late"`
+	Excused            int                     `json:"excused"`
+	PresencePct        int                     `json:"presencePct"`
+	Daily              []ReportAttendanceDaily `json:"daily"`
+}
+
+type TeacherClassBreakdown struct {
+	ClassID       string `json:"classId"`
+	ClassName     string `json:"className"`
+	WeeklyLessons int    `json:"weeklyLessons"`
+	Sessions      int    `json:"sessions"`
+	Finalized     int    `json:"finalized"`
+	Present       int    `json:"present"`
+	Absent        int    `json:"absent"`
+	Late          int    `json:"late"`
+	PresencePct   int    `json:"presencePct"`
+}
+
+type TeacherLessonSlot struct {
+	ID          string `json:"id"`
+	ClassID     string `json:"classId"`
+	ClassName   string `json:"className"`
+	SubjectName string `json:"subjectName"`
+	DayOfWeek   int    `json:"dayOfWeek"`
+	StartTime   string `json:"startTime"`
+	EndTime     string `json:"endTime"`
+	Room        string `json:"room"`
+}
+
+type TeacherRecentSession struct {
+	ID           string     `json:"id"`
+	LessonID     string     `json:"lessonId"`
+	ClassName    string     `json:"className"`
+	SubjectName  string     `json:"subjectName"`
+	StartedAt    time.Time  `json:"startedAt"`
+	FinalizedAt  *time.Time `json:"finalizedAt,omitempty"`
+	Present      int        `json:"present"`
+	Absent       int        `json:"absent"`
+	Late         int        `json:"late"`
+	Excused      int        `json:"excused"`
+	StudentCount int        `json:"studentCount"`
+}

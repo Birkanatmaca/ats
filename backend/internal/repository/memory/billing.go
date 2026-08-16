@@ -14,7 +14,9 @@ import (
 func (s *Store) GetBillingSettings(_ context.Context) (billingdomain.Settings, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.billingSettings, nil
+	settings := s.billingSettings
+	settings.Packages = billingdomain.EffectivePackages(settings.Packages)
+	return settings, nil
 }
 
 func (s *Store) UpdateBillingSettings(_ context.Context, input billingdomain.Settings) (billingdomain.Settings, error) {

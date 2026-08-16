@@ -1,0 +1,24 @@
+{
+  "explorer.compactFolders": false,
+  "explorer.sortOrder": "foldersNestsFiles",
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "*.go": "${capture}_test.go",
+    "go.mod": "go.sum",
+    "package.json": "package-lock.json, tsconfig.json"
+  },
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.vite": true,
+    "**/*.exe": true,
+    "backend/api": true,
+    "backend/bin": true,
+    "backend/coverage.out": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  }
+}

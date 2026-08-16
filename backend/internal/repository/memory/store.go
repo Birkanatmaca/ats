@@ -776,13 +776,39 @@ func (s *Store) UpdatePlatformSettings(_ context.Context, actor identity.Princip
 	defer s.mu.Unlock()
 
 	now := s.clock().UTC()
-	s.maintenance = superadmindomain.MaintenanceMode{
-		Enabled:   input.Maintenance.Enabled,
-		Message:   strings.TrimSpace(input.Maintenance.Message),
-		UpdatedAt: &now,
+	if input.Maintenance != nil {
+		s.maintenance = superadmindomain.MaintenanceMode{
+			Enabled:   input.Maintenance.Enabled,
+			Message:   strings.TrimSpace(input.Maintenance.Message),
+			UpdatedAt: &now,
+		}
+		if s.maintenance.Message == "" {
+			s.maintenance.Message = "Sistem bakımı devam ediyor. Kısa süre sonra tekrar deneyebilirsiniz."
+		}
 	}
-	if s.maintenance.Message == "" {
-		s.maintenance.Message = "Sistem bakımı devam ediyor. Kısa süre sonra tekrar deneyebilirsiniz."
+	if input.Mail != nil {
+		config, err := superadmindomain.EncodeMailConfig(*input.Mail)
+		if err != nil {
+			return superadmindomain.PlatformSettings{}, err
+		}
+		s.credentials["mail_config"] = memoryCredential{Value: config, UpdatedAt: &now}
+		if input.Mail.ClearPassword {
+			s.credentials["mail_provider_key"] = memoryCredential{UpdatedAt: &now}
+		} else if password := strings.TrimSpace(input.Mail.Password); password != "" {
+			s.credentials["mail_provider_key"] = memoryCredential{Value: password, UpdatedAt: &now}
+		}
+	}
+	if input.SMS != nil {
+		config, err := superadmindomain.EncodeSMSConfig(*input.SMS)
+		if err != nil {
+			return superadmindomain.PlatformSettings{}, err
+		}
+		s.credentials["sms_config"] = memoryCredential{Value: config, UpdatedAt: &now}
+		if input.SMS.ClearAPIKey {
+			s.credentials["sms_provider_key"] = memoryCredential{UpdatedAt: &now}
+		} else if key := strings.TrimSpace(input.SMS.APIKey); key != "" {
+			s.credentials["sms_provider_key"] = memoryCredential{Value: key, UpdatedAt: &now}
+		}
 	}
 	for _, credential := range input.Credentials {
 		definition, ok := credentialDefinition(credential.Key)
@@ -798,7 +824,7 @@ func (s *Store) UpdatePlatformSettings(_ context.Context, actor identity.Princip
 			s.credentials[credential.Key] = memoryCredential{Value: strings.TrimSpace(credential.Value), UpdatedAt: &now}
 		}
 	}
-	s.appendAuditLocked(actor.TenantID, actor.UserID, "platform_settings.update", "platform_settings", "", "system_confidential", fmt.Sprintf(`{"maintenance_enabled":%t}`, s.maintenance.Enabled))
+	s.appendAuditLocked(actor.TenantID, actor.UserID, "platform_settings.update", "platform_settings", "", "system_confidential", `{"updated":true}`)
 	return s.platformSettingsLocked(), nil
 }
 
@@ -1786,6 +1812,264 @@ func (s *Store) PrincipalReportOverview(_ context.Context, tenantID string, from
 	return report
 }
 
+func (s *Store) TeacherOverview(_ context.Context, tenantID string, teacherID string, from time.Time, to time.Time) (dashboard.TeacherOverview, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	fromDay := reportDayStartMemory(from)
+	toDay := reportDayStartMemory(to)
+	if toDay.Before(fromDay) {
+		fromDay, toDay = toDay, fromDay
+	}
+	toExclusive := toDay.AddDate(0, 0, 1)
+	now := reportDayStartMemory(s.clock())
+	teacherID = strings.TrimSpace(teacherID)
+
+	out := dashboard.TeacherOverview{
+		From:           fromDay.Format("2006-01-02"),
+		To:             toDay.Format("2006-01-02"),
+		GeneratedAt:    s.clock(),
+		Attendance:     dashboard.TeacherAttendanceOverview{Daily: []dashboard.ReportAttendanceDaily{}},
+		Classes:        []dashboard.TeacherClassBreakdown{},
+		Lessons:        []dashboard.TeacherLessonSlot{},
+		RecentSessions: []dashboard.TeacherRecentSession{},
+	}
+	if tenantID != s.tenant.ID || teacherID == "" {
+		return dashboard.TeacherOverview{}, false
+	}
+
+	var teacher school.Teacher
+	foundTeacher := false
+	for _, item := range s.teachers {
+		if item.ID == teacherID || item.UserID == teacherID {
+			teacher = item
+			foundTeacher = true
+			break
+		}
+	}
+	var user systemUser
+	foundUser := false
+	for _, item := range s.users {
+		if item.TenantID == tenantID && (item.ID == teacherID || (foundTeacher && item.ID == teacher.UserID)) && item.Role == identity.RoleTeacher {
+			user = item
+			foundUser = true
+			if !foundTeacher {
+				teacher = school.Teacher{ID: item.ID, UserID: item.ID, TenantID: tenantID, FullName: item.FullName}
+				foundTeacher = true
+			}
+			break
+		}
+	}
+	if !foundTeacher && !foundUser {
+		return dashboard.TeacherOverview{}, false
+	}
+	if foundUser {
+		out.Teacher = dashboard.TeacherOverviewProfile{
+			ID:                 teacher.ID,
+			UserID:             user.ID,
+			FullName:           user.FullName,
+			Email:              user.Email,
+			Phone:              user.Phone,
+			Title:              teacher.Title,
+			Status:             user.Status,
+			MustChangePassword: user.MustChangePassword,
+			CreatedAt:          user.CreatedAt,
+		}
+	} else {
+		out.Teacher = dashboard.TeacherOverviewProfile{
+			ID:       teacher.ID,
+			UserID:   teacher.UserID,
+			FullName: teacher.FullName,
+			Title:    teacher.Title,
+			Status:   "active",
+		}
+	}
+
+	subjectSet := map[string]struct{}{}
+	classSet := map[string]string{}
+	classWeekly := map[string]int{}
+	weeklyMinutes := 0
+	todayLessons := 0
+	todayWeekday := int(now.Weekday())
+	if s.schedule.Status == scheduling.SchedulePublished {
+		for _, lesson := range s.schedule.Lessons {
+			if lesson.TeacherID != teacher.UserID && lesson.TeacherID != teacher.ID {
+				continue
+			}
+			out.Lessons = append(out.Lessons, dashboard.TeacherLessonSlot{
+				ID: lesson.ID, ClassID: lesson.ClassID, ClassName: lesson.ClassName, SubjectName: lesson.SubjectName,
+				DayOfWeek: lesson.DayOfWeek, StartTime: lesson.StartTime, EndTime: lesson.EndTime, Room: lesson.Room,
+			})
+			weeklyMinutes += memoryLessonMinutes(lesson.StartTime, lesson.EndTime)
+			if strings.TrimSpace(lesson.SubjectName) != "" {
+				subjectSet[lesson.SubjectName] = struct{}{}
+			}
+			if lesson.ClassID != "" {
+				classSet[lesson.ClassID] = lesson.ClassName
+				classWeekly[lesson.ClassID]++
+			}
+			if lesson.DayOfWeek == todayWeekday {
+				todayLessons++
+			}
+		}
+	}
+	subjects := make([]string, 0, len(subjectSet))
+	for name := range subjectSet {
+		subjects = append(subjects, name)
+	}
+	sort.Strings(subjects)
+	out.Workload = dashboard.TeacherWorkload{
+		WeeklyLessons: len(out.Lessons),
+		WeeklyMinutes: weeklyMinutes,
+		ClassCount:    len(classSet),
+		SubjectCount:  len(subjects),
+		Subjects:      subjects,
+	}
+
+	type classAgg struct {
+		dashboard.TeacherClassBreakdown
+	}
+	classes := map[string]*classAgg{}
+	for classID, className := range classSet {
+		classes[classID] = &classAgg{TeacherClassBreakdown: dashboard.TeacherClassBreakdown{
+			ClassID: classID, ClassName: className, WeeklyLessons: classWeekly[classID],
+		}}
+	}
+
+	lessonIDs := map[string]scheduling.Lesson{}
+	for _, lesson := range s.schedule.Lessons {
+		if lesson.TeacherID == teacher.UserID || lesson.TeacherID == teacher.ID {
+			lessonIDs[lesson.ID] = lesson
+		}
+	}
+
+	daily := map[string]*dashboard.ReportAttendanceDaily{}
+	recent := make([]dashboard.TeacherRecentSession, 0, 8)
+	sessionList := make([]attendance.Session, 0, len(s.sessions))
+	for _, session := range s.sessions {
+		sessionList = append(sessionList, session)
+	}
+	sort.Slice(sessionList, func(i, j int) bool {
+		return sessionList[i].StartedAt.After(sessionList[j].StartedAt)
+	})
+	for _, session := range sessionList {
+		_, ownsLesson := lessonIDs[session.LessonID]
+		if session.TeacherID != teacher.UserID && session.TeacherID != teacher.ID && !ownsLesson {
+			continue
+		}
+		if session.StartedAt.Before(fromDay) || !session.StartedAt.Before(toExclusive) {
+			continue
+		}
+		item := dashboard.TeacherRecentSession{
+			ID: session.ID, LessonID: session.LessonID, ClassName: session.ClassName, SubjectName: session.SubjectName,
+			StartedAt: session.StartedAt, FinalizedAt: session.FinalizedAt, StudentCount: len(session.Records),
+		}
+		for _, record := range session.Records {
+			switch record.Status {
+			case attendance.StatusPresent:
+				item.Present++
+			case attendance.StatusAbsent:
+				item.Absent++
+			case attendance.StatusLate:
+				item.Late++
+			case attendance.StatusExcused:
+				item.Excused++
+			}
+		}
+		out.Attendance.Sessions++
+		dayKey := reportDayStartMemory(session.StartedAt).Format("2006-01-02")
+		day, ok := daily[dayKey]
+		if !ok {
+			day = &dashboard.ReportAttendanceDaily{Date: dayKey}
+			daily[dayKey] = day
+		}
+		day.Sessions++
+		classID := session.ClassID
+		if classID == "" {
+			if lesson, exists := lessonIDs[session.LessonID]; exists {
+				classID = lesson.ClassID
+			}
+		}
+		agg := classes[classID]
+		if agg == nil && classID != "" {
+			agg = &classAgg{TeacherClassBreakdown: dashboard.TeacherClassBreakdown{ClassID: classID, ClassName: session.ClassName}}
+			classes[classID] = agg
+		}
+		if agg != nil {
+			agg.Sessions++
+		}
+		if session.FinalizedAt != nil {
+			out.Attendance.FinalizedSessions++
+			day.FinalizedSessions++
+			out.Attendance.Present += item.Present
+			out.Attendance.Absent += item.Absent
+			out.Attendance.Late += item.Late
+			out.Attendance.Excused += item.Excused
+			day.Absent += item.Absent
+			day.Late += item.Late
+			if agg != nil {
+				agg.Finalized++
+				agg.Present += item.Present
+				agg.Absent += item.Absent
+				agg.Late += item.Late
+			}
+			if reportDayStartMemory(*session.FinalizedAt).Equal(now) || reportDayStartMemory(session.StartedAt).Equal(now) {
+				out.Attendance.TodayFinalized++
+			}
+		}
+		if len(recent) < 8 {
+			recent = append(recent, item)
+		}
+	}
+	out.RecentSessions = recent
+	out.Attendance.TodayLessons = todayLessons
+	if todayLessons > 0 {
+		if out.Attendance.TodayFinalized > todayLessons {
+			out.Attendance.TodayFinalized = todayLessons
+		}
+		out.Attendance.TodayCompletionPct = out.Attendance.TodayFinalized * 100 / todayLessons
+	}
+	if out.Attendance.Sessions > 0 {
+		out.Attendance.CompletionPct = out.Attendance.FinalizedSessions * 100 / out.Attendance.Sessions
+	}
+	marked := out.Attendance.Present + out.Attendance.Absent + out.Attendance.Late + out.Attendance.Excused
+	if marked > 0 {
+		out.Attendance.PresencePct = (out.Attendance.Present + out.Attendance.Late) * 100 / marked
+	}
+	dayKeys := make([]string, 0, len(daily))
+	for key := range daily {
+		dayKeys = append(dayKeys, key)
+	}
+	sort.Strings(dayKeys)
+	for _, key := range dayKeys {
+		out.Attendance.Daily = append(out.Attendance.Daily, *daily[key])
+	}
+	classRows := make([]dashboard.TeacherClassBreakdown, 0, len(classes))
+	for _, item := range classes {
+		classMarked := item.Present + item.Absent + item.Late
+		if classMarked > 0 {
+			item.PresencePct = (item.Present + item.Late) * 100 / classMarked
+		}
+		classRows = append(classRows, item.TeacherClassBreakdown)
+	}
+	sort.Slice(classRows, func(i, j int) bool { return classRows[i].ClassName < classRows[j].ClassName })
+	out.Classes = classRows
+	return out, true
+}
+
+func memoryLessonMinutes(start, end string) int {
+	parse := func(value string) (time.Time, bool) {
+		parsed, err := time.Parse("15:04", strings.TrimSpace(value))
+		return parsed, err == nil
+	}
+	startAt, startOK := parse(start)
+	endAt, endOK := parse(end)
+	if !startOK || !endOK || !endAt.After(startAt) {
+		return 0
+	}
+	return int(endAt.Sub(startAt).Minutes())
+}
+
 func buildMemoryPrincipalOperations(todayLessons, finalizedToday int, scheduleStatus string, classAttendance []dashboard.ClassAttendance) []dashboard.OperationItem {
 	operations := []dashboard.OperationItem{}
 	if scheduleStatus != "published" {
@@ -2478,6 +2762,8 @@ func (s *Store) platformSettingsLocked() superadmindomain.PlatformSettings {
 	}
 	return superadmindomain.PlatformSettings{
 		Maintenance: s.maintenance,
+		Mail:        superadmindomain.ParseMailSettings(s.credentials["mail_config"].Value, s.credentials["mail_provider_key"].Value),
+		SMS:         superadmindomain.ParseSMSSettings(s.credentials["sms_config"].Value, s.credentials["sms_provider_key"].Value),
 		Credentials: credentials,
 	}
 }

@@ -2104,18 +2104,6 @@
 }
 
 @media (max-width: 760px) {
-  .navbar-brand span {
-    display: none;
-  }
-
-  .navbar-profile span {
-    display: none;
-  }
-
-  .navbar-profile strong {
-    max-width: 100px;
-  }
-
   .sa-kpi-row {
     grid-template-columns: 1fr;
   }

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"strings"
 
@@ -16,7 +17,8 @@ WHERE key IN (
   'billing_usd_try_rate',
   'billing_quote_validity_days',
   'billing_company_name',
-  'billing_company_email'
+  'billing_company_email',
+  'billing_packages'
 )`)
 	if err != nil {
 		return billingdomain.Settings{}, err
@@ -47,9 +49,18 @@ WHERE key IN (
 			if strings.TrimSpace(value) != "" {
 				settings.CompanyEmail = strings.TrimSpace(value)
 			}
+		case "billing_packages":
+			var packages []billingdomain.LicensePackage
+			if err := json.Unmarshal([]byte(value), &packages); err == nil && len(packages) > 0 {
+				settings.Packages = packages
+			}
 		}
 	}
-	return settings, rows.Err()
+	if err := rows.Err(); err != nil {
+		return billingdomain.Settings{}, err
+	}
+	settings.Packages = billingdomain.EffectivePackages(settings.Packages)
+	return settings, nil
 }
 
 func (s *Store) UpdateBillingSettings(ctx context.Context, input billingdomain.Settings) (billingdomain.Settings, error) {
@@ -58,6 +69,13 @@ func (s *Store) UpdateBillingSettings(ctx context.Context, input billingdomain.S
 		"billing_quote_validity_days": strconv.Itoa(input.QuoteValidityDays),
 		"billing_company_name":        input.CompanyName,
 		"billing_company_email":       input.CompanyEmail,
+	}
+	if len(input.Packages) > 0 {
+		raw, err := json.Marshal(input.Packages)
+		if err != nil {
+			return billingdomain.Settings{}, err
+		}
+		updates["billing_packages"] = string(raw)
 	}
 	for key, value := range updates {
 		if _, err := s.db.ExecContext(ctx, `

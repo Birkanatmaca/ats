@@ -19,41 +19,19 @@ import type { Institution, UserAccount } from "../../lib/api";
 import { api, type CreatedUserCredential } from "../../lib/api";
 import { TablePagination } from "../../role-dashboard/components/TablePagination";
 import { usePaginatedRows } from "../../role-dashboard/hooks/usePaginatedRows";
-import "../../role-dashboard/guidance/GuidanceDataPage.css";
-import "../../role-dashboard/principal/PrincipalConsole.css";
 import { Modal } from "../components/Modal";
+import { initials } from "../utils/institutionHelpers";
 import { roleLabel } from "../utils/labels";
 import "./UsersPage.css";
 
 const ROLE_FILTER_OPTIONS = [
-  { value: "", label: "Tüm roller" },
+  { value: "", label: "Tümü" },
   { value: "super_admin", label: "Süper admin" },
   { value: "principal", label: "Müdür" },
   { value: "guidance", label: "Rehberlik" },
   { value: "teacher", label: "Öğretmen" },
   { value: "guardian", label: "Veli" }
 ];
-
-function roleBadgeClass(role: string) {
-  switch (role) {
-    case "super_admin":
-      return "guidance-data-badge--rose";
-    case "principal":
-      return "guidance-data-badge--violet";
-    case "guidance":
-      return "guidance-data-badge--slate";
-    case "teacher":
-      return "guidance-data-badge--amber";
-    case "guardian":
-      return "guidance-data-badge--emerald";
-    default:
-      return "guidance-data-badge--slate";
-  }
-}
-
-function statusBadgeClass(status: string) {
-  return status === "active" ? "guidance-data-badge--emerald" : "guidance-data-badge--rose";
-}
 
 export function UsersPage({ users, institutions, onRefresh }: { users: UserAccount[]; institutions: Institution[]; onRefresh: () => Promise<void> }) {
   const [query, setQuery] = useState("");
@@ -73,12 +51,10 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
   const userStats = useMemo(() => {
     const activeUsers = users.filter((user) => user.status === "active").length;
     const firstLoginUsers = users.filter((user) => user.mustChangePassword).length;
-    const roleCount = new Set(users.map((user) => user.role)).size;
     return {
       total: users.length,
       activeUsers,
       firstLoginUsers,
-      roleCount,
       institutions: institutions.length
     };
   }, [institutions.length, users]);
@@ -107,7 +83,6 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
 
   const filterKey = `${query}|${filterRole}|${filterTenantId}|${filterStatus}`;
   const { paginatedRows, page, setPage, totalPages, pageSize, totalItems } = usePaginatedRows(filteredUsers, filterKey);
-
   const protectedSelection = editingUser?.role === "super_admin";
 
   async function createGlobalUser(event: FormEvent<HTMLFormElement>) {
@@ -215,125 +190,109 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
   }, [editingUser]);
 
   return (
-    <section className="principal-page-stack guidance-data-page sa-users-page">
-      <div className="principal-stat-grid sa-users-stats" aria-label="Kullanıcı istatistikleri">
-        <article className="principal-stat-card principal-stat-card--sky">
-          <span aria-hidden className="principal-stat-icon">
-            <UsersRound size={20} />
-          </span>
-          <small>Toplam kullanıcı</small>
+    <section className="usr">
+      <header className="usr-hero">
+        <div>
+          <p className="usr-kicker">Yönetim</p>
+          <h1>Kullanıcılar</h1>
+        </div>
+        <button className="usr-btn usr-btn--primary" type="button" onClick={() => setShowCreateUser(true)}>
+          <Plus size={16} />
+          Yeni kullanıcı
+        </button>
+      </header>
+
+      <div className="usr-kpi-grid">
+        <article className="usr-kpi">
+          <div className="usr-kpi-icon">
+            <UsersRound size={18} />
+          </div>
+          <span>Toplam</span>
           <strong>{userStats.total}</strong>
-          <em>Tüm kurumlar ve roller</em>
         </article>
-        <article className="principal-stat-card principal-stat-card--emerald">
-          <span aria-hidden className="principal-stat-icon">
-            <CheckCircle2 size={20} />
-          </span>
-          <small>Aktif hesap</small>
+        <article className="usr-kpi">
+          <div className="usr-kpi-icon usr-kpi-icon--green">
+            <CheckCircle2 size={18} />
+          </div>
+          <span>Aktif</span>
           <strong>{userStats.activeUsers}</strong>
-          <em>{userStats.total - userStats.activeUsers} pasif hesap</em>
         </article>
-        <article className="principal-stat-card principal-stat-card--amber">
-          <span aria-hidden className="principal-stat-icon">
-            <KeyRound size={20} />
-          </span>
-          <small>İlk giriş bekleyen</small>
+        <article className="usr-kpi">
+          <div className="usr-kpi-icon usr-kpi-icon--amber">
+            <KeyRound size={18} />
+          </div>
+          <span>İlk giriş</span>
           <strong>{userStats.firstLoginUsers}</strong>
-          <em>Tek kullanımlık şifre tamamlanmadı</em>
         </article>
-        <article className="principal-stat-card principal-stat-card--violet">
-          <span aria-hidden className="principal-stat-icon">
-            <Building2 size={20} />
-          </span>
-          <small>Kurum kapsamı</small>
+        <article className="usr-kpi">
+          <div className="usr-kpi-icon usr-kpi-icon--violet">
+            <Building2 size={18} />
+          </div>
+          <span>Kurum</span>
           <strong>{userStats.institutions}</strong>
-          <em>{userStats.roleCount} farklı rol tipi</em>
         </article>
       </div>
 
-      <article className="guidance-data-card">
-        <header className="guidance-data-card-head">
-          <h2>Tüm kullanıcılar</h2>
-          <div className="guidance-data-card-head-actions">
-            <span>{filteredUsers.length} kullanıcı</span>
-            <button className="sa-users-btn sa-users-btn--primary" type="button" onClick={() => setShowCreateUser(true)}>
-              <Plus size={16} />
-              Kullanıcı oluştur
-            </button>
-          </div>
-        </header>
+      <div className="usr-toolbar">
+        <label className="usr-search">
+          <Search size={16} />
+          <input onChange={(event) => setQuery(event.target.value)} placeholder="Ad, e-posta veya kurum ara" type="search" value={query} />
+        </label>
+        <select onChange={(event) => setFilterTenantId(event.target.value)} value={filterTenantId}>
+          <option value="">Tüm kurumlar</option>
+          {institutions.map((institution) => (
+            <option key={institution.id} value={institution.id}>
+              {institution.name}
+            </option>
+          ))}
+        </select>
+        <select onChange={(event) => setFilterStatus(event.target.value)} value={filterStatus}>
+          <option value="">Tüm durumlar</option>
+          <option value="active">Aktif</option>
+          <option value="passive">Pasif</option>
+        </select>
+      </div>
 
-        <div className="guidance-data-toolbar">
-          <select
-            aria-label="Rol filtresi"
-            className="guidance-data-select"
-            onChange={(event) => setFilterRole(event.target.value)}
-            value={filterRole}
+      <div className="usr-filters">
+        {ROLE_FILTER_OPTIONS.map((option) => (
+          <button
+            key={option.value || "all"}
+            className={filterRole === option.value ? "is-active" : undefined}
+            onClick={() => setFilterRole(option.value)}
+            type="button"
           >
-            {ROLE_FILTER_OPTIONS.map((option) => (
-              <option key={option.value || "all"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Kurum filtresi"
-            className="guidance-data-select"
-            onChange={(event) => setFilterTenantId(event.target.value)}
-            value={filterTenantId}
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {credential ? (
+        <div className="usr-credential">
+          <div>
+            <span>Geçici giriş</span>
+            <strong>{credential.user.email}</strong>
+            <code>{credential.temporaryPassword}</code>
+          </div>
+          <button
+            className="usr-btn usr-btn--ghost"
+            onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}
+            type="button"
           >
-            <option value="">Tüm kurumlar</option>
-            {institutions.map((institution) => (
-              <option key={institution.id} value={institution.id}>
-                {institution.name}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Durum filtresi"
-            className="guidance-data-select"
-            onChange={(event) => setFilterStatus(event.target.value)}
-            value={filterStatus}
-          >
-            <option value="">Tüm durumlar</option>
-            <option value="active">Aktif</option>
-            <option value="passive">Pasif</option>
-          </select>
-          <label className="guidance-data-search">
-            <Search aria-hidden size={16} />
-            <input
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Ad, e-posta, kurum veya rol ara…"
-              type="search"
-              value={query}
-            />
-          </label>
+            <Clipboard size={16} />
+            Kopyala
+          </button>
         </div>
+      ) : null}
 
-        {credential ? (
-          <div className="sa-users-credential-banner">
-            <div>
-              <span>Geçici giriş bilgisi</span>
-              <strong>{credential.user.email}</strong>
-              <code>{credential.temporaryPassword}</code>
-            </div>
-            <button
-              className="sa-users-btn sa-users-btn--ghost"
-              onClick={() => void navigator.clipboard?.writeText(`${credential.user.email} / ${credential.temporaryPassword}`)}
-              type="button"
-            >
-              <Clipboard size={16} />
-              Kopyala
-            </button>
-          </div>
-        ) : null}
+      {userError && !showCreateUser && !editingUser ? <div className="form-error sa-alert">{userError}</div> : null}
 
+      <article className="usr-card">
         {filteredUsers.length === 0 ? (
-          <p className="guidance-data-empty">{users.length === 0 ? "Henüz kullanıcı kaydı yok." : "Filtrelere uyan kullanıcı bulunamadı."}</p>
+          <p className="usr-empty">{users.length === 0 ? "Henüz kullanıcı yok." : "Bu filtreye uyan kullanıcı bulunamadı."}</p>
         ) : (
           <>
-            <div className="guidance-data-table-wrap">
-              <table className="guidance-data-table sa-users-table">
+            <div className="usr-table-wrap">
+              <table>
                 <thead>
                   <tr>
                     <th>Kullanıcı</th>
@@ -341,70 +300,57 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
                     <th>Rol</th>
                     <th>Durum</th>
                     <th>İlk giriş</th>
-                    <th>İşlemler</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedRows.map((user) => (
                     <tr
-                      className={selectedUser?.id === user.id && selectedUser?.tenantId === user.tenantId ? "sa-users-row-selected" : undefined}
+                      className={selectedUser?.id === user.id && selectedUser?.tenantId === user.tenantId ? "is-selected" : undefined}
                       key={`${user.tenantId}-${user.id}`}
                     >
                       <td>
-                        <span className="guidance-data-primary">{user.fullName}</span>
-                        <span className="guidance-data-secondary">{user.email}</span>
+                        <div className="usr-person">
+                          <span className="usr-avatar">{initials(user.fullName)}</span>
+                          <div>
+                            <strong>{user.fullName}</strong>
+                            <small>{user.email}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{user.tenant}</td>
+                      <td>
+                        <span className={`usr-badge usr-badge--${user.role}`}>{roleLabel(user.role)}</span>
                       </td>
                       <td>
-                        <span className="guidance-data-primary">{user.tenant}</span>
-                      </td>
-                      <td>
-                        <span className={`guidance-data-badge ${roleBadgeClass(user.role)}`}>{roleLabel(user.role)}</span>
-                      </td>
-                      <td>
-                        <span className={`guidance-data-badge guidance-data-badge--inline ${statusBadgeClass(user.status)}`}>
+                        <span className={`usr-badge ${user.status === "active" ? "usr-badge--ok" : "usr-badge--off"}`}>
                           {user.status === "active" ? "Aktif" : "Pasif"}
                         </span>
                       </td>
                       <td>
-                        <span
-                          className={`guidance-data-badge guidance-data-badge--inline${
-                            user.mustChangePassword ? " guidance-data-badge--amber" : " guidance-data-badge--emerald"
-                          }`}
-                        >
-                          {user.mustChangePassword ? (
-                            <>
-                              <KeyRound aria-hidden size={11} />
-                              Bekleniyor
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 aria-hidden size={11} />
-                              Tamamlandı
-                            </>
-                          )}
+                        <span className={`usr-badge ${user.mustChangePassword ? "usr-badge--wait" : "usr-badge--ok"}`}>
+                          {user.mustChangePassword ? "Bekleniyor" : "Tamam"}
                         </span>
                       </td>
                       <td>
-                        <div className="guidance-data-actions sa-users-row-actions">
+                        <div className="usr-row-actions">
                           <button
                             aria-label={`${user.fullName} düzenle`}
-                            className="sa-users-btn sa-users-btn--ghost sa-users-btn--icon"
+                            className="usr-btn usr-btn--icon"
                             onClick={() => {
                               setUserError(null);
                               setSelectedUser(user);
                               setEditingUser(user);
                             }}
-                            title="Düzenle"
                             type="button"
                           >
                             <Pencil size={15} />
                           </button>
                           <button
-                            aria-label={`${user.fullName} sil`}
-                            className="sa-users-btn sa-users-btn--ghost sa-users-btn--icon sa-users-btn--danger"
+                            aria-label={`${user.fullName} pasifleştir`}
+                            className="usr-btn usr-btn--icon usr-btn--danger"
                             disabled={user.role === "super_admin"}
                             onClick={() => void deleteGlobalUser(user)}
-                            title="Pasifleştir"
                             type="button"
                           >
                             <Trash2 size={15} />
@@ -421,7 +367,7 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
         )}
       </article>
 
-      <Modal open={showCreateUser} onClose={() => setShowCreateUser(false)} title="Yeni kullanıcı" kicker="Global CRUD" icon={<UserCog size={20} />}>
+      <Modal open={showCreateUser} onClose={() => setShowCreateUser(false)} title="Yeni kullanıcı" kicker="Hesap" icon={<UserCog size={20} />}>
         {userError && <div className="form-error">{userError}</div>}
         <form className="sa-modal-form" onSubmit={(event) => void createGlobalUser(event)}>
           <label className="field">
@@ -557,7 +503,7 @@ export function UsersPage({ users, institutions, onRefresh }: { users: UserAccou
               </select>
             </div>
           </label>
-          {protectedSelection ? <p className="guidance-data-empty sa-users-protected-note">Süper admin hesabı sistem hesabıdır; bu ekranda değiştirilemez.</p> : null}
+          {protectedSelection ? <p className="usr-protected">Süper admin hesabı bu ekrandan değiştirilemez.</p> : null}
           <div className="sa-modal-actions">
             <button
               className="ghost-action"

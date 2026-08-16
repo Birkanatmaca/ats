@@ -1,8 +1,7 @@
 import { Loader2 } from "lucide-react";
-import { AppBrand } from "../../components/AppBrand";
-import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
+import { AppSidebar } from "../../components/ShellChrome";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
 import type { AuthSession, ManagedGuardian, PrincipalSchoolRoster, SchoolTeacherRecord, UserAccount } from "../../lib/api";
 import { api } from "../../lib/api";
@@ -24,7 +23,9 @@ import { PrincipalReportsPage } from "./pages/PrincipalReportsPage";
 import { PrincipalServiceDriversPage } from "./pages/PrincipalServiceDriversPage";
 import { PrincipalScheduleInputsPage } from "./pages/PrincipalScheduleInputsPage";
 import { PrincipalSchedulePage } from "./pages/PrincipalSchedulePage";
+import { PrincipalStudentDetailPage } from "./pages/PrincipalStudentDetailPage";
 import { PrincipalStudentsPage } from "./pages/PrincipalStudentsPage";
+import { PrincipalTeacherDetailPage } from "./pages/PrincipalTeacherDetailPage";
 import { PrincipalTeachersPage } from "./pages/PrincipalTeachersPage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { RoleNotificationsPage } from "../pages/RoleNotificationsPage";
@@ -425,26 +426,18 @@ export function PrincipalConsole({
 
   return (
     <div className="admin-shell principal-console">
-      <header className="admin-navbar">
-        <div className="navbar-brand">
-          <AppBrand />
-        </div>
-
-        <NavbarUserMenu name={session.principal.name} meta={roleLabel(session.principal.role)} />
-      </header>
-
-      <aside className="admin-sidebar">
-        <nav className="admin-nav" aria-label="Müdür menüsü">
-          {visibleTabs.map((tab) => (
-            <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/dashboard/${tab.id}`} end={tab.id !== "classes"}>
-              {tab.icon}
-              <span>{tab.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        <SidebarFooter tenantName={data.tenant?.name ?? "Kurum"} onLogout={onLogout} />
-      </aside>
+      <AppSidebar
+        ariaLabel="Müdür menüsü"
+        basePath="/dashboard"
+        items={visibleTabs.map((tab) => ({
+          ...tab,
+          end: tab.id !== "classes" && tab.id !== "teachers" && tab.id !== "students"
+        }))}
+        onLogout={onLogout}
+        tenantName={data.tenant?.name ?? "Kurum"}
+        userMeta={roleLabel(session.principal.role)}
+        userName={session.principal.name}
+      />
 
       <main className={`admin-workspace ${activeTab}-workspace`}>
         <div className="sa-main">
@@ -467,6 +460,19 @@ export function PrincipalConsole({
                   teachers={sectionTeacherOptions}
                   classes={classes}
                   onAddTeacher={addManagedTeacher}
+                  onUpdateTeacher={updateManagedTeacher}
+                  onDeleteTeacher={deleteManagedTeacher}
+                  onResetPassword={resetManagedTeacherPassword}
+                  onMarkFirstLoginComplete={markTeacherFirstLoginComplete}
+                />
+              }
+            />
+            <Route
+              path="teachers/:teacherId"
+              element={
+                <PrincipalTeacherDetailPage
+                  teachers={sectionTeacherOptions}
+                  classes={classes}
                   onUpdateTeacher={updateManagedTeacher}
                   onDeleteTeacher={deleteManagedTeacher}
                   onResetPassword={resetManagedTeacherPassword}
@@ -501,6 +507,18 @@ export function PrincipalConsole({
                   onUpdateStudent={updateStudent}
                   onDeleteStudent={deleteStudent}
                   onImportComplete={() => void reloadRoster()}
+                />
+              }
+            />
+            <Route
+              path="students/:studentId"
+              element={
+                <PrincipalStudentDetailPage
+                  classes={classes}
+                  sections={sections}
+                  students={students}
+                  onUpdateStudent={updateStudent}
+                  onDeleteStudent={deleteStudent}
                 />
               }
             />

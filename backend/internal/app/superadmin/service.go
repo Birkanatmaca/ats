@@ -3,7 +3,9 @@ package superadmin
 import (
 	"context"
 	"fmt"
+	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,10 +72,77 @@ func (s *Service) Settings(ctx context.Context) (domain.PlatformSettings, error)
 }
 
 func (s *Service) UpdateSettings(ctx context.Context, actor identitydomain.Principal, input domain.UpdatePlatformSettingsInput) (domain.PlatformSettings, error) {
-	if len(input.Maintenance.Message) > 500 {
+	if input.Maintenance != nil && len(input.Maintenance.Message) > 500 {
+		return domain.PlatformSettings{}, ErrInvalidSettings
+	}
+	if input.Mail != nil {
+		if input.Mail.Port < 0 || input.Mail.Port > 65535 {
+			return domain.PlatformSettings{}, ErrInvalidSettings
+		}
+		if input.Mail.Enabled && strings.EqualFold(strings.TrimSpace(input.Mail.Provider), "smtp") && strings.TrimSpace(input.Mail.Host) == "" {
+			return domain.PlatformSettings{}, ErrInvalidSettings
+		}
+	}
+	if input.SMS != nil && input.SMS.Enabled && strings.TrimSpace(input.SMS.Sender) == "" && strings.TrimSpace(input.SMS.Username) == "" {
 		return domain.PlatformSettings{}, ErrInvalidSettings
 	}
 	return s.repo.UpdatePlatformSettings(ctx, actor, input)
+}
+
+func (s *Service) TestMailConnection(ctx context.Context) (domain.ConnectionTestResult, error) {
+	settings, err := s.repo.PlatformSettings(ctx)
+	if err != nil {
+		return domain.ConnectionTestResult{}, err
+	}
+	mail := settings.Mail
+	if !mail.Enabled {
+		return domain.ConnectionTestResult{Message: "E-posta bağlantısı kapalı. Önce kaydedip etkinleştirin."}, nil
+	}
+	started := time.Now()
+	switch strings.ToLower(strings.TrimSpace(mail.Provider)) {
+	case "smtp", "":
+		if strings.TrimSpace(mail.Host) == "" {
+			return domain.ConnectionTestResult{Message: "SMTP sunucu adresi eksik."}, nil
+		}
+		port := mail.Port
+		if port <= 0 {
+			port = 587
+		}
+		address := net.JoinHostPort(mail.Host, strconv.Itoa(port))
+		conn, dialErr := net.DialTimeout("tcp", address, 5*time.Second)
+		latency := time.Since(started).Milliseconds()
+		if dialErr != nil {
+			return domain.ConnectionTestResult{Message: "SMTP sunucusuna bağlanılamadı: " + dialErr.Error(), LatencyMs: latency}, nil
+		}
+		_ = conn.Close()
+		if !mail.PasswordSet {
+			return domain.ConnectionTestResult{OK: true, Message: "Sunucuya ulaşıldı. Şifre henüz kayıtlı değil.", LatencyMs: latency}, nil
+		}
+		return domain.ConnectionTestResult{OK: true, Message: "SMTP sunucusuna bağlanıldı.", LatencyMs: latency}, nil
+	default:
+		if !mail.PasswordSet || strings.TrimSpace(mail.FromEmail) == "" {
+			return domain.ConnectionTestResult{Message: "API anahtarı ve gönderen e-posta gerekli."}, nil
+		}
+		return domain.ConnectionTestResult{OK: true, Message: "E-posta API bilgileri hazır.", LatencyMs: time.Since(started).Milliseconds()}, nil
+	}
+}
+
+func (s *Service) TestSMSConnection(ctx context.Context) (domain.ConnectionTestResult, error) {
+	settings, err := s.repo.PlatformSettings(ctx)
+	if err != nil {
+		return domain.ConnectionTestResult{}, err
+	}
+	sms := settings.SMS
+	if !sms.Enabled {
+		return domain.ConnectionTestResult{Message: "SMS bağlantısı kapalı. Önce kaydedip etkinleştirin."}, nil
+	}
+	if strings.TrimSpace(sms.Username) == "" || !sms.APIKeySet {
+		return domain.ConnectionTestResult{Message: "SMS kullanıcı adı ve API anahtarı gerekli."}, nil
+	}
+	if strings.TrimSpace(sms.Sender) == "" {
+		return domain.ConnectionTestResult{Message: "SMS başlığı (gönderici) gerekli."}, nil
+	}
+	return domain.ConnectionTestResult{OK: true, Message: "SMS bilgileri hazır. Gerçek SMS gönderilmedi."}, nil
 }
 
 func (s *Service) CreateSupportTicket(ctx context.Context, principal identitydomain.Principal, input domain.CreateSupportTicketInput) (domain.SupportTicket, error) {
@@ -184,6 +253,15 @@ func (s *Service) GetUserProfile(ctx context.Context, tenantID string, userID st
 func (s *Service) UpdateSelfProfile(ctx context.Context, principal identitydomain.Principal, input domain.UpdateSelfProfileInput) (identitydomain.UserProfile, error) {
 	if strings.TrimSpace(principal.UserID) == "" {
 		return identitydomain.UserProfile{}, ErrInvalidUser
+	}
+	if input.FullName != nil && strings.TrimSpace(*input.FullName) == "" {
+		return identitydomain.UserProfile{}, ErrInvalidUser
+	}
+	if input.Email != nil {
+		email := strings.ToLower(strings.TrimSpace(*input.Email))
+		if email == "" || !strings.Contains(email, "@") {
+			return identitydomain.UserProfile{}, ErrInvalidUser
+		}
 	}
 	if input.AvatarURL != nil && len(*input.AvatarURL) > 300000 {
 		return identitydomain.UserProfile{}, ErrInvalidUser

@@ -1,9 +1,9 @@
-import { Database, Loader2, Network, RefreshCw, ShieldCheck, Trash2, UserRound } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Database, Loader2, RefreshCw, Search, Trash2 } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api, type AuditEntry, type AuditPurgeResult, type SuperAdminAuditLogQuery } from "../../lib/api";
+import { Modal } from "../components/Modal";
 import { PushHealthPanel } from "../components/PushHealthPanel";
-import { PanelHeader } from "../components/PanelHeader";
-import { SensitivityBadge } from "../components/SensitivityBadge";
+import { roleLabel } from "../utils/labels";
 import "./LogsPage.css";
 
 const defaultQuery: SuperAdminAuditLogQuery = {
@@ -41,16 +41,34 @@ function parseMetadata(metadata?: string): AuditMetadata {
 
 function formatMetadataValue(value: unknown) {
   if (value === null || value === undefined || value === "") {
-    return "-";
+    return "—";
   }
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
-  return JSON.stringify(value);
+  return JSON.stringify(value, null, 2);
+}
+
+function fieldLabel(key: string) {
+  const labels: Record<string, string> = {
+    method: "Metot",
+    path: "Yol",
+    requestId: "İstek ID",
+    ip: "IP",
+    userAgent: "Tarayıcı",
+    status: "HTTP durum"
+  };
+  return labels[key] ?? key;
 }
 
 function businessMetadataEntries(metadata: AuditMetadata) {
   return Object.entries(metadata).filter(([key]) => key !== "request");
+}
+
+function sensitivityLabel(value: string) {
+  if (value === "sensitive_student") return "Öğrenci hassas";
+  if (value === "operational") return "Operasyon";
+  return value;
 }
 
 export function LogsPage() {
@@ -63,6 +81,7 @@ export function LogsPage() {
   const [purgeDays, setPurgeDays] = useState("90");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<AuditEntry | null>(null);
 
   async function load(nextQuery: SuperAdminAuditLogQuery = query) {
     setRefreshing(true);
@@ -84,34 +103,23 @@ export function LogsPage() {
     void load(defaultQuery);
   }, []);
 
-  const sensitivityCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const entry of auditLogs) {
-      counts.set(entry.sensitivity, (counts.get(entry.sensitivity) ?? 0) + 1);
-    }
-    return counts;
-  }, [auditLogs]);
+  function nextQueryFromDraft(patch: Partial<SuperAdminAuditLogQuery> = {}) {
+    const merged = { ...draftQuery, ...patch };
+    return {
+      tenantId: merged.tenantId?.trim() || undefined,
+      action: merged.action?.trim() || undefined,
+      actorId: merged.actorId?.trim() || undefined,
+      actorRole: merged.actorRole?.trim() || undefined,
+      resourceType: merged.resourceType?.trim() || undefined,
+      sensitivity: merged.sensitivity?.trim() || undefined,
+      search: merged.search?.trim() || undefined,
+      limit: Math.min(Math.max(Number(merged.limit ?? 100) || 100, 1), 250)
+    };
+  }
 
-  const tenantCount = useMemo(() => {
-    return new Set(auditLogs.map((entry) => entry.tenantId ?? entry.tenant)).size;
-  }, [auditLogs]);
-
-  const actorCount = useMemo(() => {
-    return new Set(auditLogs.map((entry) => entry.actorId || entry.actorEmail || entry.actor).filter(Boolean)).size;
-  }, [auditLogs]);
-
-  async function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await load({
-      tenantId: draftQuery.tenantId?.trim() || undefined,
-      action: draftQuery.action?.trim() || undefined,
-      actorId: draftQuery.actorId?.trim() || undefined,
-      actorRole: draftQuery.actorRole?.trim() || undefined,
-      resourceType: draftQuery.resourceType?.trim() || undefined,
-      sensitivity: draftQuery.sensitivity?.trim() || undefined,
-      search: draftQuery.search?.trim() || undefined,
-      limit: Math.min(Math.max(Number(draftQuery.limit ?? 100) || 100, 1), 250)
-    });
+  async function applyFilters(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    await load(nextQueryFromDraft());
   }
 
   async function handlePurge(event: FormEvent<HTMLFormElement>) {
@@ -143,221 +151,275 @@ export function LogsPage() {
     return `${result.deletedCount} kayıt temizlendi. Kesim tarihi: ${new Date(result.before).toLocaleString("tr-TR")}${tenantText}`;
   }
 
-  const rowCount = auditLogs.length;
-
   return (
-    <section className="sa-page-stack sa-logs-page">
-      <PanelHeader
-        kicker="Denetim ve Loglar"
-        title="Sistem Logları"
-        icon={<Database size={18} />}
-        trailing={
-          <button className="sa-secondary-btn" type="button" onClick={() => void load(query)} disabled={refreshing || loading}>
+    <section className="log">
+      <header className="log-hero">
+        <div>
+          <p className="log-kicker">Denetim</p>
+          <h1>Loglar</h1>
+        </div>
+        <p className="log-hero-meta">{loading ? "Yükleniyor" : `${auditLogs.length} kayıt`}</p>
+      </header>
+
+      {error ? <div className="form-error sa-alert">{error}</div> : null}
+      {notice ? <div className="form-success sa-alert">{notice}</div> : null}
+
+      <article className="log-card log-card--table">
+        <form className="log-toolbar" onSubmit={(event) => void applyFilters(event)}>
+          <label className="log-search">
+            <Search size={16} />
+            <input
+              onChange={(event) => setDraftQuery((current) => ({ ...current, search: event.target.value }))}
+              placeholder="İşlem, aktör veya kurum ara"
+              type="search"
+              value={toInputValue(draftQuery.search)}
+            />
+          </label>
+          <select
+            onChange={(event) => {
+              const actorRole = event.target.value || undefined;
+              setDraftQuery((current) => ({ ...current, actorRole }));
+              void load(nextQueryFromDraft({ actorRole }));
+            }}
+            value={toInputValue(draftQuery.actorRole)}
+          >
+            <option value="">Tüm roller</option>
+            {roleOptions.map((role) => (
+              <option key={role} value={role}>
+                {roleLabel(role)}
+              </option>
+            ))}
+          </select>
+          <select
+            onChange={(event) => {
+              const sensitivity = event.target.value || undefined;
+              setDraftQuery((current) => ({ ...current, sensitivity }));
+              void load(nextQueryFromDraft({ sensitivity }));
+            }}
+            value={toInputValue(draftQuery.sensitivity)}
+          >
+            <option value="">Tüm hassasiyet</option>
+            <option value="operational">Operasyon</option>
+            <option value="sensitive_student">Öğrenci hassas</option>
+          </select>
+          <button className="log-btn log-btn--ghost" disabled={refreshing || loading} type="submit">
+            Ara
+          </button>
+          <button
+            className="log-btn log-btn--ghost"
+            disabled={refreshing || loading}
+            onClick={() => {
+              setDraftQuery(defaultQuery);
+              void load(defaultQuery);
+            }}
+            type="button"
+          >
+            Sıfırla
+          </button>
+          <button className="log-btn log-btn--primary" disabled={refreshing || loading} onClick={() => void load(query)} type="button">
             {refreshing ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
             Yenile
           </button>
-        }
-      />
+        </form>
 
-      <PushHealthPanel />
+        {loading ? (
+          <p className="log-empty">Loglar yükleniyor...</p>
+        ) : auditLogs.length === 0 ? (
+          <p className="log-empty">Bu filtrede log kaydı bulunamadı.</p>
+        ) : (
+          <div className="log-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>İşlem</th>
+                  <th>Kurum</th>
+                  <th>Aktör</th>
+                  <th>Hassasiyet</th>
+                  <th>Tarih</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.map((entry) => (
+                  <tr key={entry.id}>
+                    <td>
+                      <strong>{entry.action}</strong>
+                      <small>
+                        {entry.resourceType}
+                        {entry.resourceId ? ` · ${entry.resourceId}` : ""}
+                      </small>
+                    </td>
+                    <td>{entry.tenant}</td>
+                    <td>
+                      <strong>{entry.actor}</strong>
+                      <small>{entry.actorRole ? roleLabel(entry.actorRole) : entry.actorEmail || "—"}</small>
+                    </td>
+                    <td>
+                      <span className={`log-badge ${entry.sensitivity === "sensitive_student" ? "log-badge--warn" : "log-badge--ok"}`}>
+                        {sensitivityLabel(entry.sensitivity)}
+                      </span>
+                    </td>
+                    <td className="log-date">{new Date(entry.createdAt).toLocaleString("tr-TR")}</td>
+                    <td>
+                      <button className="log-btn log-btn--ghost" onClick={() => setSelectedEntry(entry)} type="button">
+                        Detay
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </article>
 
-      <section className="sa-card sa-log-summary-card">
-        <div className="sa-card-body sa-log-summary-grid">
-          <div>
-            <span className="sa-kicker">Kayıt</span>
-            <strong>{rowCount}</strong>
-          </div>
-          <div>
-            <span className="sa-kicker">Kurum</span>
-            <strong>{tenantCount}</strong>
-          </div>
-          <div>
-            <span className="sa-kicker">Aktör</span>
-            <strong>{actorCount}</strong>
-          </div>
-          <div>
-            <span className="sa-kicker">Operasyon</span>
-            <strong>{sensitivityCounts.get("operational") ?? 0}</strong>
-          </div>
-          <div>
-            <span className="sa-kicker">Öğrenci hassas</span>
-            <strong>{sensitivityCounts.get("sensitive_student") ?? 0}</strong>
-          </div>
-        </div>
-      </section>
-
-      <form className="sa-card sa-log-toolbar" onSubmit={handleFilterSubmit}>
-        <div className="sa-card-body sa-log-toolbar-grid">
-          <label>
-            <span>Kurum ID</span>
-            <input value={toInputValue(draftQuery.tenantId)} onChange={(event) => setDraftQuery((current) => ({ ...current, tenantId: event.target.value }))} placeholder="tenant-uuid" />
-          </label>
-          <label>
-            <span>İşlem</span>
-            <input value={toInputValue(draftQuery.action)} onChange={(event) => setDraftQuery((current) => ({ ...current, action: event.target.value }))} placeholder="audit_logs.purge" />
-          </label>
-          <label>
-            <span>Aktör ID</span>
-            <input value={toInputValue(draftQuery.actorId)} onChange={(event) => setDraftQuery((current) => ({ ...current, actorId: event.target.value }))} placeholder="user-uuid" />
-          </label>
-          <label>
-            <span>Aktör rolü</span>
-            <select value={toInputValue(draftQuery.actorRole)} onChange={(event) => setDraftQuery((current) => ({ ...current, actorRole: event.target.value }))}>
-              <option value="">Tümü</option>
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Kaynak</span>
-            <input value={toInputValue(draftQuery.resourceType)} onChange={(event) => setDraftQuery((current) => ({ ...current, resourceType: event.target.value }))} placeholder="guidance_case" />
-          </label>
-          <label>
-            <span>Arama</span>
-            <input value={toInputValue(draftQuery.search)} onChange={(event) => setDraftQuery((current) => ({ ...current, search: event.target.value }))} placeholder="öğretmen, öğrenci, kurum..." />
-          </label>
-          <label>
-            <span>Hassasiyet</span>
-            <select value={toInputValue(draftQuery.sensitivity)} onChange={(event) => setDraftQuery((current) => ({ ...current, sensitivity: event.target.value }))}>
-              <option value="">Tümü</option>
-              <option value="operational">Operasyon</option>
-              <option value="sensitive_student">Öğrenci hassas</option>
-            </select>
-          </label>
-          <label>
-            <span>Limit</span>
-            <input type="number" min={1} max={250} value={String(draftQuery.limit ?? 100)} onChange={(event) => setDraftQuery((current) => ({ ...current, limit: Number(event.target.value) }))} />
-          </label>
-          <div className="sa-log-toolbar-actions">
-            <button className="sa-primary-btn" type="submit" disabled={refreshing || loading}>
-              {refreshing ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
-              Filtrele
-            </button>
-            <button className="sa-secondary-btn" type="button" onClick={() => { setDraftQuery(defaultQuery); void load(defaultQuery); }} disabled={refreshing || loading}>
-              Sıfırla
-            </button>
-          </div>
-        </div>
-      </form>
-
-      <form className="sa-card sa-log-purge-card" onSubmit={handlePurge}>
-        <div className="sa-card-body sa-log-purge-grid">
-          <div>
-            <span className="sa-kicker">Temizlik</span>
-            <h3>Eski kayıtları kaldır</h3>
-            <p>Belirtilen günden daha eski loglar silinir. Bu işlem geri alınamaz.</p>
-          </div>
-          <label>
-            <span>Kaç günden eski?</span>
-            <input type="number" min={1} max={3650} value={purgeDays} onChange={(event) => setPurgeDays(event.target.value)} />
-          </label>
-          <button className="sa-danger-btn" type="submit" disabled={purging || loading}>
-            {purging ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+      <div className="log-utils">
+        <PushHealthPanel compact />
+        <form className="log-purge" onSubmit={handlePurge}>
+          <span>Temizlik</span>
+          <input max={3650} min={1} onChange={(event) => setPurgeDays(event.target.value)} type="number" value={purgeDays} />
+          <small>günden eski</small>
+          <button className="log-btn log-btn--danger" disabled={purging || loading} type="submit">
+            {purging ? <Loader2 className="spin" size={14} /> : <Trash2 size={14} />}
             Temizle
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
 
-      {error && <div className="form-error workspace-error sa-alert">{error}</div>}
-      {notice && <div className="form-success sa-alert">{notice}</div>}
-      {loading ? (
-        <section className="sa-card">
-          <div className="sa-card-body">Loglar yükleniyor...</div>
-        </section>
-      ) : (
-        <section className="sa-card sa-log-table-card">
-          <div className="sa-card-body">
-            <div className="sa-data-grid sa-log-table">
-              <div className="sa-row-head sa-log-table-head">
-                <span>İşlem</span>
-                <span>Kurum</span>
-                <span>Aktör</span>
-                <span>Kaynak</span>
-                <span>Hassasiyet</span>
-                <span>Tarih</span>
-                <span>Detay</span>
-              </div>
+      <LogDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+    </section>
+  );
+}
 
-              {auditLogs.map((entry) => {
-                const metadata = parseMetadata(entry.metadata);
-                const request = metadata.request;
-                const metadataEntries = businessMetadataEntries(metadata);
-                return (
-                  <div className="sa-row-body sa-log-table-row" key={entry.id}>
-                    <div className="sa-log-action">
-                      <div className="sa-audit-icon">
-                        <Database size={16} />
-                      </div>
-                      <div>
-                        <strong>{entry.action}</strong>
-                        {entry.resourceId ? <small className="sa-log-meta">{entry.resourceType} / {entry.resourceId}</small> : <small className="sa-log-meta">{entry.resourceType}</small>}
-                      </div>
-                    </div>
-                    <span title={entry.tenant}>{entry.tenant}</span>
-                    <div className="sa-log-actor">
-                      <strong>{entry.actor}</strong>
-                      {entry.actorEmail ? <small>{entry.actorEmail}</small> : null}
-                      <span>
-                        {entry.actorRole ? (
-                          <span className="sa-log-pill">
-                            <UserRound size={12} />
-                            {entry.actorRole}
-                          </span>
-                        ) : null}
-                        {entry.actorId ? <code>{entry.actorId}</code> : null}
-                      </span>
-                    </div>
-                    <div className="sa-log-resource">
-                      <span>{entry.resourceType}</span>
-                      {metadataEntries.length > 0 ? <small>{metadataEntries.slice(0, 2).map(([key, value]) => `${key}: ${formatMetadataValue(value)}`).join(" · ")}</small> : null}
-                    </div>
-                    <SensitivityBadge value={entry.sensitivity} />
-                    <small>{new Date(entry.createdAt).toLocaleString("tr-TR")}</small>
-                    <details className="sa-log-details">
-                      <summary>
-                        <ShieldCheck size={13} />
-                        İncele
-                      </summary>
-                      <dl>
-                        <div>
-                          <dt>Aktör</dt>
-                          <dd>{entry.actorEmail || entry.actor}</dd>
-                        </div>
-                        {request ? (
-                          <>
-                            <div>
-                              <dt>İstek</dt>
-                              <dd>{[request.method, request.path].filter(Boolean).join(" ")}</dd>
-                            </div>
-                            <div>
-                              <dt>Ağ</dt>
-                              <dd>
-                                <Network size={12} />
-                                {[request.ip, request.status ? `HTTP ${request.status}` : "", request.requestId].filter(Boolean).join(" · ")}
-                              </dd>
-                            </div>
-                          </>
-                        ) : null}
-                        {metadataEntries.map(([key, value]) => (
-                          <div key={key}>
-                            <dt>{key}</dt>
-                            <dd>{formatMetadataValue(value)}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </details>
-                  </div>
-                );
-              })}
+function LogDetailModal({ entry, onClose }: { entry: AuditEntry | null; onClose: () => void }) {
+  const metadata = parseMetadata(entry?.metadata);
+  const request = metadata.request;
+  const metadataEntries = businessMetadataEntries(metadata);
 
-              {auditLogs.length === 0 && <p className="empty-text sa-log-empty">Bu filtrede log kaydı bulunamadı.</p>}
+  return (
+    <Modal
+      icon={<Database size={20} />}
+      kicker={entry ? new Date(entry.createdAt).toLocaleString("tr-TR") : ""}
+      onClose={onClose}
+      open={entry !== null}
+      size="lg"
+      title={entry?.action ?? "Log detayı"}
+    >
+      {entry ? (
+        <div className="log-view">
+          <div className="log-view-block log-view-meta">
+            <div>
+              <span>İşlem</span>
+              <strong>{entry.action}</strong>
+            </div>
+            <div>
+              <span>Hassasiyet</span>
+              <strong>
+                <span className={`log-badge ${entry.sensitivity === "sensitive_student" ? "log-badge--warn" : "log-badge--ok"}`}>
+                  {sensitivityLabel(entry.sensitivity)}
+                </span>
+              </strong>
+            </div>
+            <div>
+              <span>Tarih</span>
+              <strong>{new Date(entry.createdAt).toLocaleString("tr-TR")}</strong>
+            </div>
+            <div>
+              <span>Kurum</span>
+              <strong>{entry.tenant || "—"}</strong>
+            </div>
+            <div>
+              <span>Kurum ID</span>
+              <strong>{entry.tenantId || "—"}</strong>
+            </div>
+            <div>
+              <span>Kayıt ID</span>
+              <strong>{entry.id}</strong>
             </div>
           </div>
-        </section>
-      )}
-    </section>
+
+          <section className="log-view-block">
+            <h3>Aktör</h3>
+            <div className="log-view-meta">
+              <div>
+                <span>Ad</span>
+                <strong>{entry.actor || "—"}</strong>
+              </div>
+              <div>
+                <span>E-posta</span>
+                <strong>{entry.actorEmail || "—"}</strong>
+              </div>
+              <div>
+                <span>Rol</span>
+                <strong>{entry.actorRole ? roleLabel(entry.actorRole) : "—"}</strong>
+              </div>
+              <div>
+                <span>Aktör ID</span>
+                <strong>{entry.actorId || "—"}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="log-view-block">
+            <h3>Kaynak</h3>
+            <div className="log-view-meta">
+              <div>
+                <span>Tür</span>
+                <strong>{entry.resourceType || "—"}</strong>
+              </div>
+              <div>
+                <span>Kaynak ID</span>
+                <strong>{entry.resourceId || "—"}</strong>
+              </div>
+            </div>
+          </section>
+
+          {request ? (
+            <section className="log-view-block">
+              <h3>İstek</h3>
+              <div className="log-view-meta">
+                {Object.entries(request).map(([key, value]) =>
+                  value === undefined || value === "" ? null : (
+                    <div key={key}>
+                      <span>{fieldLabel(key)}</span>
+                      <strong>{String(value)}</strong>
+                    </div>
+                  )
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {metadataEntries.length > 0 ? (
+            <section className="log-view-block">
+              <h3>Ek bilgiler</h3>
+              <dl className="log-view-dl">
+                {metadataEntries.map(([key, value]) => (
+                  <div key={key}>
+                    <dt>{key}</dt>
+                    <dd>
+                      {typeof value === "object" ? <pre>{formatMetadataValue(value)}</pre> : formatMetadataValue(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+
+          {entry.metadata ? (
+            <section className="log-view-block">
+              <h3>Ham metadata</h3>
+              <pre>{formatMetadataValue(metadata)}</pre>
+            </section>
+          ) : null}
+
+          <div className="sa-modal-actions">
+            <button className="ghost-action" onClick={onClose} type="button">
+              Kapat
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </Modal>
   );
 }

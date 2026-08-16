@@ -1,14 +1,18 @@
-import { CheckCircle2, ClipboardCheck, FileSpreadsheet, FileText, Loader2, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound, X } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, Pencil, Plus, School, Search, Trash2, UserCheck, UserX, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import { StudentFormModal, type StudentFormPayload } from "../components/StudentFormModal";
 import { TablePagination } from "../../components/TablePagination";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
-import { api, type StudentAttendanceSummary } from "../../../lib/api";
-import { ResourceFileManager } from "../../components/ResourceFileManager";
 import { StudentImportModal } from "../components/StudentImportModal";
 import type { ClassSection, ClassStudent, SchoolClass } from "../types";
-import "../../guidance/GuidanceDataPage.css";
 import "./PrincipalStudentsPage.css";
+
+function initials(firstName: string, lastName: string) {
+  const first = firstName.trim().charAt(0);
+  const last = lastName.trim().charAt(0);
+  return `${first}${last}`.toLocaleUpperCase("tr-TR") || "?";
+}
 
 export function PrincipalStudentsPage({
   classes,
@@ -34,15 +38,6 @@ export function PrincipalStudentsPage({
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editing, setEditing] = useState<ClassStudent | null>(null);
   const [importOpen, setImportOpen] = useState(false);
-  const [summaryStudent, setSummaryStudent] = useState<ClassStudent | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [attendanceSummary, setAttendanceSummary] = useState<StudentAttendanceSummary | null>(null);
-  const [documentStudent, setDocumentStudent] = useState<ClassStudent | null>(null);
-  const [reportBusy, setReportBusy] = useState<"attendance" | "development" | null>(null);
-  const [reportMessage, setReportMessage] = useState<string | null>(null);
-  const [reportError, setReportError] = useState<string | null>(null);
-  const [reportRefresh, setReportRefresh] = useState(0);
 
   const classNameById = useMemo(() => new Map(classes.map((c) => [c.id, c.name])), [classes]);
   const sectionLabelById = useMemo(() => {
@@ -97,7 +92,6 @@ export function PrincipalStudentsPage({
 
   const filterKey = `${search}|${filterClassId}|${filterStatus}`;
   const { paginatedRows, page, setPage, totalPages, pageSize, totalItems } = usePaginatedRows(filteredRows, filterKey);
-
   const existingSchoolNumbers = useMemo(() => students.map((student) => student.schoolNumber), [students]);
 
   function openCreate() {
@@ -128,112 +122,75 @@ export function PrincipalStudentsPage({
     onDeleteStudent(row.id);
   }
 
-  async function openAttendanceSummary(row: ClassStudent) {
-    setSummaryStudent(row);
-    setSummaryLoading(true);
-    setSummaryError(null);
-    setAttendanceSummary(null);
-    try {
-      const summary = await api.studentAttendanceSummary(row.id);
-      setAttendanceSummary(summary);
-    } catch {
-      setSummaryError("Devamsızlık özeti alınamadı.");
-    } finally {
-      setSummaryLoading(false);
-    }
-  }
-
-  function closeAttendanceSummary() {
-    setSummaryStudent(null);
-    setAttendanceSummary(null);
-    setSummaryError(null);
-  }
-
-  function openStudentDocuments(row: ClassStudent) {
-    setDocumentStudent(row);
-    setReportBusy(null);
-    setReportMessage(null);
-    setReportError(null);
-    setReportRefresh((value) => value + 1);
-  }
-
-  async function generateStudentReport(type: "attendance" | "development") {
-    if (!documentStudent) return;
-    setReportBusy(type);
-    setReportError(null);
-    setReportMessage(null);
-    try {
-      const report =
-        type === "attendance"
-          ? await api.generateAttendanceReport({ studentId: documentStudent.id })
-          : await api.generateStudentDevelopmentReport({ studentId: documentStudent.id });
-      setReportMessage(`${report.title} oluşturuldu.`);
-      setReportRefresh((value) => value + 1);
-    } catch (generateError) {
-      setReportError(generateError instanceof Error ? generateError.message : "Rapor oluşturulamadı.");
-    } finally {
-      setReportBusy(null);
-    }
-  }
-
   return (
-    <section className="principal-page-stack principal-students-page guidance-data-page">
-      <div className="principal-stat-grid principal-students-stats" aria-label="Öğrenci istatistikleri">
-        <article className="principal-stat-card principal-stat-card--sky">
-          <span className="principal-stat-icon" aria-hidden>
-            <UsersRound size={20} />
-          </span>
-          <small>Toplam öğrenci</small>
+    <section className="psc">
+      <header className="psc-hero">
+        <div>
+          <p className="psc-kicker">Okul</p>
+          <h1>Öğrenciler</h1>
+          <p>Kadro, sınıf ve veli bilgilerini yönetin. Bir öğrenciye tıklayarak yoklama ve akademik detayı açın.</p>
+        </div>
+        <div className="psc-hero-actions">
+          <button className="psc-import" type="button" onClick={() => setImportOpen(true)}>
+            <FileSpreadsheet size={16} />
+            Listeye aktar
+          </button>
+          <button className="psc-add" type="button" onClick={openCreate}>
+            <Plus size={16} />
+            Öğrenci ekle
+          </button>
+        </div>
+      </header>
+
+      <div className="psc-kpi-grid">
+        <article className="psc-kpi">
+          <div className="psc-kpi-icon">
+            <UsersRound size={18} />
+          </div>
+          <span>Toplam öğrenci</span>
           <strong>{studentStats.total}</strong>
-          <em>Kayıtlı öğrenci sayısı</em>
+          <small>Kayıtlı öğrenci</small>
         </article>
-        <article className="principal-stat-card principal-stat-card--emerald">
-          <span className="principal-stat-icon" aria-hidden>
-            <UserCheck size={20} />
-          </span>
-          <small>Aktif</small>
+        <article className="psc-kpi">
+          <div className="psc-kpi-icon psc-kpi-icon--green">
+            <UserCheck size={18} />
+          </div>
+          <span>Aktif</span>
           <strong>{studentStats.active}</strong>
-          <em>Devam eden kayıtlar</em>
+          <small>Devam eden kayıtlar</small>
         </article>
-        <article className="principal-stat-card principal-stat-card--rose">
-          <span className="principal-stat-icon" aria-hidden>
-            <UserX size={20} />
-          </span>
-          <small>Pasif</small>
+        <article className="psc-kpi">
+          <div className="psc-kpi-icon psc-kpi-icon--rose">
+            <UserX size={18} />
+          </div>
+          <span>Pasif</span>
           <strong>{studentStats.passive}</strong>
-          <em>Askıda veya pasif</em>
+          <small>Askıda veya pasif</small>
         </article>
-        <article className="principal-stat-card principal-stat-card--violet">
-          <span className="principal-stat-icon" aria-hidden>
-            <School size={20} />
-          </span>
-          <small>Sınıf / şube</small>
+        <article className="psc-kpi">
+          <div className="psc-kpi-icon psc-kpi-icon--violet">
+            <School size={18} />
+          </div>
+          <span>Sınıf / şube</span>
           <strong>
-            {studentStats.classCount}
-            <span className="principal-students-stat-pair"> / {studentStats.sectionCount}</span>
+            {studentStats.classCount} / {studentStats.sectionCount}
           </strong>
-          <em>Kayıt olan farklı sınıf ve şube</em>
+          <small>Farklı sınıf ve şube</small>
         </article>
       </div>
 
-      <article className="guidance-data-card">
-        <header className="guidance-data-card-head">
-          <h2>Öğrenci listesi</h2>
-          <div className="guidance-data-card-head-actions">
-            <span>{filteredRows.length} öğrenci</span>
-            <button className="ghost-action small-action principal-students-import" type="button" onClick={() => setImportOpen(true)}>
-              <FileSpreadsheet size={16} />
-              Listeye aktar
-            </button>
-            <button className="primary-action small-action" type="button" onClick={openCreate}>
-              <Plus size={16} />
-              Öğrenci ekle
-            </button>
-          </div>
-        </header>
-
-        <div className="guidance-data-toolbar">
-          <select className="guidance-data-select" value={filterClassId} onChange={(event) => setFilterClassId(event.target.value)} aria-label="Sınıf filtresi">
+      <article className="psc-card">
+        <div className="psc-toolbar">
+          <label className="psc-search">
+            <Search size={16} aria-hidden />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Ad, numara, veli veya sınıf ara…"
+              type="search"
+            />
+          </label>
+          <select className="psc-select" value={filterClassId} onChange={(event) => setFilterClassId(event.target.value)} aria-label="Sınıf filtresi">
             <option value="">Tüm sınıflar</option>
             {classes.map((item) => (
               <option key={item.id} value={item.id}>
@@ -241,23 +198,22 @@ export function PrincipalStudentsPage({
               </option>
             ))}
           </select>
-          <select className="guidance-data-select" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)} aria-label="Durum filtresi">
-            <option value="">Tüm durumlar</option>
-            <option value="active">Aktif</option>
-            <option value="passive">Pasif</option>
-          </select>
-          <label className="guidance-data-search">
-            <Search size={16} aria-hidden />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ad, numara, veli veya sınıf ara…" type="search" />
-          </label>
+          <button
+            className={`psc-chip${filterStatus === "passive" ? " is-active" : ""}`}
+            type="button"
+            onClick={() => setFilterStatus((current) => (current === "passive" ? "" : "passive"))}
+          >
+            Pasif kayıtlar
+          </button>
+          <span className="psc-count">{filteredRows.length} öğrenci</span>
         </div>
 
         {filteredRows.length === 0 ? (
-          <p className="guidance-data-empty">{students.length === 0 ? "Henüz öğrenci kaydı yok." : "Filtrelere uyan öğrenci yok."}</p>
+          <p className="psc-empty">{students.length === 0 ? "Henüz öğrenci kaydı yok." : "Filtrelere uyan öğrenci yok."}</p>
         ) : (
           <>
-            <div className="guidance-data-table-wrap">
-              <table className="guidance-data-table principal-students-table">
+            <div className="psc-table-wrap">
+              <table className="psc-table">
                 <thead>
                   <tr>
                     <th>Öğrenci</th>
@@ -271,59 +227,48 @@ export function PrincipalStudentsPage({
                   {paginatedRows.map((item) => (
                     <tr key={item.id}>
                       <td>
-                        <span className="guidance-data-primary">
-                          {item.firstName} {item.lastName}
-                        </span>
-                        <span className="guidance-data-secondary">No: {item.schoolNumber}</span>
+                        <NavLink className="psc-person" to={`/dashboard/students/${item.id}`}>
+                          <span className="psc-avatar">{initials(item.firstName, item.lastName)}</span>
+                          <div>
+                            <strong>
+                              {item.firstName} {item.lastName}
+                            </strong>
+                            <small>No: {item.schoolNumber}</small>
+                          </div>
+                        </NavLink>
                       </td>
                       <td>{sectionLabelById.get(item.sectionId) ?? classNameById.get(item.classId) ?? "—"}</td>
                       <td>
                         {item.guardianName || item.guardianPhone ? (
-                          <>
-                            <span className="guidance-data-primary">{item.guardianName || "—"}</span>
-                            {item.guardianPhone ? <span className="guidance-data-secondary">{item.guardianPhone}</span> : null}
-                          </>
+                          <div className="psc-meta">
+                            <strong>{item.guardianName || "—"}</strong>
+                            {item.guardianPhone ? <small>{item.guardianPhone}</small> : null}
+                          </div>
                         ) : (
                           "—"
                         )}
                       </td>
                       <td>
-                        <span
-                          className={`guidance-data-badge guidance-data-badge--inline${
-                            item.status === "active" ? " guidance-data-badge--emerald" : " guidance-data-badge--rose"
-                          }`}
-                        >
+                        <span className={`psc-status${item.status === "active" ? " psc-status--ok" : " psc-status--off"}`}>
                           {item.status === "active" ? (
                             <>
-                              <CheckCircle2 size={11} aria-hidden />
+                              <CheckCircle2 size={12} aria-hidden />
                               Aktif
                             </>
                           ) : (
                             <>
-                              <UserX size={11} aria-hidden />
+                              <UserX size={12} aria-hidden />
                               Pasif
                             </>
                           )}
                         </span>
                       </td>
                       <td>
-                        <div className="guidance-data-actions principal-students-row-actions">
-                          <button
-                            className="ghost-action"
-                            type="button"
-                            onClick={() => void openAttendanceSummary(item)}
-                            title="Devamsızlık özeti"
-                            aria-label="Devamsızlık özeti"
-                          >
-                            <ClipboardCheck size={15} />
-                          </button>
-                          <button className="ghost-action" type="button" onClick={() => openEdit(item)} title="Düzenle" aria-label="Düzenle">
+                        <div className="psc-actions">
+                          <button className="psc-icon-btn" type="button" onClick={() => openEdit(item)} title="Düzenle" aria-label="Düzenle">
                             <Pencil size={15} />
                           </button>
-                          <button className="ghost-action" type="button" onClick={() => openStudentDocuments(item)} title="Belgeler" aria-label="Belgeler">
-                            <FileText size={15} />
-                          </button>
-                          <button className="ghost-action danger" type="button" onClick={() => handleDelete(item)} title="Sil" aria-label="Sil">
+                          <button className="psc-icon-btn psc-icon-btn--danger" type="button" onClick={() => handleDelete(item)} title="Sil" aria-label="Sil">
                             <Trash2 size={15} />
                           </button>
                         </div>
@@ -355,129 +300,6 @@ export function PrincipalStudentsPage({
         onClose={() => setImportOpen(false)}
         onComplete={onImportComplete}
       />
-
-      {documentStudent ? (
-        <div className="principal-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setDocumentStudent(null)}>
-          <div className="principal-modal principal-student-documents-modal" role="dialog" aria-modal="true" aria-labelledby="student-documents-title">
-            <header className="principal-modal-head">
-              <div>
-                <h2 id="student-documents-title">
-                  {documentStudent.firstName} {documentStudent.lastName}
-                </h2>
-                <p className="principal-students-summary-subtitle">Öğrenci belgeleri · {documentStudent.schoolNumber}</p>
-              </div>
-              <button className="principal-modal-close" type="button" onClick={() => setDocumentStudent(null)} aria-label="Kapat">
-                <X size={18} />
-              </button>
-            </header>
-            <div className="principal-modal-body">
-              <div className="principal-student-report-actions">
-                <button className="ghost-action small-action" type="button" onClick={() => void generateStudentReport("attendance")} disabled={reportBusy !== null}>
-                  {reportBusy === "attendance" ? <Loader2 className="spin" size={15} /> : <FileText size={15} />}
-                  Devamsızlık PDF
-                </button>
-                <button className="ghost-action small-action" type="button" onClick={() => void generateStudentReport("development")} disabled={reportBusy !== null}>
-                  {reportBusy === "development" ? <Loader2 className="spin" size={15} /> : <FileText size={15} />}
-                  Gelişim PDF
-                </button>
-              </div>
-              {reportError ? <p className="principal-modal-error">{reportError}</p> : null}
-              {reportMessage ? <p className="principal-modal-success">{reportMessage}</p> : null}
-              <ResourceFileManager
-                title="Üretilen raporlar"
-                category="report"
-                resourceType="student_report"
-                resourceId={documentStudent.id}
-                canUpload={false}
-                emptyText="Bu öğrenci için henüz PDF rapor üretilmedi."
-                refreshSignal={reportRefresh}
-              />
-              <ResourceFileManager
-                title="Öğrenci belgeleri"
-                category="student"
-                resourceType="student"
-                resourceId={documentStudent.id}
-                emptyText="Bu öğrenci için henüz belge yüklenmedi."
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {summaryStudent ? (
-        <div className="principal-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeAttendanceSummary()}>
-          <div className="principal-modal principal-students-summary-modal" role="dialog" aria-modal="true" aria-labelledby="student-summary-title">
-            <header className="principal-modal-head">
-              <div>
-                <h2 id="student-summary-title">
-                  {summaryStudent.firstName} {summaryStudent.lastName}
-                </h2>
-                <p className="principal-students-summary-subtitle">Devamsızlık özeti · {summaryStudent.schoolNumber}</p>
-              </div>
-              <button className="principal-modal-close" type="button" onClick={closeAttendanceSummary} aria-label="Kapat">
-                <X size={18} />
-              </button>
-            </header>
-            <div className="principal-modal-body principal-students-summary-body">
-              {summaryLoading ? (
-                <p className="principal-students-summary-loading">
-                  <Loader2 size={18} className="spin" aria-hidden />
-                  Özet yükleniyor…
-                </p>
-              ) : summaryError ? (
-                <p className="principal-modal-error">{summaryError}</p>
-              ) : attendanceSummary ? (
-                <>
-                  <div className="principal-students-summary-stats" aria-label="Devamsızlık istatistikleri">
-                    <article>
-                      <small>Geldi</small>
-                      <strong>{attendanceSummary.present}</strong>
-                    </article>
-                    <article>
-                      <small>Devamsız</small>
-                      <strong>{attendanceSummary.absent}</strong>
-                    </article>
-                    <article>
-                      <small>Geç</small>
-                      <strong>{attendanceSummary.late}</strong>
-                    </article>
-                    <article>
-                      <small>Mazeretli</small>
-                      <strong>{attendanceSummary.excused}</strong>
-                    </article>
-                  </div>
-                  {attendanceSummary.records.length === 0 ? (
-                    <p className="empty-text">Henüz kesinleşmiş yoklama kaydı yok.</p>
-                  ) : (
-                    <div className="principal-table-wrap">
-                      <table className="principal-table principal-students-summary-table">
-                        <thead>
-                          <tr>
-                            <th>Tarih</th>
-                            <th>Ders</th>
-                            <th>Sınıf</th>
-                            <th>Durum</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {attendanceSummary.records.map((record, index) => (
-                            <tr key={`${record.date}-${record.subjectName}-${index}`}>
-                              <td>{record.date}</td>
-                              <td>{record.subjectName}</td>
-                              <td>{record.className}</td>
-                              <td>{record.status}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

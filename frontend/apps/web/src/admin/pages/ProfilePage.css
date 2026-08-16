@@ -1,0 +1,226 @@
+/* Profil — mavi / beyaz, yalnızca bu sayfa */
+
+.admin-shell.super-admin-app .profile-workspace {
+  --sa-bg: #f4f7fb;
+  --sa-muted: #64748b;
+  --sa-ink: #0f172a;
+  --sa-accent: #2563eb;
+  color: var(--sa-ink);
+  background: #f4f7fb;
+}
+
+.prf {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prf-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.prf-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.prf-hero h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.prf-hero-note,
+.prf-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.prf-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.prf-notice {
+  padding: 10px 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 12px;
+}
+
+.prf-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 240px;
+  gap: 12px;
+}
+
+.prf-card {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.prf-card--identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.prf-avatar {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  border-radius: 20px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.prf-card h2 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.prf-card--identity h2 {
+  margin: 8px 0 0;
+}
+
+.prf-card--identity p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.prf-pill {
+  display: inline-flex;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.prf-form {
+  display: grid;
+  gap: 12px;
+}
+
+.prf-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.prf-form input {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.prf-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #64748b;
+}
+
+.prf-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.prf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prf-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.prf-meta {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.prf-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prf-meta dt {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.prf-meta dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+  .prf-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .prf-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .prf-grid {
+    grid-template-columns: 1fr;
+  }
+}

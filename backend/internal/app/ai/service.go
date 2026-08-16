@@ -40,6 +40,9 @@ type Repository interface {
 	RecordToolCall(ctx context.Context, tenantID, conversationID, messageID, toolName string, arguments, resultSummary json.RawMessage) error
 	RecordAudit(ctx context.Context, tenantID, actorUserID, action, resourceType, resourceID string, metadata json.RawMessage) error
 	GetAIProviderKey(ctx context.Context) (string, error)
+	UpdateAIProviderKey(ctx context.Context, key string) error
+	ListAIProviderKeys(ctx context.Context) ([]aidomain.ProviderKey, error)
+	SaveAIProviderKeys(ctx context.Context, keys []aidomain.ProviderKey) error
 	GetAIProviderSettings(ctx context.Context) (aidomain.ProviderSettings, error)
 	UpdateAIProviderSettings(ctx context.Context, input aidomain.ProviderSettings) (aidomain.ProviderSettings, error)
 	CountUserMessagesSince(ctx context.Context, tenantID, userID string, since time.Time) (int, error)

@@ -87,6 +87,8 @@ func isSuperAdminOperationalAuditPath(method, path string) bool {
 		return true
 	case method == http.MethodPost && path == "/api/v1/super-admin/ai/provider/test":
 		return true
+	case strings.HasPrefix(path, "/api/v1/super-admin/ai/provider/keys"):
+		return true
 	case method == http.MethodPatch && path == "/api/v1/super-admin/ai/cost-settings":
 		return true
 	case method == http.MethodPatch && strings.HasPrefix(path, "/api/v1/super-admin/institutions/") && strings.HasSuffix(path, "/ai-quota"):
@@ -94,6 +96,8 @@ func isSuperAdminOperationalAuditPath(method, path string) bool {
 	case method == http.MethodPost && path == "/api/v1/super-admin/ai/retention/run":
 		return true
 	case method == http.MethodPatch && path == "/api/v1/super-admin/billing/settings":
+		return true
+	case method == http.MethodPost && (path == "/api/v1/super-admin/settings/mail/test" || path == "/api/v1/super-admin/settings/sms/test"):
 		return true
 	default:
 		return false
@@ -144,6 +148,8 @@ func auditMeta(method, path string) (action, resourceType, resourceID string) {
 		return "ai.provider.update", "ai_provider_settings", ""
 	case path == "/api/v1/super-admin/ai/provider/test":
 		return "ai.provider.test", "ai_provider_settings", ""
+	case strings.HasPrefix(path, "/api/v1/super-admin/ai/provider/keys"):
+		return "ai.provider.keys." + verb, "ai_provider_key", lastUUIDSegment(path)
 	case path == "/api/v1/super-admin/ai/cost-settings":
 		return "ai.cost_settings.update", "ai_cost_settings", ""
 	case strings.HasPrefix(path, "/api/v1/super-admin/institutions/") && strings.HasSuffix(path, "/ai-quota"):

@@ -141,6 +141,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/dashboard/principal/reports", h.principalReportOverview)
 	mux.HandleFunc("GET /api/v1/dashboard/classes/{classId}/summary", h.classSummary)
 	mux.HandleFunc("GET /api/v1/principal/teachers", h.principalTeachers)
+	mux.HandleFunc("GET /api/v1/principal/teachers/{teacherId}/overview", h.principalTeacherOverview)
 	mux.HandleFunc("POST /api/v1/principal/teachers", h.provisionPrincipalTeacher)
 	mux.HandleFunc("POST /api/v1/principal/guardians", h.provisionPrincipalGuardian)
 	h.registerPrincipalGuardianRoutes(mux)
@@ -161,6 +162,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/super-admin/audit-logs", h.purgeSuperAdminAuditLogs)
 	mux.HandleFunc("GET /api/v1/super-admin/settings", h.superAdminSettings)
 	mux.HandleFunc("PATCH /api/v1/super-admin/settings", h.updateSuperAdminSettings)
+	mux.HandleFunc("POST /api/v1/super-admin/settings/mail/test", h.testSuperAdminMail)
+	mux.HandleFunc("POST /api/v1/super-admin/settings/sms/test", h.testSuperAdminSMS)
 	mux.HandleFunc("GET /api/v1/super-admin/support/tickets", h.superAdminSupportTickets)
 	mux.HandleFunc("PATCH /api/v1/super-admin/support/tickets/{id}", h.updateSuperAdminSupportTicket)
 	h.registerSuperAdminAIRoutes(mux)
@@ -634,6 +637,54 @@ func (h *Handler) principalTeachers(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, teachers, nil)
 }
 
+func (h *Handler) principalTeacherOverview(w http.ResponseWriter, r *http.Request) {
+	principal, ok := requirePrincipalRole(w, r, identity.RolePrincipal, identity.RoleSystemAdmin, identity.RoleSuperAdmin)
+	if !ok {
+		return
+	}
+	teacherID := strings.TrimSpace(r.PathValue("teacherId"))
+	if teacherID == "" {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Öğretmen kimliği gerekli.", nil)
+		return
+	}
+	now := time.Now()
+	if h.clock != nil {
+		now = h.clock()
+	}
+	to := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	from := to.AddDate(0, 0, -29)
+	if raw := strings.TrimSpace(r.URL.Query().Get("from")); raw != "" {
+		parsed, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli bir from parametresi gönderilmelidir (YYYY-MM-DD).", nil)
+			return
+		}
+		from = parsed
+	}
+	if raw := strings.TrimSpace(r.URL.Query().Get("to")); raw != "" {
+		parsed, err := time.Parse("2006-01-02", raw)
+		if err != nil {
+			httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Geçerli bir to parametresi gönderilmelidir (YYYY-MM-DD).", nil)
+			return
+		}
+		to = parsed
+	}
+	if from.After(to) {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "from tarihi to tarihinden sonra olamaz.", nil)
+		return
+	}
+	if to.Sub(from) > 180*24*time.Hour {
+		httpx.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", "Rapor aralığı en fazla 180 gün olabilir.", nil)
+		return
+	}
+	overview, found := h.dashboard.TeacherOverview(r.Context(), principal.TenantID, teacherID, from, to)
+	if !found {
+		httpx.WriteError(w, http.StatusNotFound, "TEACHER_NOT_FOUND", "Öğretmen bulunamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, overview, nil)
+}
+
 func (h *Handler) principalSchoolRoster(w http.ResponseWriter, r *http.Request) {
 	principal, ok := requirePrincipal(w, r)
 	if !ok {
@@ -905,6 +956,30 @@ func (h *Handler) updateSuperAdminSettings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, settings, nil)
+}
+
+func (h *Handler) testSuperAdminMail(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireSuperAdmin(w, r); !ok {
+		return
+	}
+	result, err := h.superAdmin.TestMailConnection(r.Context())
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "MAIL_TEST_FAILED", "E-posta bağlantı testi çalıştırılamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, result, nil)
+}
+
+func (h *Handler) testSuperAdminSMS(w http.ResponseWriter, r *http.Request) {
+	if _, ok := requireSuperAdmin(w, r); !ok {
+		return
+	}
+	result, err := h.superAdmin.TestSMSConnection(r.Context())
+	if err != nil {
+		httpx.WriteError(w, http.StatusInternalServerError, "SMS_TEST_FAILED", "SMS bağlantı testi çalıştırılamadı.", nil)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, result, nil)
 }
 
 func (h *Handler) mySupportTickets(w http.ResponseWriter, r *http.Request) {

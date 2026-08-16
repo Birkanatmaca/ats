@@ -1,16 +1,15 @@
-/* OGTA — navbar & sidebar kabuğu (platform geneli) */
+/* OGTA — sidebar kabuğu (platform geneli) */
 
 .admin-shell {
-  --shell-font: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --shell-nav-h: 64px;
-  --shell-sidebar-w: 272px;
-  --shell-sidebar-bg: linear-gradient(175deg, #0a1f38 0%, #0f2847 38%, #163b63 100%);
-  --shell-sidebar-border: rgba(103, 232, 249, 0.12);
-  --shell-nav-text: rgba(255, 255, 255, 0.62);
+  --shell-font: var(--font-sans, "Source Sans 3", system-ui, sans-serif);
+  --shell-sidebar-w: 236px;
+  --shell-sidebar-bg: #0a1f38;
+  --shell-sidebar-border: rgba(255, 255, 255, 0.06);
+  --shell-nav-text: rgba(255, 255, 255, 0.58);
   --shell-nav-text-hover: rgba(255, 255, 255, 0.92);
-  --shell-nav-hover-bg: rgba(255, 255, 255, 0.07);
-  --shell-nav-active-bg: linear-gradient(90deg, rgba(6, 182, 212, 0.22) 0%, rgba(255, 255, 255, 0.06) 100%);
-  --shell-nav-active-glow: 0 0 0 1px rgba(6, 182, 212, 0.35), 0 8px 24px rgba(6, 182, 212, 0.15);
+  --shell-nav-hover-bg: rgba(255, 255, 255, 0.05);
+  --shell-nav-active-bg: rgba(45, 127, 199, 0.18);
+  --shell-nav-active-glow: none;
   --shell-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -24,36 +23,6 @@
   font-family: var(--shell-font);
   background: #f1f5f9;
   overflow-x: hidden;
-}
-
-/* —— Navbar —— */
-.admin-navbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 20px;
-  min-height: var(--shell-nav-h);
-  padding: 0 24px 0 20px;
-  border-bottom: 1px solid color-mix(in srgb, var(--sa-navy) 8%, var(--sa-border));
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(20px) saturate(1.2);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 4px 24px rgba(12, 35, 64, 0.06);
-}
-
-.navbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  min-width: 0;
-  padding-right: 20px;
-  border-right: 1px solid color-mix(in srgb, var(--sa-navy) 10%, var(--sa-border));
 }
 
 .app-brand {
@@ -78,48 +47,12 @@
   transform: scale(1.02);
 }
 
-.navbar-actions {
-  grid-column: 3;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  min-width: 0;
-}
-
-.navbar-profile {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 260px;
-  min-height: 44px;
-  padding: 6px 14px 6px 8px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.navbar-profile:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-}
-
-.navbar-profile-link {
-  text-decoration: none;
-  color: inherit;
-  cursor: pointer;
-}
-
 .profile-avatar {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   color: #fff;
@@ -133,37 +66,6 @@
   object-fit: cover;
 }
 
-.navbar-profile-text {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 0;
-  gap: 2px;
-}
-
-.navbar-profile strong {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #0f172a;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.navbar-profile span {
-  display: block;
-  font-size: 11px;
-  font-weight: 500;
-  color: #64748b;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Sidebar alt: kurum + çıkış */
 .sidebar-footer {
   position: relative;
@@ -172,7 +74,7 @@
   flex-direction: column;
   gap: 10px;
   margin-top: auto;
-  padding-top: 12px;
+  padding: 12px 10px 0;
 }
 
 .sidebar-footer .sidebar-tenant {
@@ -206,31 +108,31 @@
 .sidebar-logout {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 10px;
   width: 100%;
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid rgba(248, 113, 113, 0.45);
-  border-radius: 12px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
   font-family: inherit;
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #fff;
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.62);
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
   transition:
     background 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+    color 0.15s ease;
 }
 
 .sidebar-logout:hover {
-  background: linear-gradient(180deg, #f87171 0%, #b91c1c 100%);
-  box-shadow: 0 6px 18px rgba(185, 28, 28, 0.35);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  box-shadow: none;
+  transform: none;
 }
 
 .sidebar-logout:active {
@@ -243,9 +145,77 @@
 }
 
 /* —— Sidebar —— */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 64px;
+  margin: 0;
+  padding: 16px 18px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  text-decoration: none;
+}
+
+.sidebar-brand .app-brand-logo {
+  height: 34px;
+  max-width: 168px;
+  filter: none;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-user-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.sidebar-user-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-user-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sidebar-user-text strong {
+  display: block;
+  overflow: hidden;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user-text span {
+  display: block;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-sidebar {
   position: fixed;
-  top: var(--shell-nav-h);
+  top: 0;
   left: 0;
   bottom: 0;
   width: var(--shell-sidebar-w);
@@ -253,24 +223,15 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 20px 14px 18px;
-  border-right: 1px solid var(--shell-sidebar-border);
+  padding: 0 0 12px;
+  border-right: 0;
   background: var(--shell-sidebar-bg);
-  box-shadow: 8px 0 32px rgba(10, 31, 56, 0.18);
-  overflow: hidden;
-  isolation: isolate;
+  box-shadow: 1px 0 0 var(--shell-sidebar-border);
+  overflow: visible;
 }
 
 .admin-sidebar::before {
-  content: "";
-  position: absolute;
-  top: -80px;
-  right: -60px;
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(6, 182, 212, 0.18) 0%, transparent 70%);
-  pointer-events: none;
+  display: none;
 }
 
 .admin-sidebar .admin-brand {
@@ -284,7 +245,7 @@
   flex: 1;
   flex-direction: column;
   gap: 4px;
-  padding: 0;
+  padding: 10px 10px 0;
   margin: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -302,14 +263,20 @@
 }
 
 .admin-nav::before {
-  content: "Menü";
-  display: block;
-  margin: 0 10px 12px;
+  display: none;
+}
+
+.nav-group-label {
+  margin: 14px 10px 6px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(103, 232, 249, 0.75);
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.nav-group-label:first-child {
+  margin-top: 2px;
 }
 
 /* —— Nav links —— */
@@ -319,12 +286,12 @@
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  min-height: 46px;
-  padding: 11px 14px;
-  border: 1px solid transparent;
-  border-radius: 12px;
+  min-height: 38px;
+  padding: 8px 12px 8px 14px;
+  border: 0;
+  border-radius: 8px;
   color: var(--shell-nav-text);
   background: transparent;
   text-decoration: none;
@@ -332,19 +299,16 @@
   line-height: 1.2;
   cursor: pointer;
   transition:
-    color 0.22s var(--shell-ease),
-    background 0.22s var(--shell-ease),
-    border-color 0.22s var(--shell-ease),
-    box-shadow 0.22s var(--shell-ease),
-    transform 0.22s var(--shell-ease);
+    color 0.16s ease,
+    background 0.16s ease;
 }
 
 .admin-shell .nav-button > span:not(.nav-unread-badge) {
   flex: 1;
   min-width: 0;
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -371,27 +335,26 @@
 
 .admin-shell .nav-button svg {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  opacity: 0.85;
-  color: rgba(103, 232, 249, 0.85);
+  width: 18px;
+  height: 18px;
+  opacity: 0.72;
+  color: rgba(255, 255, 255, 0.7);
   transition:
-    color 0.22s var(--shell-ease),
-    transform 0.22s var(--shell-ease),
-    opacity 0.22s var(--shell-ease);
+    color 0.16s ease,
+    opacity 0.16s ease;
 }
 
 .admin-shell .nav-button:hover {
   color: var(--shell-nav-text-hover);
   background: var(--shell-nav-hover-bg);
-  border-color: rgba(255, 255, 255, 0.06);
-  transform: translateX(2px);
+  border-color: transparent;
+  transform: none;
 }
 
 .admin-shell .nav-button:hover svg {
   opacity: 1;
-  color: var(--sa-accent-2);
-  transform: scale(1.06);
+  color: #fff;
+  transform: none;
 }
 
 .admin-shell .nav-button:active:not(.active) {
@@ -400,9 +363,9 @@
 
 .admin-shell .nav-button.active {
   color: #fff;
-  border-color: rgba(6, 182, 212, 0.35);
+  border-color: transparent;
   background: var(--shell-nav-active-bg);
-  box-shadow: var(--shell-nav-active-glow);
+  box-shadow: none;
   padding-left: 14px;
 }
 
@@ -412,21 +375,21 @@
   left: 0;
   top: 50%;
   width: 3px;
-  height: 58%;
-  border-radius: 0 4px 4px 0;
-  background: linear-gradient(180deg, var(--sa-accent-2), var(--sa-accent));
-  box-shadow: 0 0 14px rgba(6, 182, 212, 0.65);
+  height: 56%;
+  border-radius: 0 3px 3px 0;
+  background: #2d7fc7;
+  box-shadow: none;
   transform: translateY(-50%);
 }
 
 .admin-shell .nav-button.active svg {
   opacity: 1;
   color: #fff;
-  filter: drop-shadow(0 0 6px rgba(103, 232, 249, 0.5));
+  filter: none;
 }
 
 .admin-shell .nav-button.active span {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .admin-shell .nav-button:focus-visible {
@@ -438,42 +401,27 @@
 .sidebar-tenant {
   position: relative;
   z-index: 1;
-  margin-top: 16px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(103, 232, 249, 0.2);
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.04) 100%);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
 }
 
 .sidebar-tenant::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(103, 232, 249, 0.4), transparent 50%, rgba(6, 182, 212, 0.15));
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+  display: none;
 }
 
 .sidebar-tenant-label {
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(103, 232, 249, 0.9);
+  color: rgba(255, 255, 255, 0.38);
 }
 
 .sidebar-tenant-name {
@@ -495,13 +443,13 @@
 }
 
 .admin-workspace {
-  margin-top: var(--shell-nav-h);
+  margin-top: 0;
   margin-left: var(--shell-sidebar-w);
   width: calc(100% - var(--shell-sidebar-w));
   min-width: 0;
   max-width: 100%;
-  min-height: calc(100vh - var(--shell-nav-h));
-  height: calc(100vh - var(--shell-nav-h));
+  min-height: 100vh;
+  height: 100vh;
   padding: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -538,32 +486,37 @@
 }
 
 /* Bildirim zili — navbar */
-.admin-navbar .notification-bell-trigger {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #475569;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+.admin-sidebar .notification-bell-trigger {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  box-shadow: none;
   transition:
     border-color 0.15s ease,
     color 0.15s ease,
     background 0.15s ease;
 }
 
-.admin-navbar .notification-bell-trigger:hover {
-  border-color: #0891b2;
-  color: #0e7490;
-  background: #ecfeff;
+.admin-sidebar .notification-bell-trigger:hover {
+  border-color: rgba(45, 127, 199, 0.45);
+  color: #fff;
+  background: rgba(45, 127, 199, 0.18);
 }
 
-.admin-navbar .notification-bell-badge {
+.admin-sidebar .notification-bell-badge {
   background: #dc2626;
-  box-shadow: 0 0 0 2px #fff;
+  box-shadow: 0 0 0 2px #0a1f38;
 }
 
-.admin-navbar .notification-bell-panel {
+.admin-sidebar .notification-bell-panel {
+  top: auto;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: auto;
+  z-index: 120;
   border-radius: 12px;
   border-color: #e2e8f0;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
@@ -571,28 +524,50 @@
 
 @media (max-width: 768px) {
   .admin-sidebar {
-    top: var(--shell-nav-h);
+    top: 0;
     right: 0;
     left: 0;
     bottom: auto;
     width: 100%;
     height: auto;
-    max-height: 52px;
+    max-height: none;
+    min-height: 56px;
     flex-direction: row;
-    align-items: stretch;
+    align-items: center;
     padding: 8px 12px;
     border-right: 0;
+    box-shadow: none;
     border-bottom: 1px solid var(--shell-sidebar-border);
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
+  }
+
+  .sidebar-brand {
+    width: auto;
+    min-height: 40px;
+    padding: 0 12px 0 0;
+    margin: 0 12px 0 0;
+    background: transparent;
+    border-bottom: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+  }
+
+  .sidebar-brand .app-brand-logo {
+    height: 26px;
+    filter: brightness(0) invert(1);
+  }
+
+  .sidebar-user-text {
+    display: none;
   }
 
   .admin-workspace {
     margin-left: 0;
     width: 100%;
-    margin-top: calc(var(--shell-nav-h) + 52px);
-    height: calc(100vh - var(--shell-nav-h) - 52px);
-    min-height: calc(100vh - var(--shell-nav-h) - 52px);
+    margin-top: 56px;
+    height: calc(100vh - 56px);
+    min-height: calc(100vh - 56px);
   }
 
   .admin-nav {
@@ -602,7 +577,8 @@
     padding-bottom: 2px;
   }
 
-  .admin-nav::before {
+  .admin-nav::before,
+  .nav-group-label {
     display: none;
   }
 
@@ -648,24 +624,10 @@
 @media (max-width: 900px) {
   .admin-shell {
     --shell-sidebar-w: 220px;
-    --shell-nav-h: 56px;
   }
 
-  .admin-navbar {
-    padding: 0 14px 0 12px;
-    gap: 12px;
-  }
-
-  .navbar-brand {
-    padding-right: 12px;
-  }
-
-  .app-brand-logo {
-    height: 34px;
-  }
-
-  .navbar-profile-text {
-    display: none;
+  .sidebar-brand .app-brand-logo {
+    height: 28px;
   }
 
   .admin-shell .nav-button > span:not(.nav-unread-badge) {

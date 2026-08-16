@@ -16,7 +16,8 @@ export function pageDescription(tab: AdminTab) {
     logs: "Hassas işlem izleri, audit kayıtları ve sistem denetimi.",
     ai: "ogta.ai token kullanımı, maliyet analizi ve kurum kotası yönetimi.",
     modules: "Ürün modülleri, çalışma durumu ve geliştirme yüzeyleri.",
-    settings: "Bakım modu, AI, SMS ve e-posta servis anahtarları."
+    settings: "Bakım modu, AI, SMS ve e-posta servis anahtarları.",
+    profile: "Süper admin adı, e-posta ve iletişim bilgileri."
   };
   return descriptions[tab];
 }

@@ -1,307 +1,336 @@
-/* Loglar — temel stiller styles/super-admin.css */
+/* Loglar — mavi / beyaz, yalnızca bu sayfa */
 
-.sa-logs-page {
-	gap: 16px;
+.admin-shell.super-admin-app .logs-workspace {
+  --sa-bg: #f4f7fb;
+  --sa-muted: #64748b;
+  --sa-ink: #0f172a;
+  --sa-accent: #2563eb;
+  color: var(--sa-ink);
+  background: #f4f7fb;
 }
 
-.sa-push-health-body {
-	display: grid;
-	gap: 14px;
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.sa-push-tenant-filter {
-	display: grid;
-	gap: 8px;
-	max-width: 360px;
-	font-size: 0.84rem;
-	color: var(--text-muted, #64748b);
+.log-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.sa-push-tenant-filter input {
-	border: 1px solid var(--sa-border, #e2e8f0);
-	border-radius: 10px;
-	padding: 10px 12px;
-	background: var(--sa-surface, #fff);
-	color: var(--sa-ink, #0f172a);
+.log-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2563eb;
 }
 
-.sa-push-health-grid {
-	display: grid;
-	grid-template-columns: repeat(5, minmax(0, 1fr));
-	gap: 12px;
+.log-hero h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
-.sa-push-health-grid strong {
-	display: block;
-	margin-top: 6px;
-	font-size: 1.35rem;
+.log-hero-meta {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
 }
 
-.sa-push-log-table-wrap {
-	overflow-x: auto;
+.log-card {
+  padding: 12px 16px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.sa-push-log-table {
-	width: 100%;
-	border-collapse: collapse;
-	font-size: 0.84rem;
+.log-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
-.sa-push-log-table th,
-.sa-push-log-table td {
-	padding: 10px 12px;
-	border-bottom: 1px solid var(--sa-border, #e2e8f0);
-	text-align: left;
-	vertical-align: top;
+.log-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: min(260px, 100%);
+  flex: 1;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #64748b;
 }
 
-.sa-push-log-table th {
-	color: var(--text-muted, #64748b);
-	font-weight: 700;
+.log-search input {
+  min-height: 38px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  outline: none;
 }
 
-.sa-log-summary-grid,
-.sa-log-toolbar-grid,
-.sa-log-purge-grid {
-	display: grid;
-	gap: 14px;
+.log-toolbar select,
+.log-purge input {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
 }
 
-.sa-log-summary-grid {
-	grid-template-columns: repeat(5, minmax(0, 1fr));
+.log-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.sa-log-toolbar-grid {
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	align-items: end;
+.log-btn--primary {
+  border: 0;
+  background: #2563eb;
+  color: #fff;
 }
 
-.sa-log-purge-grid {
-	grid-template-columns: minmax(0, 1.5fr) minmax(180px, 260px) auto;
-	align-items: end;
+.log-btn--ghost {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
 }
 
-.sa-log-summary-grid strong {
-	display: block;
-	margin-top: 6px;
-	font-size: 1.5rem;
+.log-btn--danger {
+  border: 0;
+  background: #be123c;
+  color: #fff;
 }
 
-.sa-log-toolbar label,
-.sa-log-purge-card label {
-	display: grid;
-	gap: 8px;
-	font-size: 0.84rem;
-	color: var(--text-muted, #64748b);
+.log-btn--tiny {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
 }
 
-.sa-log-toolbar input,
-.sa-log-toolbar select,
-.sa-log-purge-card input {
-	width: 100%;
-	border-radius: 12px;
-	border: 1px solid rgba(148, 163, 184, 0.35);
-	background: #fff;
-	color: var(--text-strong, #0f172a);
-	padding: 0.8rem 0.9rem;
+.log-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.sa-log-toolbar-actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
+.log-table-wrap {
+  overflow: auto;
 }
 
-.sa-primary-btn,
-.sa-secondary-btn,
-.sa-danger-btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 8px;
-	border-radius: 12px;
-	border: 0;
-	padding: 0.85rem 1rem;
-	font-weight: 700;
-	cursor: pointer;
+.log-table-wrap table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
 }
 
-.sa-primary-btn {
-	background: linear-gradient(135deg, #0f172a, #1d4ed8);
-	color: #fff;
+.log-table-wrap th,
+.log-table-wrap td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+  font-size: 13px;
+  vertical-align: middle;
 }
 
-.sa-secondary-btn {
-	background: #e2e8f0;
-	color: #0f172a;
+.log-table-wrap th {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.sa-danger-btn {
-	background: linear-gradient(135deg, #b91c1c, #ef4444);
-	color: #fff;
+.log-table-wrap td strong,
+.log-table-wrap td small {
+  display: block;
 }
 
-.sa-log-purge-card h3 {
-	margin: 0 0 6px;
-	font-size: 1.05rem;
+.log-table-wrap td small,
+.log-date {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
 }
 
-.sa-log-purge-card p {
-	margin: 0;
-	color: var(--text-muted, #64748b);
+.log-date {
+  white-space: nowrap;
 }
 
-.sa-log-meta,
-.sa-log-resource small {
-	display: block;
-	color: var(--text-muted, #64748b);
-	margin-top: 4px;
+.log-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
 }
 
-.sa-log-resource {
-	display: grid;
-	gap: 4px;
+.log-badge--ok {
+  background: #ecfdf5;
+  color: #047857;
 }
 
-.sa-logs-page .sa-log-table-head,
-.sa-logs-page .sa-log-table-row {
-	grid-template-columns:
-		minmax(210px, 1.2fr)
-		minmax(145px, 0.75fr)
-		minmax(190px, 1fr)
-		minmax(170px, 0.9fr)
-		minmax(118px, 0.62fr)
-		minmax(145px, 0.7fr)
-		minmax(126px, 0.65fr);
+.log-badge--warn {
+  background: #fffbeb;
+  color: #b45309;
 }
 
-.sa-log-actor {
-	display: grid;
-	gap: 4px;
-	min-width: 0;
+.log-view {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.sa-log-actor strong,
-.sa-log-resource span {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.log-view-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.sa-log-actor small {
-	color: var(--text-muted, #64748b);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.log-view-block {
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
 }
 
-.sa-log-actor > span {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-	align-items: center;
-	min-width: 0;
+.log-view-block h3 {
+  margin: 0 0 10px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.sa-log-pill {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	border-radius: 999px;
-	background: #e0f2fe;
-	color: #075985;
-	padding: 2px 7px;
-	font-size: 0.72rem;
-	font-weight: 700;
+.log-view-meta span,
+.log-view-dl dt {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.sa-log-actor code {
-	max-width: 150px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	border-radius: 6px;
-	background: #f1f5f9;
-	color: #334155;
-	padding: 2px 5px;
-	font-size: 0.68rem;
+.log-view-meta strong,
+.log-view-dl dd {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.sa-log-details {
-	min-width: 0;
-	color: var(--text-strong, #0f172a);
+.log-view-dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
 }
 
-.sa-log-details summary {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	cursor: pointer;
-	font-weight: 700;
-	color: #1d4ed8;
+.log-view-dl dd {
+  margin: 0;
 }
 
-.sa-log-details dl {
-	display: grid;
-	gap: 8px;
-	margin: 10px 0 0;
-	padding: 10px;
-	border-radius: 10px;
-	background: #f8fafc;
-	border: 1px solid rgba(148, 163, 184, 0.28);
+.log-view pre {
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
-.sa-log-details dl div {
-	display: grid;
-	gap: 3px;
+.log-empty {
+  margin: 0;
+  padding: 28px 8px;
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
 }
 
-.sa-log-details dt {
-	color: var(--text-muted, #64748b);
-	font-size: 0.7rem;
-	font-weight: 700;
-	text-transform: uppercase;
+.log-utils {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
 }
 
-.sa-log-details dd {
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
-	min-width: 0;
-	margin: 0;
-	overflow-wrap: anywhere;
-	line-height: 1.35;
+.log-push-compact,
+.log-purge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.sa-alert {
-	border-radius: 16px;
+.log-push-compact span,
+.log-purge span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-@media (max-width: 1100px) {
-	.sa-log-summary-grid,
-	.sa-log-toolbar-grid,
-	.sa-log-purge-grid {
-		grid-template-columns: 1fr 1fr;
-	}
+.log-push-compact small,
+.log-purge small {
+  color: #334155;
+  font-size: 12px;
+}
 
-	.sa-log-purge-grid > :first-child {
-		grid-column: 1 / -1;
-	}
+.log-purge input {
+  width: 72px;
+  min-height: 32px;
+  padding: 0 8px;
+}
 
-	.sa-logs-page .sa-log-table-head,
-	.sa-logs-page .sa-log-table-row {
-		grid-template-columns: minmax(190px, 1fr) minmax(140px, 0.8fr) minmax(180px, 1fr) minmax(150px, 0.85fr) minmax(110px, 0.7fr) minmax(135px, 0.75fr) minmax(120px, 0.7fr);
-	}
+.log-purge .log-btn {
+  min-height: 32px;
 }
 
 @media (max-width: 720px) {
-	.sa-log-summary-grid,
-	.sa-log-toolbar-grid,
-	.sa-log-purge-grid {
-		grid-template-columns: 1fr;
-	}
+  .log-hero,
+  .log-utils {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 
-	.sa-log-toolbar-actions {
-		flex-direction: column;
-	}
+  .log-view-meta {
+    grid-template-columns: 1fr;
+  }
 }

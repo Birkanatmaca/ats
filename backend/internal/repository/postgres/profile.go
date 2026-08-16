@@ -87,6 +87,18 @@ func (s *Store) UpdateSelfProfile(ctx context.Context, principal identitydomain.
 		return identitydomain.UserProfile{}, identitydomain.ErrUserNotFound
 	}
 
+	fullName := current.FullName
+	if input.FullName != nil {
+		fullName = strings.TrimSpace(*input.FullName)
+	}
+	email := strings.ToLower(strings.TrimSpace(current.Email))
+	if input.Email != nil {
+		email = strings.ToLower(strings.TrimSpace(*input.Email))
+	}
+	phone := current.Phone
+	if input.Phone != nil {
+		phone = strings.TrimSpace(*input.Phone)
+	}
 	avatarURL := current.AvatarURL
 	if input.AvatarURL != nil {
 		avatarURL = strings.TrimSpace(*input.AvatarURL)
@@ -98,11 +110,22 @@ func (s *Store) UpdateSelfProfile(ctx context.Context, principal identitydomain.
 			accent = "#0891b2"
 		}
 	}
+	if fullName == "" || email == "" || !strings.Contains(email, "@") {
+		return identitydomain.UserProfile{}, superadmindomain.ErrInvalidUser
+	}
+
+	var taken bool
+	if err := s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE lower(email) = lower($1) AND id <> $2::uuid)`, email, principal.UserID).Scan(&taken); err != nil {
+		return identitydomain.UserProfile{}, err
+	}
+	if taken {
+		return identitydomain.UserProfile{}, superadmindomain.ErrUserAlreadyExists
+	}
 
 	if _, err := s.db.ExecContext(ctx, `
 UPDATE users
-SET avatar_url = NULLIF($1, ''), profile_accent = $2, updated_at = now()
-WHERE id = $3`, avatarURL, accent, principal.UserID); err != nil {
+SET full_name = $1, email = $2, phone = NULLIF($3, ''), avatar_url = NULLIF($4, ''), profile_accent = $5, updated_at = now()
+WHERE id = $6`, fullName, email, phone, avatarURL, accent, principal.UserID); err != nil {
 		return identitydomain.UserProfile{}, err
 	}
 

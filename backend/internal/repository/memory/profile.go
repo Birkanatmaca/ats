@@ -47,6 +47,28 @@ func (s *Store) UpdateSelfProfile(_ context.Context, principal identitydomain.Pr
 		if s.users[index].ID != principal.UserID {
 			continue
 		}
+		if input.FullName != nil {
+			name := strings.TrimSpace(*input.FullName)
+			if name == "" {
+				return identitydomain.UserProfile{}, superadmindomain.ErrInvalidUser
+			}
+			s.users[index].FullName = name
+		}
+		if input.Email != nil {
+			email := strings.ToLower(strings.TrimSpace(*input.Email))
+			if email == "" || !strings.Contains(email, "@") {
+				return identitydomain.UserProfile{}, superadmindomain.ErrInvalidUser
+			}
+			for _, other := range s.users {
+				if other.ID != principal.UserID && strings.EqualFold(other.Email, email) {
+					return identitydomain.UserProfile{}, superadmindomain.ErrUserAlreadyExists
+				}
+			}
+			s.users[index].Email = email
+		}
+		if input.Phone != nil {
+			s.users[index].Phone = strings.TrimSpace(*input.Phone)
+		}
 		if input.AvatarURL != nil {
 			s.users[index].AvatarURL = strings.TrimSpace(*input.AvatarURL)
 		}

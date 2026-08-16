@@ -61,6 +61,8 @@ type ServiceMetric struct {
 
 type PlatformSettings struct {
 	Maintenance MaintenanceMode         `json:"maintenance"`
+	Mail        MailSettings            `json:"mail"`
+	SMS         SMSSettings             `json:"sms"`
 	Credentials []IntegrationCredential `json:"credentials"`
 }
 
@@ -80,9 +82,63 @@ type IntegrationCredential struct {
 	UpdatedAt   *time.Time `json:"updatedAt,omitempty"`
 }
 
+type MailSettings struct {
+	Enabled      bool   `json:"enabled"`
+	Provider     string `json:"provider"`
+	Host         string `json:"host"`
+	Port         int    `json:"port"`
+	Username     string `json:"username"`
+	FromName     string `json:"fromName"`
+	FromEmail    string `json:"fromEmail"`
+	UseTLS       bool   `json:"useTls"`
+	PasswordSet  bool   `json:"passwordSet"`
+	PasswordHint string `json:"passwordHint,omitempty"`
+}
+
+type SMSSettings struct {
+	Enabled    bool   `json:"enabled"`
+	Provider   string `json:"provider"`
+	Username   string `json:"username"`
+	Sender     string `json:"sender"`
+	BaseURL    string `json:"baseUrl"`
+	APIKeySet  bool   `json:"apiKeySet"`
+	APIKeyHint string `json:"apiKeyHint,omitempty"`
+}
+
 type UpdatePlatformSettingsInput struct {
-	Maintenance MaintenanceModeInput `json:"maintenance"`
-	Credentials []CredentialInput    `json:"credentials"`
+	Maintenance *MaintenanceModeInput `json:"maintenance,omitempty"`
+	Mail        *MailSettingsInput    `json:"mail,omitempty"`
+	SMS         *SMSSettingsInput     `json:"sms,omitempty"`
+	Credentials []CredentialInput     `json:"credentials,omitempty"`
+}
+
+type MailSettingsInput struct {
+	Enabled       bool   `json:"enabled"`
+	Provider      string `json:"provider"`
+	Host          string `json:"host"`
+	Port          int    `json:"port"`
+	Username      string `json:"username"`
+	Password      string `json:"password,omitempty"`
+	ClearPassword bool   `json:"clearPassword,omitempty"`
+	FromName      string `json:"fromName"`
+	FromEmail     string `json:"fromEmail"`
+	UseTLS        bool   `json:"useTls"`
+}
+
+type SMSSettingsInput struct {
+	Enabled     bool   `json:"enabled"`
+	Provider    string `json:"provider"`
+	Username    string `json:"username"`
+	APIKey      string `json:"apiKey,omitempty"`
+	ClearAPIKey bool   `json:"clearApiKey,omitempty"`
+	Sender      string `json:"sender"`
+	BaseURL     string `json:"baseUrl"`
+}
+
+type ConnectionTestResult struct {
+	OK        bool   `json:"ok"`
+	Message   string `json:"message"`
+	LatencyMs int64  `json:"latencyMs"`
 }
 
 type MaintenanceModeInput struct {
@@ -193,6 +249,9 @@ type UpdateUserInput struct {
 }
 
 type UpdateSelfProfileInput struct {
+	FullName      *string `json:"fullName"`
+	Email         *string `json:"email"`
+	Phone         *string `json:"phone"`
 	AvatarURL     *string `json:"avatarUrl"`
 	ProfileAccent *string `json:"profileAccent"`
 }

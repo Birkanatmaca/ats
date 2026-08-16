@@ -5,25 +5,50 @@ import {
   Eye,
   Flag,
   Inbox,
-  LifeBuoy,
   Loader2,
   MessageSquare,
   Pencil,
+  Search,
   Send,
   Trash2
 } from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SupportTicket } from "../../lib/api";
 import { api } from "../../lib/api";
-import { Metric } from "../components/Metric";
 import { Modal } from "../components/Modal";
-import { PanelHeader } from "../components/PanelHeader";
-import { StatusBadge } from "../components/StatusBadge";
 import { supportTypeIcon } from "../components/adminIcons";
+import { statusLabel } from "../utils/labels";
 import "./SupportPage.css";
 
+const STATUS_FILTERS = [
+  { value: "all", label: "Tümü" },
+  { value: "open", label: "Açık" },
+  { value: "in_review", label: "İncelemede" },
+  { value: "resolved", label: "Çözüldü" },
+  { value: "closed", label: "Kapalı" }
+] as const;
+
+function badgeTone(kind: "status" | "priority" | "type", value: string) {
+  if (kind === "status") {
+    if (value === "open") return "open";
+    if (value === "in_review") return "review";
+    if (value === "resolved") return "ok";
+    return "off";
+  }
+  if (kind === "priority") {
+    if (value === "urgent" || value === "high") return "urgent";
+    if (value === "low") return "muted";
+    return "wait";
+  }
+  if (value === "complaint") return "urgent";
+  if (value === "suggestion") return "ok";
+  if (value === "report") return "review";
+  return "info";
+}
+
 export function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; onRefresh: () => Promise<void> }) {
+  const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewTicket, setViewTicket] = useState<SupportTicket | null>(null);
   const [editTicket, setEditTicket] = useState<SupportTicket | null>(null);
@@ -33,10 +58,23 @@ export function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; 
   const [replying, setReplying] = useState(false);
   const [supportError, setSupportError] = useState<string | null>(null);
 
-  const openCount = tickets.filter((t) => t.status === "open").length;
-  const reviewCount = tickets.filter((t) => t.status === "in_review").length;
-  const urgentCount = tickets.filter((t) => t.priority === "urgent" || t.priority === "high").length;
-  const filteredTickets = tickets.filter((t) => statusFilter === "all" || t.status === statusFilter);
+  const openCount = tickets.filter((ticket) => ticket.status === "open").length;
+  const reviewCount = tickets.filter((ticket) => ticket.status === "in_review").length;
+  const urgentCount = tickets.filter((ticket) => ticket.priority === "urgent" || ticket.priority === "high").length;
+
+  const filteredTickets = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("tr-TR");
+    return tickets.filter((ticket) => {
+      if (statusFilter !== "all" && ticket.status !== statusFilter) {
+        return false;
+      }
+      if (!needle) {
+        return true;
+      }
+      const blob = `${ticket.subject} ${ticket.message} ${ticket.reporterName} ${ticket.reporterEmail} ${ticket.tenant}`.toLocaleLowerCase("tr-TR");
+      return blob.includes(needle);
+    });
+  }, [query, statusFilter, tickets]);
 
   function openEdit(ticket: SupportTicket) {
     setSupportError(null);
@@ -114,216 +152,228 @@ export function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; 
 
   useEffect(() => {
     if (viewTicket) {
-      const fresh = tickets.find((t) => t.id === viewTicket.id);
+      const fresh = tickets.find((ticket) => ticket.id === viewTicket.id);
       if (fresh && fresh !== viewTicket) setViewTicket(fresh);
     }
     if (editTicket) {
-      const fresh = tickets.find((t) => t.id === editTicket.id);
+      const fresh = tickets.find((ticket) => ticket.id === editTicket.id);
       if (fresh && fresh !== editTicket) setEditTicket(fresh);
     }
   }, [tickets]);
 
   return (
-    <section className="sa-page-stack support-page">
-      <section className="sa-kpi-row">
-        <Metric icon={<Inbox size={21} />} label="Toplam talep" value={tickets.length} tone="sky" hint="ticket ve öneri" />
-        <Metric icon={<MessageSquare size={21} />} label="Açık" value={openCount} tone="mint" hint="yanıt bekleyen" />
-        <Metric icon={<Activity size={21} />} label="İncelemede" value={reviewCount} tone="amber" hint="destek ekibinde" />
-        <Metric icon={<Flag size={21} />} label="Öncelikli" value={urgentCount} tone="coral" hint="yüksek/acil" />
-      </section>
+    <section className="sup">
+      <header className="sup-hero">
+        <div>
+          <p className="sup-kicker">Destek merkezi</p>
+          <h1>Destek</h1>
+        </div>
+        <p className="sup-hero-note">Kurum talepleri, şikayetler ve öneriler</p>
+      </header>
 
-      {/* ── Tablo kartı ── */}
-      <section className="sa-card">
-        <PanelHeader
-          kicker="Destek merkezi"
-          title="Tüm talepler"
-          icon={<LifeBuoy size={22} />}
-          trailing={
-            <div className="sa-inline-controls support-filter-chips">
-              {[
-                ["all", "Tümü"],
-                ["open", "Açık"],
-                ["in_review", "İncelemede"],
-                ["resolved", "Çözüldü"],
-                ["closed", "Kapalı"]
-              ].map(([val, lbl]) => (
-                <button className={`sa-chip ${statusFilter === val ? "is-active" : ""}`} key={val} type="button" onClick={() => setStatusFilter(val)}>
-                  {lbl}
-                </button>
-              ))}
-            </div>
-          }
-        />
+      <div className="sup-kpi-grid">
+        <article className="sup-kpi">
+          <div className="sup-kpi-icon">
+            <Inbox size={18} />
+          </div>
+          <span>Toplam talep</span>
+          <strong>{tickets.length}</strong>
+        </article>
+        <article className="sup-kpi">
+          <div className="sup-kpi-icon sup-kpi-icon--green">
+            <MessageSquare size={18} />
+          </div>
+          <span>Açık</span>
+          <strong>{openCount}</strong>
+        </article>
+        <article className="sup-kpi">
+          <div className="sup-kpi-icon sup-kpi-icon--amber">
+            <Activity size={18} />
+          </div>
+          <span>İncelemede</span>
+          <strong>{reviewCount}</strong>
+        </article>
+        <article className="sup-kpi">
+          <div className="sup-kpi-icon sup-kpi-icon--rose">
+            <Flag size={18} />
+          </div>
+          <span>Öncelikli</span>
+          <strong>{urgentCount}</strong>
+        </article>
+      </div>
 
-        {supportError && (
-          <div className="form-error" style={{ margin: "0 18px 0" }}>
-            {supportError}
+      <div className="sup-toolbar">
+        <label className="sup-search">
+          <Search size={16} />
+          <input onChange={(event) => setQuery(event.target.value)} placeholder="Konu, gönderen veya kurum ara" type="search" value={query} />
+        </label>
+        <div className="sup-filters">
+          {STATUS_FILTERS.map((filter) => (
+            <button
+              className={statusFilter === filter.value ? "is-active" : undefined}
+              key={filter.value}
+              onClick={() => setStatusFilter(filter.value)}
+              type="button"
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {supportError && !viewTicket && !editTicket ? <div className="form-error sa-alert">{supportError}</div> : null}
+
+      <article className="sup-card">
+        {filteredTickets.length === 0 ? (
+          <p className="sup-empty">{tickets.length === 0 ? "Henüz destek talebi yok." : "Bu filtrede destek talebi bulunamadı."}</p>
+        ) : (
+          <div className="sup-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Konu</th>
+                  <th>Özet</th>
+                  <th>Tür</th>
+                  <th>Kurum</th>
+                  <th>Durum</th>
+                  <th>Öncelik</th>
+                  <th>Tarih</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTickets.map((ticket) => (
+                  <tr key={ticket.id}>
+                    <td>
+                      <div className="sup-subject">
+                        <span className="sup-type-icon">{supportTypeIcon(ticket.type)}</span>
+                        <div>
+                          <strong>{ticket.subject}</strong>
+                          <small>{ticket.reporterName}</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="sup-preview">{ticket.message.length > 72 ? `${ticket.message.slice(0, 72)}…` : ticket.message}</td>
+                    <td>
+                      <span className={`sup-badge sup-badge--${badgeTone("type", ticket.type)}`}>{statusLabel(ticket.type)}</span>
+                    </td>
+                    <td>{ticket.tenant}</td>
+                    <td>
+                      <span className={`sup-badge sup-badge--${badgeTone("status", ticket.status)}`}>{statusLabel(ticket.status)}</span>
+                    </td>
+                    <td>
+                      <span className={`sup-badge sup-badge--${badgeTone("priority", ticket.priority)}`}>{statusLabel(ticket.priority)}</span>
+                    </td>
+                    <td className="sup-date">{new Date(ticket.createdAt).toLocaleDateString("tr-TR")}</td>
+                    <td>
+                      <div className="sup-row-actions">
+                        <button aria-label="Görüntüle" className="sup-btn sup-btn--icon" onClick={() => openView(ticket)} title="Görüntüle" type="button">
+                          <Eye size={15} />
+                        </button>
+                        <button aria-label="Düzenle" className="sup-btn sup-btn--icon" onClick={() => openEdit(ticket)} title="Düzenle" type="button">
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          aria-label="Kapat"
+                          className="sup-btn sup-btn--icon sup-btn--danger"
+                          disabled={ticket.status === "closed"}
+                          onClick={() => void closeTicket(ticket)}
+                          title="Talebi kapat"
+                          type="button"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
+      </article>
 
-        <div className="sa-card-body" style={{ paddingTop: 10 }}>
-          <div className="sa-data-grid">
-            {/* Tablo başlığı */}
-            <div className="sa-row-head support-table-head">
-              <span>Konu</span>
-              <span>İçerik özeti</span>
-              <span>Tür</span>
-              <span>Kurum</span>
-              <span>Durum</span>
-              <span>Öncelik</span>
-              <span>Tarih</span>
-              <span>İşlem</span>
-            </div>
-
-            {filteredTickets.map((ticket) => (
-              <div className="sa-row-body support-table-row" key={ticket.id}>
-                {/* Konu */}
-                <div className="support-cell-subject">
-                  <div className="sa-type-icon">{supportTypeIcon(ticket.type)}</div>
-                  <div>
-                    <strong>{ticket.subject}</strong>
-                    <small>{ticket.reporterName}</small>
-                  </div>
-                </div>
-                {/* İçerik özeti */}
-                <span className="support-cell-preview">{ticket.message.length > 60 ? ticket.message.slice(0, 60) + "…" : ticket.message}</span>
-                {/* Tür */}
-                <StatusBadge value={ticket.type} />
-                {/* Kurum */}
-                <span className="support-cell-tenant">{ticket.tenant}</span>
-                {/* Durum */}
-                <StatusBadge value={ticket.status} />
-                {/* Öncelik */}
-                <StatusBadge value={ticket.priority} />
-                {/* Tarih */}
-                <span className="support-cell-date">{new Date(ticket.createdAt).toLocaleDateString("tr-TR")}</span>
-                {/* İşlemler */}
-                <div className="sa-row-actions">
-                  <button
-                    className="sa-icon-btn"
-                    type="button"
-                    aria-label="Görüntüle"
-                    title="Görüntüle"
-                    onClick={() => openView(ticket)}
-                  >
-                    <Eye size={15} />
-                  </button>
-                  <button
-                    className="sa-icon-btn"
-                    type="button"
-                    aria-label="Düzenle"
-                    title="Düzenle"
-                    onClick={() => openEdit(ticket)}
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    className="sa-icon-btn danger"
-                    type="button"
-                    aria-label="Kapat"
-                    title="Talebi kapat"
-                    onClick={() => void closeTicket(ticket)}
-                    disabled={ticket.status === "closed"}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {filteredTickets.length === 0 && (
-              <p className="empty-text" style={{ padding: "14px 12px" }}>
-                Bu filtrede destek talebi bulunamadı.
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ GÖRÜNTÜLE MODALI ══ */}
       <Modal
-        open={viewTicket !== null}
-        onClose={closeView}
-        title={viewTicket?.subject ?? "Talep detayı"}
-        kicker={viewTicket ? `${viewTicket.tenant} · ${new Date(viewTicket.createdAt).toLocaleDateString("tr-TR")}` : ""}
         icon={supportTypeIcon(viewTicket?.type ?? "support")}
+        kicker={viewTicket ? `${viewTicket.tenant} · ${new Date(viewTicket.createdAt).toLocaleDateString("tr-TR")}` : ""}
+        onClose={closeView}
+        open={viewTicket !== null}
         size="lg"
+        title={viewTicket?.subject ?? "Talep detayı"}
       >
         {viewTicket && (
-          <div className="support-view-body">
-            {/* Meta */}
-            <div className="support-view-meta">
-              <div className="support-view-meta-row">
+          <div className="sup-view">
+            <div className="sup-view-meta">
+              <div>
                 <span>Gönderen</span>
                 <strong>{viewTicket.reporterName}</strong>
               </div>
-              <div className="support-view-meta-row">
+              <div>
                 <span>E-posta</span>
                 <strong>{viewTicket.reporterEmail || "—"}</strong>
               </div>
-              <div className="support-view-meta-row">
+              <div>
                 <span>Kurum</span>
                 <strong>{viewTicket.tenant}</strong>
               </div>
-              <div className="support-view-meta-row">
+              <div>
                 <span>Durum</span>
-                <StatusBadge value={viewTicket.status} />
+                <strong>
+                  <span className={`sup-badge sup-badge--${badgeTone("status", viewTicket.status)}`}>{statusLabel(viewTicket.status)}</span>
+                </strong>
               </div>
-              <div className="support-view-meta-row">
+              <div>
                 <span>Öncelik</span>
-                <StatusBadge value={viewTicket.priority} />
+                <strong>
+                  <span className={`sup-badge sup-badge--${badgeTone("priority", viewTicket.priority)}`}>{statusLabel(viewTicket.priority)}</span>
+                </strong>
               </div>
-              <div className="support-view-meta-row">
+              <div>
                 <span>Tür</span>
-                <StatusBadge value={viewTicket.type} />
+                <strong>
+                  <span className={`sup-badge sup-badge--${badgeTone("type", viewTicket.type)}`}>{statusLabel(viewTicket.type)}</span>
+                </strong>
               </div>
             </div>
 
-            {/* Mesaj */}
-            <div className="support-view-message">
-              <div className="support-view-message-label">
+            <div className="sup-view-block">
+              <div className="sup-view-label">
                 <AlertCircle size={15} />
                 Talep içeriği
               </div>
               <p>{viewTicket.message}</p>
             </div>
 
-            {/* Mevcut iç not */}
-            {viewTicket.internalNote && (
-              <div className="support-view-existing-note">
-                <div className="support-view-message-label">
+            {viewTicket.internalNote ? (
+              <div className="sup-view-block sup-view-block--note">
+                <div className="sup-view-label">
                   <CheckCircle2 size={15} />
                   Mevcut iç not / cevap
                 </div>
                 <p>{viewTicket.internalNote}</p>
               </div>
-            )}
+            ) : null}
 
-            {/* Cevap / not formu */}
-            {supportError && <div className="form-error">{supportError}</div>}
-            <form className="support-reply-form" onSubmit={(e) => void saveReply(e)}>
+            {supportError ? <div className="form-error">{supportError}</div> : null}
+            <form className="sup-reply" onSubmit={(event) => void saveReply(event)}>
               <label className="field">
                 <span>İç not / Cevap</span>
                 <textarea
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  rows={5}
+                  onChange={(event) => setReplyText(event.target.value)}
                   placeholder="Destek ekibinin göreceği not veya kullanıcıya iletilecek cevap…"
+                  rows={5}
+                  value={replyText}
                 />
               </label>
               <div className="sa-modal-actions">
-                <button type="button" className="ghost-action" onClick={closeView}>
+                <button className="ghost-action" onClick={closeView} type="button">
                   Kapat
                 </button>
-                <button
-                  type="button"
-                  className="ghost-action"
-                  onClick={() => openEdit(viewTicket)}
-                >
+                <button className="ghost-action" onClick={() => openEdit(viewTicket)} type="button">
                   <Pencil size={16} />
                   Düzenle
                 </button>
-                <button className="primary-action" type="submit" disabled={replying}>
+                <button className="primary-action" disabled={replying} type="submit">
                   {replying ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
                   Cevabı kaydet
                 </button>
@@ -333,21 +383,14 @@ export function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; 
         )}
       </Modal>
 
-      {/* ══ DÜZENLE MODALI ══ */}
-      <Modal
-        open={editTicket !== null}
-        onClose={closeEdit}
-        title="Talebi düzenle"
-        kicker={editTicket?.subject ?? ""}
-        icon={<Pencil size={20} />}
-      >
-        {supportError && <div className="form-error">{supportError}</div>}
-        <form className="sa-modal-form" onSubmit={(e) => void saveEdit(e)}>
+      <Modal icon={<Pencil size={20} />} kicker={editTicket?.subject ?? ""} onClose={closeEdit} open={editTicket !== null} title="Talebi düzenle">
+        {supportError ? <div className="form-error">{supportError}</div> : null}
+        <form className="sa-modal-form" onSubmit={(event) => void saveEdit(event)}>
           <label className="field">
             <span>Durum</span>
             <div className="field-control">
               <CheckCircle2 size={17} />
-              <select value={editForm.status} onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}>
+              <select onChange={(event) => setEditForm((form) => ({ ...form, status: event.target.value }))} value={editForm.status}>
                 <option value="open">Açık</option>
                 <option value="in_review">İncelemede</option>
                 <option value="resolved">Çözüldü</option>
@@ -359,7 +402,7 @@ export function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; 
             <span>Öncelik</span>
             <div className="field-control">
               <Flag size={17} />
-              <select value={editForm.priority} onChange={(e) => setEditForm((f) => ({ ...f, priority: e.target.value }))}>
+              <select onChange={(event) => setEditForm((form) => ({ ...form, priority: event.target.value }))} value={editForm.priority}>
                 <option value="low">Düşük</option>
                 <option value="normal">Normal</option>
                 <option value="high">Yüksek</option>
@@ -370,17 +413,17 @@ export function SupportPage({ tickets, onRefresh }: { tickets: SupportTicket[]; 
           <label className="field">
             <span>İç not</span>
             <textarea
-              value={editForm.internalNote}
-              onChange={(e) => setEditForm((f) => ({ ...f, internalNote: e.target.value }))}
-              rows={5}
+              onChange={(event) => setEditForm((form) => ({ ...form, internalNote: event.target.value }))}
               placeholder="Destek ekibinin göreceği inceleme notu"
+              rows={5}
+              value={editForm.internalNote}
             />
           </label>
           <div className="sa-modal-actions">
-            <button type="button" className="ghost-action" onClick={closeEdit}>
+            <button className="ghost-action" onClick={closeEdit} type="button">
               Vazgeç
             </button>
-            <button className="primary-action" type="submit" disabled={saving}>
+            <button className="primary-action" disabled={saving} type="submit">
               {saving ? <Loader2 className="spin" size={18} /> : <Pencil size={18} />}
               Kaydet
             </button>

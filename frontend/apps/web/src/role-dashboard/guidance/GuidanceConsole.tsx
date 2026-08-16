@@ -1,8 +1,7 @@
 import { AlertTriangle, Bell, FileText, FolderOpen, HeartHandshake, Home, LifeBuoy, Loader2, Megaphone, NotebookTabs, UserCircle, UsersRound } from "lucide-react";
-import { AppBrand } from "../../components/AppBrand";
-import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
+import { AppSidebar } from "../../components/ShellChrome";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
 import type { AuthSession, GuidanceEarlyWarningSignal, GuidanceNote, GuidanceStudent, GuidanceSupportPlan } from "../../lib/api";
 import { api } from "../../lib/api";
@@ -25,17 +24,17 @@ import "../../styles/super-admin-app.css";
 import "./GuidanceConsole.css";
 
 const guidanceTabs = [
-  { id: "overview", label: "Genel", icon: <Home size={18} /> },
-  { id: "observations", label: "Öğretmen gözlemleri", icon: <NotebookTabs size={18} /> },
-  { id: "notes", label: "Rehberlik notları", icon: <FileText size={18} /> },
-  { id: "students", label: "Öğrenciler", icon: <UsersRound size={18} /> },
-  { id: "cases", label: "Vaka dosyaları", icon: <FolderOpen size={18} /> },
-  { id: "risks", label: "Riskler", icon: <AlertTriangle size={18} /> },
-  { id: "plans", label: "Takip", icon: <HeartHandshake size={18} /> },
-  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
-  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} /> },
-  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> },
-  { id: "profile", label: "Profil", icon: <UserCircle size={18} /> }
+  { id: "overview", label: "Genel", icon: <Home size={18} />, group: "Özet" },
+  { id: "observations", label: "Öğretmen gözlemleri", icon: <NotebookTabs size={18} />, group: "Rehberlik" },
+  { id: "notes", label: "Rehberlik notları", icon: <FileText size={18} />, group: "Rehberlik" },
+  { id: "students", label: "Öğrenciler", icon: <UsersRound size={18} />, group: "Rehberlik" },
+  { id: "cases", label: "Vaka dosyaları", icon: <FolderOpen size={18} />, group: "Rehberlik" },
+  { id: "risks", label: "Riskler", icon: <AlertTriangle size={18} />, group: "Rehberlik" },
+  { id: "plans", label: "Takip", icon: <HeartHandshake size={18} />, group: "Rehberlik" },
+  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} />, group: "İletişim" },
+  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} />, group: "İletişim" },
+  { id: "support", label: "Destek", icon: <LifeBuoy size={18} />, group: "İletişim" },
+  { id: "profile", label: "Profil", icon: <UserCircle size={18} />, group: "İletişim" }
 ] as const;
 
 function initialGuidanceData(): GuidanceData {
@@ -113,33 +112,22 @@ export function GuidanceConsole({
 
   return (
     <div className="admin-shell principal-console guidance-console">
-      <header className="admin-navbar">
-        <div className="navbar-brand">
-          <AppBrand />
-        </div>
-
-        <NavbarUserMenu
-          name={session.principal.name}
-          meta={roleLabel(session.principal.role)}
-          onUnreadNotificationsChange={setUnreadNotifications}
-        />
-      </header>
-
-      <aside className="admin-sidebar">
-        <nav className="admin-nav" aria-label="Rehberlik menüsü">
-          {guidanceTabs.map((tab) => (
-            <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/dashboard/${tab.id}`}>
-              {tab.icon}
-              <span>{tab.label}</span>
-              {tab.id === "notifications" && unreadNotifications > 0 ? (
-                <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
-              ) : null}
-            </NavLink>
-          ))}
-        </nav>
-
-        <SidebarFooter tenantName={data.tenant?.name ?? "Kurum"} onLogout={onLogout} />
-      </aside>
+      <AppSidebar
+        ariaLabel="Rehberlik menüsü"
+        basePath="/dashboard"
+        items={guidanceTabs.map((tab) => ({
+          ...tab,
+          badge:
+            tab.id === "notifications" && unreadNotifications > 0 ? (
+              <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
+            ) : null
+        }))}
+        onLogout={onLogout}
+        onUnreadNotificationsChange={setUnreadNotifications}
+        tenantName={data.tenant?.name ?? "Kurum"}
+        userMeta={roleLabel(session.principal.role)}
+        userName={session.principal.name}
+      />
 
       <main className={`admin-workspace guidance-workspace ${activeTab}-workspace`}>
         <div className="sa-main guidance-main">

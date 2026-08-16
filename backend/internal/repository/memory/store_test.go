@@ -157,3 +157,26 @@ func TestAuditEntriesIncludeActorDetailsAndAllTenants(t *testing.T) {
 		t.Fatal("expected ai.tenant_quota.update audit entry")
 	}
 }
+
+func TestTeacherOverviewByProfileAndUserID(t *testing.T) {
+	fixed := time.Date(2026, time.April, 30, 9, 5, 0, 0, time.Local)
+	store := NewStore(func() time.Time { return fixed })
+	from := fixed.AddDate(0, 0, -29)
+	overview, found := store.TeacherOverview(context.Background(), "00000000-0000-0000-0000-000000010001", "teacher-profile-1", from, fixed)
+	if !found {
+		t.Fatal("expected teacher overview for profile id")
+	}
+	if overview.Teacher.FullName != "Ayşe Kara" {
+		t.Fatalf("expected Ayşe Kara, got %q", overview.Teacher.FullName)
+	}
+	if overview.Workload.WeeklyLessons < 1 {
+		t.Fatalf("expected published lessons, got %d", overview.Workload.WeeklyLessons)
+	}
+	byUser, found := store.TeacherOverview(context.Background(), "00000000-0000-0000-0000-000000010001", "00000000-0000-0000-0000-000000010112", from, fixed)
+	if !found || byUser.Teacher.UserID != "00000000-0000-0000-0000-000000010112" {
+		t.Fatalf("expected same teacher by user id, found=%v user=%q", found, byUser.Teacher.UserID)
+	}
+	if _, found := store.TeacherOverview(context.Background(), "00000000-0000-0000-0000-000000010001", "missing-teacher", from, fixed); found {
+		t.Fatal("expected missing teacher to be not found")
+	}
+}

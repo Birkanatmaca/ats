@@ -59,10 +59,15 @@ func (s *Service) Overview(ctx context.Context) (billingdomain.Overview, error) 
 		return billingdomain.Overview{}, err
 	}
 
-	corePackage, _ := billingdomain.FindPackage(billingdomain.PackageCore)
+	packages := billingdomain.EffectivePackages(settings.Packages)
+	settings.Packages = packages
+	corePackage, ok := billingdomain.FindPackageIn(packages, billingdomain.PackageCore)
+	if !ok {
+		corePackage = packages[0]
+	}
 	out := billingdomain.Overview{
 		Settings:     settings,
-		Packages:     billingdomain.DefaultPackages(),
+		Packages:     packages,
 		UpdatedAt:    s.clock(),
 		Institutions: make([]billingdomain.InstitutionLicenseRow, 0, len(institutions)),
 	}
@@ -83,6 +88,14 @@ func (s *Service) Overview(ctx context.Context) (billingdomain.Overview, error) 
 		out.TotalAnnualUSD += annualUSD
 	}
 	out.TotalInstitutions = len(institutions)
+	if rate, err := s.TCMBUsdRate(ctx); err == nil {
+		out.TCMB = &rate
+		settings.UsdTryRate = rate.UsdTryRate
+		out.Settings = settings
+		for i := range out.Institutions {
+			out.Institutions[i].AnnualTRY = roundMoney(out.Institutions[i].AnnualUSD * rate.UsdTryRate)
+		}
+	}
 	out.TotalAnnualTRY = roundMoney(out.TotalAnnualUSD * settings.UsdTryRate)
 	return out, nil
 }
@@ -95,6 +108,13 @@ func (s *Service) UpdateSettings(ctx context.Context, input billingdomain.Settin
 	input.CompanyEmail = strings.TrimSpace(input.CompanyEmail)
 	if input.CompanyName == "" {
 		input.CompanyName = "OGTA Platform"
+	}
+	if len(input.Packages) > 0 {
+		normalized, err := normalizeLicensePackages(input.Packages)
+		if err != nil {
+			return billingdomain.Settings{}, err
+		}
+		input.Packages = normalized
 	}
 	return s.repo.UpdateBillingSettings(ctx, input)
 }
@@ -117,7 +137,8 @@ func (s *Service) PreviewQuote(ctx context.Context, input billingdomain.QuotePre
 	if strings.TrimSpace(input.PackageID) == "" {
 		input.PackageID = billingdomain.PackageCore
 	}
-	pkg, ok := billingdomain.FindPackage(input.PackageID)
+	packages := billingdomain.EffectivePackages(settings.Packages)
+	pkg, ok := billingdomain.FindPackageIn(packages, input.PackageID)
 	if !ok {
 		return billingdomain.QuotePreview{}, ErrInvalidQuote
 	}
@@ -426,6 +447,31 @@ func (s *Service) GuardianSummary(ctx context.Context, tenantID, guardianUserID,
 		summary.PaymentHistory = summary.PaymentHistory[:8]
 	}
 	return summary, nil
+}
+
+func normalizeLicensePackages(packages []billingdomain.LicensePackage) ([]billingdomain.LicensePackage, error) {
+	out := make([]billingdomain.LicensePackage, 0, len(packages))
+	for _, item := range packages {
+		item.ID = strings.TrimSpace(item.ID)
+		item.Name = strings.TrimSpace(item.Name)
+		item.Tagline = strings.TrimSpace(item.Tagline)
+		if item.ID == "" || item.Name == "" || item.PricePerStudent <= 0 || item.MinOrderUSD < 0 {
+			return nil, ErrInvalidQuote
+		}
+		features := make([]string, 0, len(item.Features))
+		for _, feature := range item.Features {
+			feature = strings.TrimSpace(feature)
+			if feature != "" {
+				features = append(features, feature)
+			}
+		}
+		item.Features = features
+		out = append(out, item)
+	}
+	if len(out) == 0 {
+		return nil, ErrInvalidQuote
+	}
+	return out, nil
 }
 
 func normalizePaymentPlanInput(input billingdomain.CreatePaymentPlanInput) billingdomain.CreatePaymentPlanInput {

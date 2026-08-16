@@ -363,33 +363,34 @@
   max-width: 820px;
 }
 
-/* Navbar — öğrenci seçici (bildirim ile profil arası) */
+/* Sidebar — öğrenci seçici */
 .guardian-console .navbar-student-selector {
   position: relative;
+  margin: 10px 10px 0;
 }
 
 .guardian-console .navbar-student-trigger {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 10px;
-  max-width: 240px;
-  min-height: 44px;
-  padding: 6px 12px 6px 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 10px 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
   font: inherit;
   color: inherit;
   cursor: pointer;
   transition:
     border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    background 0.15s ease;
 }
 
 .guardian-console .navbar-student-trigger:hover:not(:disabled) {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border-color: rgba(45, 127, 199, 0.45);
+  background: rgba(45, 127, 199, 0.14);
 }
 
 .guardian-console .navbar-student-trigger:disabled {
@@ -433,7 +434,7 @@
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: #0f172a;
+  color: #fff;
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -444,7 +445,7 @@
   display: block;
   font-size: 11px;
   font-weight: 500;
-  color: #64748b;
+  color: rgba(255, 255, 255, 0.5);
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -453,7 +454,8 @@
 
 .guardian-console .navbar-student-trigger svg {
   flex-shrink: 0;
-  color: #64748b;
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.5);
   transition: transform 0.15s ease;
 }
 
@@ -464,9 +466,10 @@
 .guardian-console .navbar-student-menu {
   position: absolute;
   top: calc(100% + 8px);
+  left: 0;
   right: 0;
   z-index: 40;
-  min-width: 280px;
+  min-width: 0;
   margin: 0;
   padding: 6px;
   list-style: none;
@@ -510,6 +513,28 @@
   .guardian-child-layout,
   .guardian-overview-grid--secondary {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .guardian-console .navbar-student-selector {
+    margin: 0 8px 0 0;
+    flex-shrink: 0;
+  }
+
+  .guardian-console .navbar-student-trigger {
+    width: auto;
+    min-height: 40px;
+    padding: 4px 8px;
+  }
+
+  .guardian-console .navbar-student-text {
+    display: none;
+  }
+
+  .guardian-console .navbar-student-menu {
+    min-width: 240px;
+    right: auto;
   }
 }
 

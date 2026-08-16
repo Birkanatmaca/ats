@@ -1,8 +1,7 @@
 import { Bell, BookOpenCheck, CalendarDays, ClipboardCheck, Home, LifeBuoy, Loader2, Megaphone, UserCircle, UserRound } from "lucide-react";
-import { AppBrand } from "../../components/AppBrand";
-import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
+import { AppSidebar } from "../../components/ShellChrome";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { roleLabel } from "../../admin/utils/labels";
 import type { AuthSession, GuardianStudent } from "../../lib/api";
 import { api } from "../../lib/api";
@@ -22,15 +21,15 @@ import "../../styles/super-admin-app.css";
 import "./GuardianConsole.css";
 
 const guardianTabs = [
-  { id: "overview", label: "Genel", icon: <Home size={18} /> },
-  { id: "child", label: "Öğrencim", icon: <UserRound size={18} /> },
-  { id: "homework", label: "Ödevler", icon: <BookOpenCheck size={18} /> },
-  { id: "schedule", label: "Program", icon: <CalendarDays size={18} /> },
-  { id: "attendance", label: "Devamsızlık", icon: <ClipboardCheck size={18} /> },
-  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
-  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} /> },
-  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> },
-  { id: "profile", label: "Profil", icon: <UserCircle size={18} /> }
+  { id: "overview", label: "Genel", icon: <Home size={18} />, group: "Özet" },
+  { id: "child", label: "Öğrencim", icon: <UserRound size={18} />, group: "Öğrenci" },
+  { id: "homework", label: "Ödevler", icon: <BookOpenCheck size={18} />, group: "Öğrenci" },
+  { id: "schedule", label: "Program", icon: <CalendarDays size={18} />, group: "Öğrenci" },
+  { id: "attendance", label: "Devamsızlık", icon: <ClipboardCheck size={18} />, group: "Öğrenci" },
+  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} />, group: "İletişim" },
+  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} />, group: "İletişim" },
+  { id: "support", label: "Destek", icon: <LifeBuoy size={18} />, group: "İletişim" },
+  { id: "profile", label: "Profil", icon: <UserCircle size={18} />, group: "İletişim" }
 ] as const;
 
 const avatarTones: GuardianChild["avatarTone"][] = ["amber", "sky", "emerald"];
@@ -176,41 +175,30 @@ export function GuardianConsole({
 
   return (
     <div className="admin-shell principal-console guardian-console">
-      <header className="admin-navbar">
-        <div className="navbar-brand">
-          <AppBrand />
-        </div>
-
-        <NavbarUserMenu
-          name={session.principal.name}
-          meta={roleLabel(session.principal.role)}
-          notificationMode="guardian"
-          onUnreadNotificationsChange={setUnreadNotifications}
-          middleAction={
-            <NavbarStudentSelector
-              students={children}
-              selectedChildId={selectedChildId}
-              onSelect={(childId) => void handleSelectChild(childId)}
-            />
-          }
-        />
-      </header>
-
-      <aside className="admin-sidebar">
-        <nav className="admin-nav" aria-label="Veli menüsü">
-          {guardianTabs.map((tab) => (
-            <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/dashboard/${tab.id}`}>
-              {tab.icon}
-              <span>{tab.label}</span>
-              {tab.id === "notifications" && unreadNotifications > 0 ? (
-                <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
-              ) : null}
-            </NavLink>
-          ))}
-        </nav>
-
-        <SidebarFooter tenantName={children[0]?.tenantName ?? "Kurum"} onLogout={onLogout} />
-      </aside>
+      <AppSidebar
+        ariaLabel="Veli menüsü"
+        basePath="/dashboard"
+        extra={
+          <NavbarStudentSelector
+            students={children}
+            selectedChildId={selectedChildId}
+            onSelect={(childId) => void handleSelectChild(childId)}
+          />
+        }
+        items={guardianTabs.map((tab) => ({
+          ...tab,
+          badge:
+            tab.id === "notifications" && unreadNotifications > 0 ? (
+              <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
+            ) : null
+        }))}
+        notificationMode="guardian"
+        onLogout={onLogout}
+        onUnreadNotificationsChange={setUnreadNotifications}
+        tenantName={children[0]?.tenantName ?? "Kurum"}
+        userMeta={roleLabel(session.principal.role)}
+        userName={session.principal.name}
+      />
 
       <main className={`admin-workspace guardian-workspace ${activeTab}-workspace`}>
         <div className="sa-main guardian-main">

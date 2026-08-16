@@ -1,1 +1,257 @@
-/* Modüller — temel stiller styles/super-admin.css */
+/* Modüller — mavi / beyaz, yalnızca bu sayfa */
+
+.admin-shell.super-admin-app .modules-workspace {
+  --sa-bg: #f4f7fb;
+  --sa-muted: #64748b;
+  --sa-ink: #0f172a;
+  --sa-accent: #2563eb;
+  color: var(--sa-ink);
+  background: #f4f7fb;
+}
+
+.mod {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mod-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mod-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.mod-hero h1 {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.mod-hero-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.mod-kpi-grid,
+.mod-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.mod-kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mod-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mod-kpi,
+.mod-card {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.mod-kpi-icon,
+.mod-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.mod-kpi-icon {
+  margin-bottom: 8px;
+}
+
+.mod-kpi-icon--green {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.mod-kpi-icon--amber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.mod-kpi-icon--violet {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.mod-kpi span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.mod-kpi strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+}
+
+.mod-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.mod-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: min(320px, 100%);
+  flex: 1;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #64748b;
+}
+
+.mod-search input {
+  min-height: 40px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  outline: none;
+}
+
+.mod-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mod-filters button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mod-filters button.is-active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.mod-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mod-card h2 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.mod-card p {
+  margin: 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.mod-card small {
+  display: block;
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mod-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mod-pill--ok {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.mod-pill--warn {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.mod-pill--wait {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.mod-pill--off {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.mod-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+  .mod-kpi-grid,
+  .mod-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .mod-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mod-kpi-grid,
+  .mod-grid {
+    grid-template-columns: 1fr;
+  }
+}

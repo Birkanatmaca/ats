@@ -1,7 +1,7 @@
 @import "../guidance/GuidanceSurface.css";
 
 .teacher-surface-page {
-  --to-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --to-font: var(--font-sans, "Source Sans 3", system-ui, sans-serif);
   --to-card-bg: #ffffff;
   --to-card-border: #e2e8f0;
   --to-text: #0f172a;

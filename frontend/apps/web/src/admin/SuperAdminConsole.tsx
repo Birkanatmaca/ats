@@ -1,8 +1,7 @@
 import { Loader2 } from "lucide-react";
-import { AppBrand } from "../components/AppBrand";
-import { NavbarUserMenu, SidebarFooter } from "../components/ShellChrome";
+import { AppSidebar } from "../components/ShellChrome";
 import { useEffect, useState } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { AuthSession, SystemStatus } from "../lib/api";
 import { api } from "../lib/api";
 import { navTabs } from "./config/navTabs";
@@ -14,6 +13,7 @@ import { InstitutionsListPage } from "./pages/InstitutionsListPage";
 import { LogsPage } from "./pages/LogsPage";
 import { ModulesPage } from "./pages/ModulesPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { ProfilePage } from "./pages/ProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SupportPage } from "./pages/SupportPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -25,10 +25,12 @@ import "./pages/BillingPage.css";
 export function SuperAdminConsole({
   session,
   onLogout,
+  onSessionUpdate,
   onSystemStatusChange
 }: {
   session: AuthSession;
   onLogout: () => void;
+  onSessionUpdate: (session: AuthSession) => void;
   onSystemStatusChange: (status: SystemStatus) => void;
 }) {
   const [state, setState] = useState<SuperAdminState>({});
@@ -85,26 +87,18 @@ export function SuperAdminConsole({
 
   return (
     <div className="admin-shell super-admin-app">
-      <header className="admin-navbar">
-        <div className="navbar-brand">
-          <AppBrand />
-        </div>
-
-        <NavbarUserMenu name={session.principal.name} meta={session.principal.email ?? "Sistem yöneticisi"} showNotifications={false} />
-      </header>
-
-      <aside className="admin-sidebar">
-        <nav className="admin-nav" aria-label="Süper admin menüsü">
-          {navTabs.map((tab) => (
-            <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/admin/${tab.id}`} end={tab.id === "overview"}>
-              {tab.icon}
-              <span>{tab.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        <SidebarFooter tenantName="OGTA Platform" tenantSubtitle="Sistem yönetimi" onLogout={onLogout} />
-      </aside>
+      <AppSidebar
+        ariaLabel="Süper admin menüsü"
+        basePath="/admin"
+        items={navTabs.map((tab) => ({ ...tab, end: tab.id === "overview" }))}
+        onLogout={onLogout}
+        profilePath="/admin/profile"
+        showNotifications={false}
+        tenantName="OGTA Platform"
+        tenantSubtitle="Sistem yönetimi"
+        userMeta={session.principal.email ?? "Sistem yöneticisi"}
+        userName={session.principal.name}
+      />
 
       <main className={`admin-workspace ${activeTab}-workspace`}>
         <div className="sa-main">
@@ -118,7 +112,19 @@ export function SuperAdminConsole({
 
           <Routes>
             <Route index element={<Navigate to="overview" replace />} />
-            <Route path="overview" element={<OverviewPage overview={state.overview} systemMetrics={state.systemMetrics} />} />
+            <Route
+              path="overview"
+              element={
+                <OverviewPage
+                  institutions={state.institutions ?? []}
+                  overview={state.overview}
+                  settings={state.settings}
+                  supportTickets={state.supportTickets ?? []}
+                  systemMetrics={state.systemMetrics}
+                  users={state.users ?? []}
+                />
+              }
+            />
             <Route path="institutions" element={<InstitutionsListPage institutions={state.institutions ?? []} onRefresh={load} />} />
             <Route path="institutions/:id" element={<InstitutionDetailPage institutions={state.institutions ?? []} onRefresh={load} />} />
             <Route path="billing" element={<BillingPage />} />
@@ -128,6 +134,7 @@ export function SuperAdminConsole({
             <Route path="ai" element={<AiUsagePage />} />
             <Route path="modules" element={<ModulesPage modules={state.overview?.modules ?? []} />} />
             <Route path="settings" element={<SettingsPage settings={state.settings} onRefresh={load} onSystemStatusChange={onSystemStatusChange} />} />
+            <Route path="profile" element={<ProfilePage session={session} onSessionUpdate={onSessionUpdate} />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Routes>
         </div>

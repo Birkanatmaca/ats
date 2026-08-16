@@ -82,7 +82,7 @@ export function ProfilePage({
   const [error, setError] = useState<string | null>(null);
 
   const editingSelf = selectedUserId === session.principal.userId;
-  const canEditDetails = isManager;
+  const canEditDetails = isManager || editingSelf;
   const canEditVisual = isManager || editingSelf;
 
   const selectedProfile = useMemo(() => {
@@ -234,11 +234,24 @@ export function ProfilePage({
         setMessage("Profiliniz güncellendi.");
       } else {
         const updated = await api.updateProfile({
+          fullName: form.fullName.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
           avatarUrl: form.avatarUrl || null,
           profileAccent: form.profileAccent
         });
         setOwnProfile(updated);
-        setMessage("Görünüm ayarlarınız kaydedildi.");
+        const nextSession: AuthSession = {
+          ...session,
+          principal: {
+            ...session.principal,
+            name: updated.fullName,
+            email: updated.email
+          }
+        };
+        storeAuthSession(nextSession);
+        onSessionUpdate(nextSession);
+        setMessage("Profiliniz güncellendi.");
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Kayıt başarısız.");
@@ -393,7 +406,7 @@ export function ProfilePage({
                   <select
                     value={form.role}
                     onChange={(event) => setForm({ ...form, role: event.target.value as Role })}
-                    disabled={!canEditDetails}
+                    disabled={!isManager || editingSelf}
                   >
                     {ROLE_OPTIONS.map((role) => (
                       <option key={role} value={role}>
@@ -407,7 +420,7 @@ export function ProfilePage({
                   <select
                     value={form.status}
                     onChange={(event) => setForm({ ...form, status: event.target.value })}
-                    disabled={!canEditDetails}
+                    disabled={!isManager || editingSelf}
                   >
                     {STATUS_OPTIONS.map((status) => (
                       <option key={status} value={status}>
@@ -419,7 +432,7 @@ export function ProfilePage({
               </div>
               <button className="primary-action profile-save-btn" type="submit" disabled={saving || avatarUploading}>
                 {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                {isManager && !editingSelf ? "Kullanıcıyı kaydet" : isManager ? "Profili kaydet" : "Görünümü kaydet"}
+                {isManager && !editingSelf ? "Kullanıcıyı kaydet" : "Profili kaydet"}
               </button>
             </div>
           </article>

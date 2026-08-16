@@ -11,6 +11,7 @@ type Repository interface {
 	PrincipalSummary(ctx context.Context, tenantID string) domain.PrincipalSummary
 	PrincipalReportOverview(ctx context.Context, tenantID string, from time.Time, to time.Time) domain.PrincipalReportOverview
 	ClassSummary(ctx context.Context, tenantID string, classID string, date time.Time) (domain.ClassSummary, bool)
+	TeacherOverview(ctx context.Context, tenantID string, teacherID string, from time.Time, to time.Time) (domain.TeacherOverview, bool)
 }
 
 type Service struct {
@@ -31,4 +32,8 @@ func (s *Service) PrincipalReportOverview(ctx context.Context, tenantID string, 
 
 func (s *Service) ClassSummary(ctx context.Context, tenantID string, classID string, date time.Time) (domain.ClassSummary, bool) {
 	return s.repo.ClassSummary(ctx, tenantID, classID, date)
+}
+
+func (s *Service) TeacherOverview(ctx context.Context, tenantID string, teacherID string, from time.Time, to time.Time) (domain.TeacherOverview, bool) {
+	return s.repo.TeacherOverview(ctx, tenantID, teacherID, from, to)
 }

@@ -258,6 +258,78 @@ func (s *Store) GetAIProviderKey(ctx context.Context) (string, error) {
 	return strings.TrimSpace(value), nil
 }
 
+func (s *Store) UpdateAIProviderKey(ctx context.Context, key string) error {
+	_, err := s.db.ExecContext(ctx, `
+INSERT INTO platform_settings (key, value, is_secret, updated_at)
+VALUES ('ai_provider_key', $1, true, now())
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, is_secret = true, updated_at = now()`, strings.TrimSpace(key))
+	return err
+}
+
+func (s *Store) ListAIProviderKeys(ctx context.Context) ([]aidomain.ProviderKey, error) {
+	var value string
+	err := s.db.QueryRowContext(ctx, `SELECT value FROM platform_settings WHERE key = 'ai_provider_keys'`).Scan(&value)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	keys, err := decodeProviderKeys(value)
+	if err != nil {
+		return nil, err
+	}
+	if len(keys) > 0 {
+		return keys, nil
+	}
+	legacy, err := s.GetAIProviderKey(ctx)
+	if err != nil || strings.TrimSpace(legacy) == "" {
+		return keys, err
+	}
+	return []aidomain.ProviderKey{{
+		ID:       "legacy",
+		Label:    "Varsayılan",
+		Key:      strings.TrimSpace(legacy),
+		Enabled:  true,
+		Priority: 1,
+		Status:   aidomain.ProviderKeyStatusActive,
+		Source:   aidomain.ProviderKeySourcePlatform,
+	}}, nil
+}
+
+func (s *Store) SaveAIProviderKeys(ctx context.Context, keys []aidomain.ProviderKey) error {
+	payload, err := json.Marshal(keys)
+	if err != nil {
+		return err
+	}
+	if _, err := s.db.ExecContext(ctx, `
+INSERT INTO platform_settings (key, value, is_secret, updated_at)
+VALUES ('ai_provider_keys', $1, true, now())
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, is_secret = true, updated_at = now()`, string(payload)); err != nil {
+		return err
+	}
+	legacy := ""
+	for _, key := range keys {
+		if key.Enabled && strings.TrimSpace(key.Key) != "" {
+			legacy = strings.TrimSpace(key.Key)
+			break
+		}
+	}
+	return s.UpdateAIProviderKey(ctx, legacy)
+}
+
+func decodeProviderKeys(raw string) ([]aidomain.ProviderKey, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return []aidomain.ProviderKey{}, nil
+	}
+	var keys []aidomain.ProviderKey
+	if err := json.Unmarshal([]byte(raw), &keys); err != nil {
+		return nil, err
+	}
+	if keys == nil {
+		return []aidomain.ProviderKey{}, nil
+	}
+	return keys, nil
+}
+
 func (s *Store) CountUserMessagesSince(ctx context.Context, tenantID, userID string, since time.Time) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx, `

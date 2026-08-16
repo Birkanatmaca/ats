@@ -46,7 +46,11 @@ func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	profile, err := h.superAdmin.UpdateSelfProfile(r.Context(), principal, input)
 	if errors.Is(err, superadminapp.ErrInvalidUser) {
-		httpx.WriteError(w, http.StatusBadRequest, "INVALID_PROFILE", "Görsel ayarlar geçersiz.", nil)
+		httpx.WriteError(w, http.StatusBadRequest, "INVALID_PROFILE", "Ad, e-posta veya görsel ayarlar geçersiz.", nil)
+		return
+	}
+	if errors.Is(err, superadminapp.ErrUserAlreadyExists) {
+		httpx.WriteError(w, http.StatusConflict, "EMAIL_TAKEN", "Bu e-posta başka bir hesapta kayıtlı.", nil)
 		return
 	}
 	if err != nil {

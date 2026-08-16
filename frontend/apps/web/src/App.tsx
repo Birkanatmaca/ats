@@ -94,7 +94,12 @@ export function App() {
           ) : systemStatus?.maintenance.enabled && session.principal.role !== "super_admin" ? (
             <Navigate to="/maintenance" replace />
           ) : (
-            <SuperAdminConsole session={session} onLogout={() => handleLogout(setSession)} onSystemStatusChange={setSystemStatus} />
+            <SuperAdminConsole
+              session={session}
+              onLogout={() => handleLogout(setSession)}
+              onSessionUpdate={setSession}
+              onSystemStatusChange={setSystemStatus}
+            />
           )
         }
       />

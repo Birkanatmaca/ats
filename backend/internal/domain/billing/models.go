@@ -3,10 +3,20 @@ package billing
 import "time"
 
 type Settings struct {
-	UsdTryRate        float64 `json:"usdTryRate"`
-	QuoteValidityDays int     `json:"quoteValidityDays"`
-	CompanyName       string  `json:"companyName"`
-	CompanyEmail      string  `json:"companyEmail"`
+	UsdTryRate        float64          `json:"usdTryRate"`
+	QuoteValidityDays int              `json:"quoteValidityDays"`
+	CompanyName       string           `json:"companyName"`
+	CompanyEmail      string           `json:"companyEmail"`
+	Packages          []LicensePackage `json:"packages,omitempty"`
+}
+
+type TCMBRate struct {
+	Currency     string  `json:"currency"`
+	UsdTryRate   float64 `json:"usdTryRate"`
+	ForexBuying  float64 `json:"forexBuying"`
+	ForexSelling float64 `json:"forexSelling"`
+	BulletinDate string  `json:"bulletinDate"`
+	Source       string  `json:"source"`
 }
 
 type InstitutionLicenseRow struct {
@@ -29,6 +39,7 @@ type Overview struct {
 	TotalAnnualTRY    float64                 `json:"totalAnnualTry"`
 	Institutions      []InstitutionLicenseRow `json:"institutions"`
 	UpdatedAt         time.Time               `json:"updatedAt"`
+	TCMB              *TCMBRate               `json:"tcmb,omitempty"`
 }
 
 type QuoteLineItem struct {

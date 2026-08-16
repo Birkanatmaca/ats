@@ -70,8 +70,19 @@ func DefaultPackages() []LicensePackage {
 	}
 }
 
+func EffectivePackages(stored []LicensePackage) []LicensePackage {
+	if len(stored) == 0 {
+		return DefaultPackages()
+	}
+	return stored
+}
+
 func FindPackage(id string) (LicensePackage, bool) {
-	for _, item := range DefaultPackages() {
+	return FindPackageIn(DefaultPackages(), id)
+}
+
+func FindPackageIn(packages []LicensePackage, id string) (LicensePackage, bool) {
+	for _, item := range packages {
 		if item.ID == id {
 			return item, true
 		}

@@ -1,0 +1,384 @@
+/* Müdür — Öğrenci detayı. */
+
+.psd {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.psd-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 22px 20px;
+  border: 1px solid #dbe7f3;
+  border-radius: 20px;
+  background:
+    radial-gradient(480px 170px at 100% -12%, rgba(14, 165, 233, 0.12), transparent 60%),
+    radial-gradient(280px 140px at 0% 120%, rgba(37, 99, 235, 0.1), transparent 58%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.psd-hero-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  min-width: 0;
+}
+
+.psd-back {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.psd-back:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.psd-avatar {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 16px;
+  background: #ecfeff;
+  color: #0f766e;
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.psd-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.psd-hero h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+}
+
+.psd-hero p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.psd-hero-meta,
+.psd-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.psd-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.psd-pill--ok {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.psd-pill--off {
+  color: #be123c;
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.psd-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.psd-action:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.psd-action--danger:hover {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.psd-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.psd-kpi {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.psd-kpi-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 12px;
+  place-items: center;
+  border-radius: 11px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.psd-kpi-icon--teal {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.psd-kpi-icon--amber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.psd-kpi-icon--violet {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+.psd-kpi span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.psd-kpi strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.45rem;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+}
+
+.psd-kpi small {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.psd-bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 12px;
+}
+
+.psd-card {
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.psd-card-head {
+  margin-bottom: 14px;
+}
+
+.psd-card-head span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.psd-card-head h2 {
+  margin: 4px 0 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.psd-card-head small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.psd-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.psd-table th,
+.psd-table td {
+  padding: 10px 0;
+  text-align: left;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+}
+
+.psd-table th {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.psd-table tr:last-child td {
+  border-bottom: none;
+}
+
+.psd-status {
+  display: inline-flex;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.psd-status--present {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.psd-status--absent {
+  color: #be123c;
+  background: #fff1f2;
+}
+
+.psd-status--late {
+  color: #b45309;
+  background: #fffbeb;
+}
+
+.psd-status--excused {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.psd-bar {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.psd-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2563eb;
+}
+
+.psd-bar--warn i {
+  background: #d97706;
+}
+
+.psd-docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.psd-empty,
+.psd-missing,
+.psd-loading,
+.psd-error,
+.psd-ok {
+  margin: 0;
+  font-size: 13px;
+}
+
+.psd-empty,
+.psd-loading,
+.psd-missing {
+  padding: 12px 0;
+  color: #64748b;
+}
+
+.psd-error,
+.psd-ok {
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.psd-error {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.psd-ok {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+@media (max-width: 1100px) {
+  .psd-kpi-grid,
+  .psd-bento {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .psd-hero,
+  .psd-kpi-grid,
+  .psd-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .psd-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

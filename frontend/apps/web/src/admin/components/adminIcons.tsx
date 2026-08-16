@@ -1,15 +1,20 @@
 import {
   AlertCircle,
   Bot,
+  BrainCircuit,
+  Bus,
   CalendarCheck2,
   CheckCircle2,
   CircuitBoard,
+  ClipboardList,
   DatabaseZap,
+  FileText,
   Flag,
   GraduationCap,
   KeyRound,
   LifeBuoy,
   Mail,
+  Megaphone,
   MessageSquare,
   Network,
   ShieldCheck
@@ -22,7 +27,12 @@ export function moduleIcon(name: string): ReactNode {
     Scheduling: <CalendarCheck2 size={20} />,
     Attendance: <CheckCircle2 size={20} />,
     Guidance: <GraduationCap size={20} />,
-    Billing: <DatabaseZap size={20} />
+    Billing: <DatabaseZap size={20} />,
+    Transport: <Bus size={20} />,
+    Homework: <ClipboardList size={20} />,
+    Announcements: <Megaphone size={20} />,
+    Files: <FileText size={20} />,
+    AI: <BrainCircuit size={20} />
   };
   return icons[name] ?? <CircuitBoard size={20} />;
 }

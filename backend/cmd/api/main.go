@@ -30,6 +30,7 @@ import (
 	"ots/backend/internal/http/middleware"
 	platformauth "ots/backend/internal/platform/auth"
 	"ots/backend/internal/platform/config"
+	"ots/backend/internal/platform/migrate"
 	"ots/backend/internal/platform/openai"
 	platformpush "ots/backend/internal/platform/push"
 	"ots/backend/internal/platform/storage"
@@ -97,6 +98,16 @@ func main() {
 		homeworkRepo = postgresStore
 		auditWriter = postgresStore.RecordOperationalAudit
 		logger.Info("postgres repository connected")
+		applied, migrateErr := migrate.Apply(context.Background(), cfg.DatabaseURL, logger)
+		if migrateErr != nil {
+			logger.Error("migrations failed", slog.String("error", migrateErr.Error()))
+			os.Exit(1)
+		}
+		if applied > 0 {
+			logger.Info("migrations applied", slog.Int("count", applied))
+		} else {
+			logger.Info("migrations up to date")
+		}
 	}
 
 	schoolService := schoolapp.NewService(schoolRepo)

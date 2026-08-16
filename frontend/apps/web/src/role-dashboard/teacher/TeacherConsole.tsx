@@ -22,8 +22,7 @@ import {
 import type { FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { AppBrand } from "../../components/AppBrand";
-import { NavbarUserMenu, SidebarFooter } from "../../components/ShellChrome";
+import { AppSidebar } from "../../components/ShellChrome";
 import { roleLabel } from "../../admin/utils/labels";
 import type { Announcement, AttendanceRecord, AttendanceSession, AuthSession, Lesson, Observation } from "../../lib/api";
 import { api } from "../../lib/api";
@@ -60,15 +59,15 @@ const OBSERVATION_PAGE_SIZE = 12;
 type AttendanceStatus = AttendanceRecord["status"];
 
 const teacherTabs = [
-  { id: "overview", label: "Genel", icon: <Home size={18} /> },
-  { id: "lessons", label: "Derslerim", icon: <CalendarDays size={18} /> },
-  { id: "homework", label: "Ödevler", icon: <BookOpenCheck size={18} /> },
-  { id: "attendance", label: "Yoklama", icon: <ClipboardCheck size={18} /> },
-  { id: "observations", label: "Gözlemler", icon: <NotebookPen size={18} /> },
-  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} /> },
-  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} /> },
-  { id: "support", label: "Destek", icon: <LifeBuoy size={18} /> },
-  { id: "profile", label: "Profil", icon: <UserCircle size={18} /> }
+  { id: "overview", label: "Genel", icon: <Home size={18} />, group: "Özet" },
+  { id: "lessons", label: "Derslerim", icon: <CalendarDays size={18} />, group: "Akademik" },
+  { id: "homework", label: "Ödevler", icon: <BookOpenCheck size={18} />, group: "Akademik" },
+  { id: "attendance", label: "Yoklama", icon: <ClipboardCheck size={18} />, group: "Akademik" },
+  { id: "observations", label: "Gözlemler", icon: <NotebookPen size={18} />, group: "Akademik" },
+  { id: "announcements", label: "Duyurular", icon: <Megaphone size={18} />, group: "İletişim" },
+  { id: "notifications", label: "Bildirimler", icon: <Bell size={18} />, group: "İletişim" },
+  { id: "support", label: "Destek", icon: <LifeBuoy size={18} />, group: "İletişim" },
+  { id: "profile", label: "Profil", icon: <UserCircle size={18} />, group: "İletişim" }
 ] as const;
 
 const attendanceStatuses: Array<{ value: AttendanceStatus; label: string; icon: ReactNode }> = [
@@ -325,33 +324,22 @@ export function TeacherConsole({
 
   return (
     <div className="admin-shell principal-console teacher-console">
-      <header className="admin-navbar">
-        <div className="navbar-brand">
-          <AppBrand />
-        </div>
-
-        <NavbarUserMenu
-          name={session.principal.name}
-          meta={roleLabel(session.principal.role)}
-          onUnreadNotificationsChange={setUnreadNotifications}
-        />
-      </header>
-
-      <aside className="admin-sidebar">
-        <nav className="admin-nav" aria-label="Öğretmen menüsü">
-          {teacherTabs.map((tab) => (
-            <NavLink className={({ isActive }) => (isActive ? "nav-button active" : "nav-button")} key={tab.id} to={`/dashboard/${tab.id}`}>
-              {tab.icon}
-              <span>{tab.label}</span>
-              {tab.id === "notifications" && unreadNotifications > 0 ? (
-                <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
-              ) : null}
-            </NavLink>
-          ))}
-        </nav>
-
-        <SidebarFooter tenantName={data.tenant?.name ?? "Kurum"} onLogout={onLogout} />
-      </aside>
+      <AppSidebar
+        ariaLabel="Öğretmen menüsü"
+        basePath="/dashboard"
+        items={teacherTabs.map((tab) => ({
+          ...tab,
+          badge:
+            tab.id === "notifications" && unreadNotifications > 0 ? (
+              <span className="nav-unread-badge">{unreadNotifications > 9 ? "9+" : unreadNotifications}</span>
+            ) : null
+        }))}
+        onLogout={onLogout}
+        onUnreadNotificationsChange={setUnreadNotifications}
+        tenantName={data.tenant?.name ?? "Kurum"}
+        userMeta={roleLabel(session.principal.role)}
+        userName={session.principal.name}
+      />
 
       <main className={`admin-workspace teacher-workspace ${activeTab}-workspace`}>
         <div className="sa-main teacher-main">

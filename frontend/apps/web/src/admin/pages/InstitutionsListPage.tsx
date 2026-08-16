@@ -1,13 +1,28 @@
-import { ArrowUpRight, Building2, CheckCircle2, Database, Globe2, GraduationCap, Loader2, Plus, UsersRound } from "lucide-react";
+import { Building2, CheckCircle2, Database, Globe2, GraduationCap, Loader2, Plus, Search, UsersRound } from "lucide-react";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Institution } from "../../lib/api";
 import { api } from "../../lib/api";
 import { Modal } from "../components/Modal";
 import { StatusBadge } from "../components/StatusBadge";
-import { planVariant } from "../utils/institutionHelpers";
+import { initials, planVariant } from "../utils/institutionHelpers";
 import "./InstitutionsListPage.css";
+
+const STATUS_FILTERS = [
+  { id: "all", label: "Tümü" },
+  { id: "active", label: "Aktif" },
+  { id: "trial", label: "Deneme" },
+  { id: "review", label: "İncelemede" }
+] as const;
+
+function formatActivity(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return date.toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 export function InstitutionsListPage({
   institutions,
@@ -19,10 +34,25 @@ export function InstitutionsListPage({
   const navigate = useNavigate();
   const totalStudents = institutions.reduce((sum, institution) => sum + institution.students, 0);
   const totalUsers = institutions.reduce((sum, institution) => sum + institution.users, 0);
+  const activeCount = institutions.filter((item) => item.status === "active").length;
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]["id"]>("all");
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", plan: "MVP", timezone: "Europe/Istanbul" });
   const [saving, setSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const visible = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("tr-TR");
+    return institutions.filter((institution) => {
+      const matchesStatus = statusFilter === "all" || institution.status === statusFilter;
+      const matchesQuery =
+        needle.length === 0 ||
+        institution.name.toLocaleLowerCase("tr-TR").includes(needle) ||
+        institution.plan.toLocaleLowerCase("tr-TR").includes(needle);
+      return matchesStatus && matchesQuery;
+    });
+  }, [institutions, query, statusFilter]);
 
   async function createInstitution(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,101 +72,112 @@ export function InstitutionsListPage({
   }
 
   return (
-    <section className="sa-page-stack institutions-list-page">
-      <div className="sa-kpi-row sa-inst-summary" style={{ marginBottom: "4px" }}>
-        <article className="sa-kpi sa-kpi--blue">
-          <div className="sa-kpi-icon">
-            <GraduationCap size={20} />
+    <section className="inst">
+      <header className="inst-hero">
+        <div>
+          <p className="inst-kicker">Yönetim</p>
+          <h1>Kurumlar</h1>
+        </div>
+        <button type="button" className="inst-add" onClick={() => setShowCreate(true)}>
+          <Plus size={16} />
+          Yeni kurum
+        </button>
+      </header>
+
+      <div className="inst-kpi-grid">
+        <article className="inst-kpi">
+          <div className="inst-kpi-icon">
+            <Building2 size={18} />
           </div>
-          <label>Toplam öğrenci</label>
-          <span className="sa-kpi-value">{totalStudents}</span>
+          <span>Kayıtlı kurum</span>
+          <strong>{institutions.length}</strong>
         </article>
-        <article className="sa-kpi sa-kpi--purple">
-          <div className="sa-kpi-icon">
-            <UsersRound size={20} />
+        <article className="inst-kpi">
+          <div className="inst-kpi-icon inst-kpi-icon--green">
+            <CheckCircle2 size={18} />
           </div>
-          <label>Toplam kullanıcı</label>
-          <span className="sa-kpi-value">{totalUsers}</span>
+          <span>Aktif</span>
+          <strong>{activeCount}</strong>
         </article>
-        <article className="sa-kpi sa-kpi--green">
-          <div className="sa-kpi-icon">
-            <CheckCircle2 size={20} />
+        <article className="inst-kpi">
+          <div className="inst-kpi-icon inst-kpi-icon--violet">
+            <GraduationCap size={18} />
           </div>
-          <label>Aktif kurum</label>
-          <span className="sa-kpi-value">{institutions.filter((item) => item.status === "active").length}</span>
+          <span>Öğrenci</span>
+          <strong>{totalStudents}</strong>
         </article>
-        <article className="sa-kpi sa-kpi--rose">
-          <div className="sa-kpi-icon">
-            <Building2 size={20} />
+        <article className="inst-kpi">
+          <div className="inst-kpi-icon inst-kpi-icon--amber">
+            <UsersRound size={18} />
           </div>
-          <label>Kayıtlı tenant</label>
-          <span className="sa-kpi-value">{institutions.length}</span>
+          <span>Kullanıcı</span>
+          <strong>{totalUsers}</strong>
         </article>
       </div>
 
-      <div className="sa-inst-grid">
-        <button type="button" className="sa-inst-card sa-inst-card--add" onClick={() => setShowCreate(true)} aria-label="Yeni kurum ekle">
-          <div className="sa-inst-card-add-icon">
-            <Plus size={28} />
-          </div>
-          <strong>Yeni kurum ekle</strong>
-          <span>Kart şeklinde yeni bir tenant oluştur</span>
-        </button>
+      <div className="inst-toolbar">
+        <label className="inst-search">
+          <Search size={16} />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Kurum veya plan ara"
+            type="search"
+          />
+        </label>
+        <div className="inst-filters">
+          {STATUS_FILTERS.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              className={statusFilter === filter.id ? "is-active" : undefined}
+              onClick={() => setStatusFilter(filter.id)}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {institutions.map((institution) => {
-          const variant = planVariant(institution.plan);
-          return (
-            <Link key={institution.id} to={`/admin/institutions/${institution.id}`} className={`sa-inst-card sa-inst-card--plan-${variant}`}>
-              <div className="sa-inst-card-band" />
-              <div className="sa-inst-card-head">
-                <div className="sa-inst-card-icon">
-                  <Building2 size={22} />
+      {visible.length > 0 ? (
+        <div className="inst-grid">
+          {visible.map((institution) => {
+            const variant = planVariant(institution.plan);
+            return (
+              <Link key={institution.id} className={`inst-card inst-card--${variant}`} to={`/admin/institutions/${institution.id}`}>
+                <div className="inst-card-top">
+                  <span className="inst-avatar">{initials(institution.name)}</span>
+                  <div className="inst-card-badges">
+                    <span className={`inst-plan inst-plan--${variant}`}>{institution.plan}</span>
+                    <StatusBadge value={institution.status} />
+                  </div>
                 </div>
-                <div className="sa-inst-card-badges">
-                  <span className={`sa-plan-badge sa-plan-badge--${variant}`}>{institution.plan}</span>
-                  <StatusBadge value={institution.status} />
-                </div>
-              </div>
-              <div className="sa-inst-card-body">
                 <h3>{institution.name}</h3>
-                <p className="sa-inst-card-meta">
+                <p>
                   <Globe2 size={13} />
-                  <span>{institution.timezone}</span>
+                  {institution.timezone}
                 </p>
-              </div>
-              <div className="sa-inst-card-stats">
-                <div>
-                  <GraduationCap size={15} />
+                <div className="inst-card-stats">
                   <div>
                     <span>Öğrenci</span>
                     <strong>{institution.students}</strong>
                   </div>
-                </div>
-                <div>
-                  <UsersRound size={15} />
                   <div>
                     <span>Kullanıcı</span>
                     <strong>{institution.users}</strong>
                   </div>
                 </div>
-              </div>
-              <div className="sa-inst-card-foot">
-                <span>
-                  son aktivite{" "}
-                  {new Date(institution.lastActivityAt).toLocaleTimeString("tr-TR", {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  })}
-                </span>
-                <span className="sa-inst-card-cta">
-                  Detay
-                  <ArrowUpRight size={15} />
-                </span>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+                <div className="inst-card-foot">
+                  <span>Son hareket {formatActivity(institution.lastActivityAt)}</span>
+                  <em>Detay</em>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="inst-empty">{institutions.length === 0 ? "Henüz kurum yok." : "Bu filtreye uyan kurum bulunamadı."}</p>
+      )}
 
       <Modal
         open={showCreate}
@@ -196,7 +237,7 @@ export function InstitutionsListPage({
             </button>
             <button className="primary-action" type="submit" disabled={saving}>
               {saving ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
-              Kuruma oluştur
+              Kurum oluştur
             </button>
           </div>
         </form>

@@ -1,7 +1,7 @@
 /* Rehberlik — ortak KPI kartları (Genel, Gözlemler, …) */
 
 .guidance-surface-page {
-  --go-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --go-font: var(--font-sans, "Source Sans 3", system-ui, sans-serif);
   --go-card-bg: #ffffff;
   --go-card-border: #e2e8f0;
   --go-text: #0f172a;

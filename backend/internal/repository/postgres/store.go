@@ -198,10 +198,8 @@ func (s *Store) SystemMetrics(ctx context.Context) (superadmindomain.SystemMetri
 		{Key: "heap", Label: "API Heap", Value: heapPercent, Unit: "%", Status: metricStatus(heapPercent), Description: heapDescription},
 	}
 	services := []superadmindomain.ServiceMetric{
-		{Key: "backend", Name: "Backend API", Status: "healthy", Description: "Go API health endpoint yanıt veriyor."},
+		{Key: "backend", Name: "Backend API", Status: "healthy", Description: "API süreci ayakta ve istek yanıtlıyor."},
 		{Key: "postgres", Name: "Postgres", Status: dbStatus, LatencyMs: dbLatency, Description: "Veritabanı bağlantı ve ping kontrolü."},
-		{Key: "frontend", Name: "Frontend", Status: "healthy", Description: "Nginx frontend container canlı yayın yapıyor."},
-		{Key: "migrations", Name: "Migration", Status: "healthy", Description: "Schema migration takibi aktif."},
 	}
 
 	return superadmindomain.SystemMetrics{
@@ -244,15 +242,53 @@ func (s *Store) UpdatePlatformSettings(ctx context.Context, actor identity.Princ
 	}
 	defer rollback(tx)
 
-	message := strings.TrimSpace(input.Maintenance.Message)
-	if message == "" {
-		message = defaultMaintenanceMessage()
+	if input.Maintenance != nil {
+		message := strings.TrimSpace(input.Maintenance.Message)
+		if message == "" {
+			message = defaultMaintenanceMessage()
+		}
+		if err := upsertPlatformSetting(ctx, tx, "maintenance_enabled", boolString(input.Maintenance.Enabled), false, actor.UserID); err != nil {
+			return superadmindomain.PlatformSettings{}, err
+		}
+		if err := upsertPlatformSetting(ctx, tx, "maintenance_message", message, false, actor.UserID); err != nil {
+			return superadmindomain.PlatformSettings{}, err
+		}
 	}
-	if err := upsertPlatformSetting(ctx, tx, "maintenance_enabled", boolString(input.Maintenance.Enabled), false, actor.UserID); err != nil {
-		return superadmindomain.PlatformSettings{}, err
+	if input.Mail != nil {
+		config, err := superadmindomain.EncodeMailConfig(*input.Mail)
+		if err != nil {
+			return superadmindomain.PlatformSettings{}, err
+		}
+		if err := upsertPlatformSetting(ctx, tx, "mail_config", config, false, actor.UserID); err != nil {
+			return superadmindomain.PlatformSettings{}, err
+		}
+		if input.Mail.ClearPassword {
+			if err := upsertPlatformSetting(ctx, tx, "mail_provider_key", "", true, actor.UserID); err != nil {
+				return superadmindomain.PlatformSettings{}, err
+			}
+		} else if password := strings.TrimSpace(input.Mail.Password); password != "" {
+			if err := upsertPlatformSetting(ctx, tx, "mail_provider_key", password, true, actor.UserID); err != nil {
+				return superadmindomain.PlatformSettings{}, err
+			}
+		}
 	}
-	if err := upsertPlatformSetting(ctx, tx, "maintenance_message", message, false, actor.UserID); err != nil {
-		return superadmindomain.PlatformSettings{}, err
+	if input.SMS != nil {
+		config, err := superadmindomain.EncodeSMSConfig(*input.SMS)
+		if err != nil {
+			return superadmindomain.PlatformSettings{}, err
+		}
+		if err := upsertPlatformSetting(ctx, tx, "sms_config", config, false, actor.UserID); err != nil {
+			return superadmindomain.PlatformSettings{}, err
+		}
+		if input.SMS.ClearAPIKey {
+			if err := upsertPlatformSetting(ctx, tx, "sms_provider_key", "", true, actor.UserID); err != nil {
+				return superadmindomain.PlatformSettings{}, err
+			}
+		} else if key := strings.TrimSpace(input.SMS.APIKey); key != "" {
+			if err := upsertPlatformSetting(ctx, tx, "sms_provider_key", key, true, actor.UserID); err != nil {
+				return superadmindomain.PlatformSettings{}, err
+			}
+		}
 	}
 	for _, credential := range input.Credentials {
 		if _, ok := credentialDefinition(credential.Key); !ok {
@@ -271,7 +307,7 @@ func (s *Store) UpdatePlatformSettings(ctx context.Context, actor identity.Princ
 			}
 		}
 	}
-	if err := insertAudit(ctx, tx, systemTenantID, actor.UserID, "platform_settings.update", "platform_settings", "", "system_confidential", fmt.Sprintf(`{"maintenance_enabled":%t}`, input.Maintenance.Enabled)); err != nil {
+	if err := insertAudit(ctx, tx, systemTenantID, actor.UserID, "platform_settings.update", "platform_settings", "", "system_confidential", `{"updated":true}`); err != nil {
 		return superadmindomain.PlatformSettings{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -472,13 +508,11 @@ WHERE u.is_active = true`).Scan(&activeUsers); err != nil {
 		Institutions:        institutions,
 		ActiveUsers:         activeUsers,
 		SystemHealth:        "healthy",
-		MonthlyRevenueTRY:   institutions * 32500,
+		MonthlyRevenueTRY:   0,
 		OpenSecuritySignals: 0,
 		Usage:               usage,
-		Incidents: []superadmindomain.Incident{
-			{ID: "db-audit", Title: "Tenant ve kullanıcı işlemleri audit altında", Severity: "low", Status: "operational"},
-		},
-		Modules: defaultModules(),
+		Incidents:           []superadmindomain.Incident{},
+		Modules:             defaultModules(),
 	}, nil
 }
 
@@ -1212,23 +1246,20 @@ LIMIT 1`
 }
 
 func (s *Store) weeklyUsage(ctx context.Context) ([]superadmindomain.UsagePoint, error) {
-	start := s.clock().AddDate(0, 0, -4)
-	points := make([]superadmindomain.UsagePoint, 0, 5)
+	now := s.clock()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -6)
+	points := make([]superadmindomain.UsagePoint, 0, 7)
 	labels := []string{"Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"}
-	for day := 0; day < 5; day++ {
-		current := time.Date(start.Year(), start.Month(), start.Day()+day, 0, 0, 0, 0, start.Location())
+	for day := 0; day < 7; day++ {
+		current := start.AddDate(0, 0, day)
 		next := current.AddDate(0, 0, 1)
 		var count int
 		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM audit_logs WHERE created_at >= $1 AND created_at < $2`, current, next).Scan(&count); err != nil {
 			return nil, err
 		}
-		value := 12 + count*18
-		if value > 100 {
-			value = 100
-		}
 		points = append(points, superadmindomain.UsagePoint{
 			Label: labels[int(current.Weekday())],
-			Value: value,
+			Value: count,
 		})
 	}
 	return points, nil
@@ -1513,7 +1544,12 @@ func platformSettingsFromValues(values map[string]string, updatedAt map[string]t
 			UpdatedAt:   updated,
 		})
 	}
-	return superadmindomain.PlatformSettings{Maintenance: maintenance, Credentials: credentials}
+	return superadmindomain.PlatformSettings{
+		Maintenance: maintenance,
+		Mail:        superadmindomain.ParseMailSettings(values["mail_config"], values["mail_provider_key"]),
+		SMS:         superadmindomain.ParseSMSSettings(values["sms_config"], values["sms_provider_key"]),
+		Credentials: credentials,
+	}
 }
 
 type credentialDef struct {

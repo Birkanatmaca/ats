@@ -3,6 +3,7 @@
 # Go
 .local-tools/
 backend/api
+backend/api.exe
 backend/bin/
 backend/coverage.out
 

@@ -1,12 +1,18 @@
 import { CheckCircle2, Clock3, KeyRound, Pencil, Plus, RotateCcw, Search, Tags, Trash2, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import type { PrincipalManagedTeacher, SchoolClass } from "../types";
 import { TablePagination } from "../../components/TablePagination";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { CredentialRevealDialog } from "../components/CredentialRevealDialog";
 import { TeacherFormModal, type TeacherFormPayload } from "../components/TeacherFormModal";
-import "../../guidance/GuidanceDataPage.css";
 import "./PrincipalTeachersPage.css";
+
+function initials(firstName: string, lastName: string) {
+  const first = firstName.trim().charAt(0);
+  const last = lastName.trim().charAt(0);
+  return `${first}${last}`.toLocaleUpperCase("tr-TR") || "?";
+}
 
 export function PrincipalTeachersPage({
   teachers,
@@ -39,6 +45,7 @@ export function PrincipalTeachersPage({
   const [search, setSearch] = useState("");
   const [filterBranch, setFilterBranch] = useState("");
   const [filterClassId, setFilterClassId] = useState("");
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editing, setEditing] = useState<PrincipalManagedTeacher | null>(null);
@@ -58,6 +65,9 @@ export function PrincipalTeachersPage({
     const q = search.trim().toLowerCase();
     return teachers
       .filter((t) => {
+        if (pendingOnly && !t.mustChangePassword) {
+          return false;
+        }
         if (filterBranch && t.branch.trim() !== filterBranch) {
           return false;
         }
@@ -73,9 +83,9 @@ export function PrincipalTeachersPage({
         return blob.includes(q);
       })
       .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, "tr"));
-  }, [teachers, search, filterBranch, filterClassId]);
+  }, [teachers, search, filterBranch, filterClassId, pendingOnly]);
 
-  const filterKey = `${search}|${filterBranch}|${filterClassId}`;
+  const filterKey = `${search}|${filterBranch}|${filterClassId}|${pendingOnly}`;
   const { paginatedRows, page, setPage, totalPages, pageSize, totalItems } = usePaginatedRows(filtered, filterKey);
 
   const existingUsernames = useMemo(() => teachers.map((t) => t.username), [teachers]);
@@ -155,56 +165,66 @@ export function PrincipalTeachersPage({
   }
 
   return (
-    <section className="principal-page-stack principal-teachers-page guidance-data-page">
-      <div className="principal-stat-grid principal-teachers-stats" aria-label="Öğretmen istatistikleri">
-        <article className="principal-stat-card principal-stat-card--sky">
-          <span className="principal-stat-icon" aria-hidden>
-            <UserRound size={20} />
-          </span>
-          <small>Toplam öğretmen</small>
+    <section className="ptc">
+      <header className="ptc-hero">
+        <div>
+          <p className="ptc-kicker">Okul</p>
+          <h1>Öğretmenler</h1>
+          <p>Kadroyu yönetin, ilk girişi izleyin ve tek kullanımlık şifreleri güvenle iletin.</p>
+        </div>
+        <button className="ptc-add" type="button" onClick={openCreate} disabled={submitting}>
+          <Plus size={16} />
+          Öğretmen ekle
+        </button>
+      </header>
+
+      <div className="ptc-kpi-grid">
+        <article className="ptc-kpi">
+          <div className="ptc-kpi-icon">
+            <UserRound size={18} />
+          </div>
+          <span>Toplam öğretmen</span>
           <strong>{teacherStats.total}</strong>
-          <em>Kayıtlı öğretmen sayısı</em>
+          <small>Kayıtlı kadro</small>
         </article>
-        <article className="principal-stat-card principal-stat-card--amber">
-          <span className="principal-stat-icon" aria-hidden>
-            <KeyRound size={20} />
-          </span>
-          <small>İlk giriş bekleyen</small>
+        <article className="ptc-kpi">
+          <div className="ptc-kpi-icon ptc-kpi-icon--amber">
+            <KeyRound size={18} />
+          </div>
+          <span>İlk giriş bekleyen</span>
           <strong>{teacherStats.pendingFirstLogin}</strong>
-          <em>Tek kullanımlık şifre henüz tamamlanmadı</em>
+          <small>Tek kullanımlık şifre açık</small>
         </article>
-        <article className="principal-stat-card principal-stat-card--emerald">
-          <span className="principal-stat-icon" aria-hidden>
-            <Clock3 size={20} />
-          </span>
-          <small>Haftalık ders saati</small>
+        <article className="ptc-kpi">
+          <div className="ptc-kpi-icon ptc-kpi-icon--teal">
+            <Clock3 size={18} />
+          </div>
+          <span>Haftalık ders saati</span>
           <strong>{teacherStats.weeklyHoursTotal}</strong>
-          <em>Tüm öğretmenler toplamı</em>
+          <small>Tüm öğretmenler toplamı</small>
         </article>
-        <article className="principal-stat-card principal-stat-card--violet">
-          <span className="principal-stat-icon" aria-hidden>
-            <Tags size={20} />
-          </span>
-          <small>Farklı branş</small>
+        <article className="ptc-kpi">
+          <div className="ptc-kpi-icon ptc-kpi-icon--violet">
+            <Tags size={18} />
+          </div>
+          <span>Farklı branş</span>
           <strong>{teacherStats.branchCount}</strong>
-          <em>{teacherStats.withClass} öğretmen sınıf kartına bağlı</em>
+          <small>{teacherStats.withClass} öğretmen sınıfa bağlı</small>
         </article>
       </div>
 
-      <article className="guidance-data-card">
-        <header className="guidance-data-card-head">
-          <h2>Öğretmen listesi</h2>
-          <div className="guidance-data-card-head-actions">
-            <span>{filtered.length} öğretmen</span>
-            <button className="primary-action small-action" type="button" onClick={openCreate}>
-              <Plus size={16} />
-              Öğretmen ekle
-            </button>
-          </div>
-        </header>
-
-        <div className="guidance-data-toolbar">
-          <select className="guidance-data-select" value={filterBranch} onChange={(event) => setFilterBranch(event.target.value)} aria-label="Branş filtresi">
+      <article className="ptc-card">
+        <div className="ptc-toolbar">
+          <label className="ptc-search">
+            <Search size={16} aria-hidden />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Ad, kullanıcı adı, branş veya sınıf ara…"
+              type="search"
+            />
+          </label>
+          <select className="ptc-select" value={filterBranch} onChange={(event) => setFilterBranch(event.target.value)} aria-label="Branş filtresi">
             <option value="">Tüm branşlar</option>
             {branchOptions.map((b) => (
               <option key={b} value={b}>
@@ -212,7 +232,7 @@ export function PrincipalTeachersPage({
               </option>
             ))}
           </select>
-          <select className="guidance-data-select" value={filterClassId} onChange={(event) => setFilterClassId(event.target.value)} aria-label="Sınıf filtresi">
+          <select className="ptc-select" value={filterClassId} onChange={(event) => setFilterClassId(event.target.value)} aria-label="Sınıf filtresi">
             <option value="">Tüm sınıflar</option>
             {classes.map((c) => (
               <option key={c.id} value={c.id}>
@@ -220,18 +240,22 @@ export function PrincipalTeachersPage({
               </option>
             ))}
           </select>
-          <label className="guidance-data-search">
-            <Search size={16} aria-hidden />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ad, kullanıcı adı, branş veya sınıf ara…" type="search" />
-          </label>
+          <button
+            className={`ptc-chip${pendingOnly ? " is-active" : ""}`}
+            type="button"
+            onClick={() => setPendingOnly((current) => !current)}
+          >
+            İlk giriş bekleyen
+          </button>
+          <span className="ptc-count">{filtered.length} öğretmen</span>
         </div>
 
         {filtered.length === 0 ? (
-          <p className="guidance-data-empty">{teachers.length === 0 ? "Henüz öğretmen eklenmedi." : "Filtrelere uyan öğretmen yok."}</p>
+          <p className="ptc-empty">{teachers.length === 0 ? "Henüz öğretmen eklenmedi." : "Filtrelere uyan öğretmen yok."}</p>
         ) : (
           <>
-            <div className="guidance-data-table-wrap">
-              <table className="guidance-data-table principal-teachers-table">
+            <div className="ptc-table-wrap">
+              <table className="ptc-table">
                 <thead>
                   <tr>
                     <th>Öğretmen</th>
@@ -246,49 +270,56 @@ export function PrincipalTeachersPage({
                   {paginatedRows.map((row) => (
                     <tr key={row.id}>
                       <td>
-                        <span className="guidance-data-primary">
-                          {row.firstName} {row.lastName}
-                        </span>
-                        <span className="guidance-data-secondary">{row.username}</span>
+                        <NavLink className="ptc-person" to={`/dashboard/teachers/${row.id}`}>
+                          <span className="ptc-avatar">{initials(row.firstName, row.lastName)}</span>
+                          <div>
+                            <strong>
+                              {row.firstName} {row.lastName}
+                            </strong>
+                            <small>{row.username}</small>
+                          </div>
+                        </NavLink>
                       </td>
                       <td>
-                        <span className="guidance-data-badge guidance-data-badge--slate">{row.branch || "—"}</span>
+                        <span className="ptc-badge">{row.branch || "—"}</span>
                       </td>
-                      <td className="guidance-data-num">{row.weeklyLessonHours} sa</td>
+                      <td className="ptc-hours">{row.weeklyLessonHours} sa</td>
                       <td>{row.className ?? "—"}</td>
                       <td>
-                        <span
-                          className={`guidance-data-badge guidance-data-badge--inline${
-                            row.mustChangePassword ? " guidance-data-badge--amber" : " guidance-data-badge--emerald"
-                          }`}
-                        >
+                        <span className={`ptc-status${row.mustChangePassword ? " ptc-status--wait" : " ptc-status--ok"}`}>
                           {row.mustChangePassword ? (
                             <>
-                              <KeyRound size={11} aria-hidden />
+                              <KeyRound size={12} aria-hidden />
                               Şifre bekleniyor
                             </>
                           ) : (
                             <>
-                              <CheckCircle2 size={11} aria-hidden />
+                              <CheckCircle2 size={12} aria-hidden />
                               Tamamlandı
                             </>
                           )}
                         </span>
                       </td>
                       <td>
-                        <div className="guidance-data-actions principal-teachers-row-actions">
-                          <button className="ghost-action" type="button" onClick={() => openEdit(row)} title="Düzenle" aria-label="Düzenle">
+                        <div className="ptc-actions">
+                          <button className="ptc-icon-btn" type="button" onClick={() => openEdit(row)} title="Düzenle" aria-label="Düzenle">
                             <Pencil size={15} />
                           </button>
-                          <button className="ghost-action" type="button" onClick={() => void handleResetPassword(row)} title="Şifre sıfırla" aria-label="Şifre sıfırla">
+                          <button
+                            className="ptc-icon-btn"
+                            type="button"
+                            onClick={() => void handleResetPassword(row)}
+                            title="Şifre sıfırla"
+                            aria-label="Şifre sıfırla"
+                          >
                             <RotateCcw size={15} />
                           </button>
-                          <button className="ghost-action danger" type="button" onClick={() => handleDelete(row)} title="Sil" aria-label="Sil">
+                          <button className="ptc-icon-btn ptc-icon-btn--danger" type="button" onClick={() => handleDelete(row)} title="Sil" aria-label="Sil">
                             <Trash2 size={15} />
                           </button>
                           {row.mustChangePassword ? (
                             <button
-                              className="ghost-action"
+                              className="ptc-icon-btn"
                               type="button"
                               onClick={() => onMarkFirstLoginComplete(row.id)}
                               title="İlk giriş tamamlandı"
